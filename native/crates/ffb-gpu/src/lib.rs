@@ -1,8 +1,11 @@
 pub mod colliders;
 pub mod model;
+mod selfcontact;
 pub mod solver;
+pub mod stepper;
 
 pub use solver::{GpuError, GpuSolver};
+pub use stepper::AnyStepper;
 
 pub fn available() -> bool {
     solver::request_adapter().is_some()

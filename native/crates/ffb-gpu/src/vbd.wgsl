@@ -11,6 +11,7 @@ struct VInfo {
     m: vec4<f32>,
     pa: vec4<f32>,
     pb: vec4<f32>,
+    ext: vec4<f32>,
 }
 
 struct SubU {
@@ -21,6 +22,8 @@ struct SubU {
     u0: vec4<u32>,
     u1: vec4<u32>,
     u2: vec4<u32>,
+    sc0: vec4<f32>,
+    sc1: vec4<u32>,
 }
 
 struct ColU {
@@ -216,7 +219,7 @@ fn link_contrib(base: u32, slot: u32) {
     if (n > 2u) {
         dd = dd + vs[ub(l0.z)].x.xyz * l1.z;
     }
-    let k = l1.w;
+    let k = l1.w * su.p1.z;
     let cs = l1[slot];
     let len = length(dd);
     if (len < 1.0e-9) {
@@ -549,6 +552,7 @@ fn begin_a(@builtin(global_invocation_id) gid: vec3<u32>) {
         return;
     }
     vs[i].xn = vs[i].x;
+    vs[i].v = vs[i].v * su.p1.w;
     var ext = vec3<f32>(0.0);
     let hdr = su.u2.y + 4u * i;
     let st = idx[hdr];
@@ -565,7 +569,7 @@ fn begin_a(@builtin(global_invocation_id) gid: vec3<u32>) {
             ext = ext + cross(p1 - p0, p2 - p0) * (kk.w / 6.0);
         }
     }
-    vs[i].e = vec4<f32>(ext, 0.0);
+    vs[i].e = vec4<f32>(ext + vinfo[i].ext.xyz, 0.0);
 }
 
 @compute @workgroup_size(64)

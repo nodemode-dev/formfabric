@@ -23,6 +23,27 @@ pub struct GpuModel {
     pub tri_count: usize,
     pub hinge_count: usize,
     pub link_count: usize,
+    pub links: Vec<LinkCpu>,
+    pub tri_cpu: Vec<TriCpu>,
+    pub thickness: Vec<f32>,
+    pub layer: Vec<i32>,
+    pub neighbors: Vec<Vec<u32>>,
+    pub rest_edge: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct LinkCpu {
+    pub v: [u32; 3],
+    pub c: [f32; 3],
+    pub n: u32,
+    pub rest: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TriCpu {
+    pub v: [u32; 3],
+    pub alpha: [f32; 3],
+    pub beta: [f32; 3],
 }
 
 struct Tri {
@@ -272,6 +293,19 @@ impl GpuModel {
         let mut model = GpuModel { n, tri_count: tris.len(), hinge_count: hinges.len(), link_count: links.len(), ..GpuModel::default() };
         model.mass = mass.iter().map(|&m| m as f32).collect();
         model.friction = friction.iter().map(|&m| m as f32).collect();
+        model.rest_edge = rest_edge as f32;
+        model.layer = (0..n).map(|i| cloth.vertex_layer.get(i).copied().unwrap_or(0)).collect();
+        model.thickness = vec![0.0; n];
+        for (ti, t) in cloth.triangles.iter().enumerate() {
+            if t.iter().all(|&i| (i as usize) < n) {
+                let th = mat_of(ti).thickness;
+                for &i in t {
+                    model.thickness[i as usize] = model.thickness[i as usize].max(th);
+                }
+            }
+        }
+        model.links = links.iter().map(|l| LinkCpu { v: l.v, c: l.c.map(|c| c as f32), n: l.n, rest: l.rest as f32 }).collect();
+        model.tri_cpu = tris.iter().map(|t| TriCpu { v: t.v, alpha: t.alpha.map(|c| c as f32), beta: t.beta.map(|c| c as f32) }).collect();
         for t in &tris {
             model.elem.push([t.v[0], t.v[1], t.v[2], 0]);
             model.elem.push([bits(t.alpha[0]), bits(t.alpha[1]), bits(t.alpha[2]), bits(t.area)]);
@@ -329,6 +363,7 @@ impl GpuModel {
             v.sort_unstable();
             v.dedup();
         }
+        model.neighbors = neigh.clone();
         let mut color = vec![u32::MAX; n];
         let mut ncol = 0usize;
         let mut used: Vec<bool> = Vec::new();

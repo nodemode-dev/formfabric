@@ -2,10 +2,13 @@ use std::fmt;
 use std::sync::mpsc;
 
 use bytemuck::{Pod, Zeroable};
+use ffb_sim::collide::Prepared;
 use ffb_sim::{Cloth, Collider, Params, PinPoint, StepStats};
+use glam::DVec3;
 
 use crate::colliders::{pack, Packed};
 use crate::model::GpuModel;
+use crate::selfcontact::SelfContact;
 
 const STRIDE: u64 = 256;
 const WG: u32 = 64;
@@ -38,6 +41,7 @@ struct VInfo {
     m: [f32; 4],
     pa: [f32; 4],
     pb: [f32; 4],
+    ext: [f32; 4],
 }
 
 #[repr(C)]
@@ -50,6 +54,8 @@ struct SubU {
     u0: [u32; 4],
     u1: [u32; 4],
     u2: [u32; 4],
+    sc0: [f32; 4],
+    sc1: [u32; 4],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -107,6 +113,16 @@ pub struct GpuSolver {
     out: Vec<[f32; 3]>,
     info_dirty: bool,
     adapter_name: String,
+    cloth_tris: Vec<[u32; 3]>,
+    sc: Option<SelfContact>,
+    link_scale: f32,
+    vel_keep: f32,
+    speed: Vec<f32>,
+    last_vmax: f32,
+    colliders: Vec<Collider>,
+    prepared: std::cell::OnceCell<Vec<Prepared>>,
+    col_cap: u64,
+    cidx_cap: u64,
 }
 
 fn storage_entry(binding: u32, read_only: bool) -> wgpu::BindGroupLayoutEntry {
@@ -168,7 +184,7 @@ impl GpuSolver {
             return Err(GpuError("empty cloth".into()));
         }
         let vs = storage_buffer(&device, "vs", n as u64 * 96, wgpu::BufferUsages::empty());
-        let vinfo = storage_buffer(&device, "vinfo", n as u64 * 48, wgpu::BufferUsages::empty());
+        let vinfo = storage_buffer(&device, "vinfo", n as u64 * 64, wgpu::BufferUsages::empty());
         let elem = storage_buffer(&device, "elem", model.elem.len() as u64 * 16, wgpu::BufferUsages::empty());
         let idx = storage_buffer(&device, "idx", model.idx.len() as u64 * 4, wgpu::BufferUsages::empty());
         let outb = storage_buffer(&device, "out", n as u64 * 32, wgpu::BufferUsages::COPY_SRC);
@@ -201,6 +217,16 @@ impl GpuSolver {
             out: cloth.positions.clone(),
             info_dirty: true,
             adapter_name,
+            cloth_tris: cloth.triangles.iter().copied().filter(|t| t.iter().all(|&i| (i as usize) < n)).collect(),
+            sc: None,
+            link_scale: 1.0,
+            vel_keep: 1.0,
+            speed: vec![0.0; n],
+            last_vmax: 0.0,
+            colliders: Vec::new(),
+            prepared: std::cell::OnceCell::new(),
+            col_cap: 0,
+            cidx_cap: 0,
             model,
             n,
             vs,
@@ -218,7 +244,7 @@ impl GpuSolver {
             bg1,
             packed,
         };
-        s.infos = (0..n).map(|i| VInfo { m: [s.model.mass[i], s.model.friction[i], 0.0, 0.0], pa: [0.0; 4], pb: [0.0; 4] }).collect();
+        s.infos = (0..n).map(|i| VInfo { m: [s.model.mass[i], s.model.friction[i], 0.0, 0.0], pa: [0.0; 4], pb: [0.0; 4], ext: [0.0; 4] }).collect();
         s.upload_colliders();
         let start = cloth.positions.clone();
         s.write_state(&start);
@@ -242,11 +268,24 @@ impl GpuSolver {
     }
 
     fn upload_colliders(&mut self) {
-        self.col = storage_buffer(&self.device, "col", self.packed.col.len() as u64 * 16, wgpu::BufferUsages::empty());
-        self.cidx = storage_buffer(&self.device, "cidx", self.packed.cidx.len() as u64 * 4, wgpu::BufferUsages::empty());
+        let need_col = self.packed.col.len() as u64 * 16;
+        let need_cidx = self.packed.cidx.len() as u64 * 4;
+        let mut rebind = false;
+        if need_col > self.col_cap {
+            self.col_cap = (need_col + need_col / 2 + 256).next_multiple_of(16);
+            self.col = storage_buffer(&self.device, "col", self.col_cap, wgpu::BufferUsages::empty());
+            rebind = true;
+        }
+        if need_cidx > self.cidx_cap {
+            self.cidx_cap = (need_cidx + need_cidx / 2 + 256).next_multiple_of(16);
+            self.cidx = storage_buffer(&self.device, "cidx", self.cidx_cap, wgpu::BufferUsages::empty());
+            rebind = true;
+        }
         self.queue.write_buffer(&self.col, 0, bytemuck::cast_slice(&self.packed.col));
         self.queue.write_buffer(&self.cidx, 0, bytemuck::cast_slice(&self.packed.cidx));
-        self.bg0 = Self::group0(&self.device, &self.pipes, &self.vs, &self.vinfo, &self.elem, &self.idx, &self.col, &self.cidx, &self.outb);
+        if rebind {
+            self.bg0 = Self::group0(&self.device, &self.pipes, &self.vs, &self.vinfo, &self.elem, &self.idx, &self.col, &self.cidx, &self.outb);
+        }
     }
 
     fn write_state(&mut self, p: &[[f32; 3]]) {
@@ -276,7 +315,110 @@ impl GpuSolver {
 
     pub fn set_colliders(&mut self, colliders: Vec<Collider>) {
         self.packed = pack(&colliders);
+        self.colliders = colliders;
+        self.prepared = std::cell::OnceCell::new();
         self.upload_colliders();
+    }
+
+    pub fn update_colliders(&mut self, colliders: Vec<Collider>) {
+        self.set_colliders(colliders);
+    }
+
+    pub fn set_external_forces(&mut self, forces: &[[f32; 3]]) {
+        for (i, info) in self.infos.iter_mut().enumerate() {
+            let f = forces.get(i).copied().unwrap_or([0.0; 3]);
+            info.ext = [f[0], f[1], f[2], 0.0];
+        }
+        self.info_dirty = true;
+    }
+
+    pub fn scale_links(&mut self, factor: f64) {
+        self.link_scale = factor as f32;
+    }
+
+    pub fn link_count(&self) -> usize {
+        self.model.links.len()
+    }
+
+    pub fn max_link_gap(&self) -> f32 {
+        let mut worst = 0.0f32;
+        for l in &self.model.links {
+            let mut d = DVec3::ZERO;
+            for s in 0..l.n as usize {
+                let p = self.out[l.v[s] as usize];
+                d += DVec3::new(p[0] as f64, p[1] as f64, p[2] as f64) * l.c[s] as f64;
+            }
+            worst = worst.max(d.length() as f32 - l.rest);
+        }
+        worst
+    }
+
+    pub fn damp_velocities(&mut self, keep: f64) {
+        self.vel_keep *= keep as f32;
+        for s in self.speed.iter_mut() {
+            *s *= keep as f32;
+        }
+    }
+
+    pub fn kinetic_energy(&self) -> f32 {
+        self.speed.iter().zip(&self.model.mass).map(|(s, m)| 0.5 * m * s * s).sum()
+    }
+
+    fn prepared(&self) -> &[Prepared] {
+        self.prepared.get_or_init(|| self.colliders.iter().map(Prepared::from_collider).collect())
+    }
+
+    pub fn max_penetration(&self) -> f32 {
+        let x: Vec<DVec3> = self.out.iter().map(|p| DVec3::new(p[0] as f64, p[1] as f64, p[2] as f64)).collect();
+        ffb_sim::collide::max_penetration(self.prepared(), &x) as f32
+    }
+
+    pub fn push_out(&mut self, margin: f32) -> usize {
+        let offset = f64::from(self.params.skin_offset.max(0.0) + margin);
+        let mut pinned = vec![false; self.n];
+        for p in &self.pins {
+            pinned[p.vertex as usize] = true;
+        }
+        let cur: Vec<[f32; 3]> = self.out.clone();
+        let prep = self.prepared();
+        let mut moved = Vec::with_capacity(cur.len());
+        let mut count = 0;
+        for (i, p) in cur.iter().enumerate() {
+            let x = DVec3::new(p[0] as f64, p[1] as f64, p[2] as f64);
+            let (q, hit) = ffb_sim::collide::resolve(prep, x, offset);
+            if hit.is_some() && !pinned[i] {
+                count += 1;
+                moved.push([q.x as f32, q.y as f32, q.z as f32]);
+            } else {
+                moved.push(*p);
+            }
+        }
+        if count > 0 {
+            self.set_positions(&moved);
+        }
+        count
+    }
+
+    fn stretch_extremes(&self) -> (f32, f32) {
+        let (mut stretch, mut compression) = (0.0f32, 0.0f32);
+        for t in &self.model.tri_cpu {
+            let p = [self.out[t.v[0] as usize], self.out[t.v[1] as usize], self.out[t.v[2] as usize]];
+            for w in [&t.alpha, &t.beta] {
+                let f = [0, 1, 2].map(|c| p[0][c] * w[0] + p[1][c] * w[1] + p[2][c] * w[2]);
+                let len = (f[0] * f[0] + f[1] * f[1] + f[2] * f[2]).sqrt();
+                stretch = stretch.max(len - 1.0);
+                compression = compression.max(1.0 - len);
+            }
+        }
+        (stretch, compression)
+    }
+
+    pub fn max_stretch(&self) -> f32 {
+        self.stretch_extremes().0
+    }
+
+    pub fn max_compression(&self) -> f32 {
+        self.stretch_extremes().1
     }
 
     pub fn set_pins(&mut self, pins: Vec<PinPoint>) {
@@ -322,6 +464,8 @@ impl GpuSolver {
         }
         let snapshot = self.out.clone();
         self.write_state(&snapshot);
+        self.speed.fill(0.0);
+        self.last_vmax = 0.0;
         for p in self.pins.iter_mut() {
             p.prev = p.target;
         }
@@ -355,16 +499,32 @@ impl GpuSolver {
         let g = self.params.gravity;
         let damp = 1.0 / (1.0 + self.params.air_damping.max(0.0) * 10.0 * h);
         let (gi, gt) = self.grab.map_or((u32::MAX, [0.0; 3]), |(v, t)| (v, t));
+        let base = self.params.collision_thickness.max(0.0);
+        let max_th = self.model.thickness.iter().copied().fold(0.0, f32::max);
+        let reach = base.max(max_th) * 3.0;
+        let sc_on = self.params.self_collision && reach > 0.0 && !self.cloth_tris.is_empty();
+        if sc_on && self.sc.is_none() {
+            self.sc = Some(SelfContact::new(&self.device, &self.queue, &self.vs, &self.vinfo, &self.pipes.bgl1, &self.cloth_tris, &self.model));
+        }
+        let sc_on = sc_on && self.sc.is_some();
+        let rest_edge = self.model.rest_edge.max(1.0e-3);
+        let margin = (0.5 * reach + 2.0 * self.last_vmax * h).min(rest_edge.max(1.0));
+        let cell = (rest_edge * 1.5).max(2.0 * (reach + margin));
+        let sc1 = self.sc.as_ref().map_or([0; 4], |s| s.uniform());
+        let keep = self.vel_keep;
+        self.vel_keep = 1.0;
         let mut bytes = vec![0u8; substeps as usize * STRIDE as usize];
         for s in 0..substeps {
             let u = SubU {
                 gh: [g[0], g[1], g[2], h],
                 p0: [(s + 1) as f32 / substeps as f32, damp, self.params.skin_offset.max(0.0), self.params.friction.max(0.0)],
-                p1: [if self.params.nonlinear { 1.0 } else { 0.0 }, self.params.stiffening, 0.0, 0.0],
+                p1: [if self.params.nonlinear { 1.0 } else { 0.0 }, self.params.stiffening, self.link_scale, if s == 0 { keep } else { 1.0 }],
                 tg: [gt[0], gt[1], gt[2], 0.0],
                 u0: [self.n as u32, self.packed.count, gi, 0],
                 u1: [self.model.tri_off, self.model.hinge_off, self.model.link_off, 0],
                 u2: [self.model.order_off, self.model.hdr_off, self.model.adj_off, 0],
+                sc0: [base, reach, margin, cell],
+                sc1,
             };
             let o = s as usize * STRIDE as usize;
             bytes[o..o + std::mem::size_of::<SubU>()].copy_from_slice(bytemuck::bytes_of(&u));
@@ -391,6 +551,11 @@ impl GpuSolver {
                     }
                 }
                 pass.set_bind_group(1, &self.bg1, &[so, 0]);
+                if sc_on {
+                    if let Some(sc) = &self.sc {
+                        sc.encode(&mut pass, &self.bg0);
+                    }
+                }
                 pass.set_pipeline(&self.pipes.finish);
                 pass.dispatch_workgroups(groups, 1, 1);
             }
@@ -411,12 +576,14 @@ impl GpuSolver {
                 let p = data[2 * i];
                 self.out[i] = [p[0], p[1], p[2]];
                 vmax = vmax.max(p[3]);
+                self.speed[i] = p[3];
                 if data[2 * i + 1][0] > 0.5 {
                     contacts += 1;
                 }
             }
             self.staging.unmap();
         }
+        self.last_vmax = vmax;
         for p in self.pins.iter_mut() {
             p.prev = p.target;
         }
