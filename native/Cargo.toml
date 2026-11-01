@@ -19,7 +19,7 @@ ffb-io = { path = "crates/ffb-io" }
 ffb-commands = { path = "crates/ffb-commands" }
 glam = "0.34"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [profile.release]
 codegen-units = 1
