@@ -2,6 +2,32 @@
 
 Living context for the window. What would be comments in `frontend/` lives here, newest first. Read before editing.
 
+## v0.7.0 to v0.9.0 · 2026-11-01
+
+### Sewing in the Pattern View
+
+- Tool keys: Seam V, Free Seam Shift+V, Edit Seam B, Tack Shift+T, Pleats Shift+P, Gather Shift+G. Each is one undo step with Exact Input.
+- Each seam's sides share one colour; connectors at intervals show direction, so a reversed seam is visible. Mismatches reported by `sew.check` turn the seam a warning colour with the difference in mm.
+- Seam Side is shown only as a per-end property in the Inspector: no guideline arrow plus operation symbol, per PATENT_NOTES. Multi-seam orientation is a heuristic; Flip fixes crossed connectors.
+- Seam Check is a tool-strip toggle; there is no View menu entry yet.
+
+### Drape in the 3D View
+
+- The Drape bar sits in the 3D HUD (`workspace/drape/`, `view3d/extras.ts`): on and off, Step, Reset, presets, Apply, Pin, Clear pins, frame time and vertex count. Space toggles the drape when the pointer is over the 3D pane in the split layout.
+- `draping` is `sim.state.running`; the gizmo hides while draping. Grab sends `sim.grab` on a camera-facing plane through the picked point and releases on pointer up. P toggles the pin tool in the 3D pane.
+- Bodies render from stream objects 1,000,000 and up with a skin material, unpickable but occluding. Seam lines come from `sew.list` plus mesh boundary parameters and hide while draping. Pin and seam overlays lag the document by about 200 ms (up to 2 s at 4x throttling).
+- Alt+1 to Alt+4 pick the view style; Alt+0 toggles stats. Preferences push substeps, gravity and thickness to `sim.settings`; the solver-device row stays disabled.
+- The Drape workspace tab only highlights: `onWorkspace` in `app.ts` does nothing yet.
+
+### Body drawer
+
+- `workspace/body/` follows the Fabric drawer pattern and mounts from `layout.ts`. It holds the library (MPFB2 female and male with the CC0 line, Basic Form), import, the Body Editor (measurements with arithmetic, Reset to original), poses and joint sliders committed on release, collision, placement points with Place, and Auto Seam proposals with Apply.
+- `body.set` and the other body commands take `id`, not `body`.
+
+### Service guard
+
+- The window must be served from the configured frontend port (`FFB_FRONTEND_PORT`); other origins get 403 from engine calls. Test harnesses must set it.
+
 ## v0.4.0 to v0.6.0 · 2026-11-01
 
 ### Shell
