@@ -2,7 +2,7 @@
 
 **Garment pattern design and cloth simulation, in the NodeMode style**
 
-![version](https://img.shields.io/badge/version-0.0.1-f97316) ![status](https://img.shields.io/badge/status-planning-f97316) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
+![version](https://img.shields.io/badge/version-0.1.0-f97316) ![status](https://img.shields.io/badge/status-in%20development-f97316) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 ## What it is
 
