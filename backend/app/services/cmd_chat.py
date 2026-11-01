@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core import config
-from app.services import claude_code, events, terminal
+from app.services import agents, claude_code, events, terminal
 from app.services.commands import CommandError, command
 
 NOTE = (claude_code.NOTE + " You are answering in formfabric's Chat tab, which shows Markdown to people who may never have used a terminal: "
@@ -95,7 +95,7 @@ def _run(text: str, path: str, folder: str) -> None:
     call_out = 0
     usage = STATE["usage"]
     try:
-        proc = subprocess.Popen(_argv(path, text, STATE["session"]), cwd=folder, env=claude_code.child_env(), stdin=subprocess.DEVNULL,
+        proc = subprocess.Popen(_argv(path, text, STATE["session"]), cwd=folder, env=claude_code.child_env() | {claude_code.TOKEN_ENV: agents.INAPP_TOKEN}, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, encoding="utf-8", errors="replace")
         STATE["proc"] = proc
 

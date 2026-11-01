@@ -1,24 +1,17 @@
 import asyncio
 import json
-import urllib.parse
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from app.core import window_guard
 from app.services import terminal
 
 router = APIRouter(tags=["terminal"])
-LOCAL = ("localhost", "127.0.0.1", "::1", "tauri.localhost")
-
-
-def _local(origin: str | None) -> bool:
-    if not origin:
-        return True
-    return (urllib.parse.urlparse(origin).hostname or "") in LOCAL or origin.startswith("tauri://")
 
 
 @router.websocket("/api/terminal/{sid}")
 async def attach(ws: WebSocket, sid: str) -> None:
-    if not _local(ws.headers.get("origin")):
+    if not window_guard.socket_from_window(ws):
         await ws.close(code=4403)
         return
     await ws.accept()
@@ -51,7 +44,10 @@ async def attach(ws: WebSocket, sid: str) -> None:
             if msg.get("type") == "input" and session.alive:
                 terminal.write(sid, str(msg.get("data", "")))
             elif msg.get("type") == "resize":
-                terminal.resize(sid, int(msg.get("cols", 80)), int(msg.get("rows", 24)))
+                try:
+                    terminal.resize(sid, int(msg.get("cols", 80)), int(msg.get("rows", 24)))
+                except (TypeError, ValueError):
+                    continue
     except WebSocketDisconnect:
         pass
     finally:

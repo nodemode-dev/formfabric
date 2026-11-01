@@ -124,7 +124,7 @@ def open_session(cwd: str | None = None, cols: int = 100, rows: int = 30, title:
         raise FileNotFoundError(f"No folder {where}")
     sid = uuid.uuid4().hex[:12]
     session = Session(sid, title or f"Terminal {len(SESSIONS) + 1}", where, argv or login_shell(), env or base_env(), kind)
-    session.cols, session.rows = max(10, cols), max(4, rows)
+    session.cols, session.rows = min(1000, max(10, cols)), min(1000, max(4, rows))
     _spawn(session)
     SESSIONS[sid] = session
     events.publish("terminal.opened", terminal=session.describe())
@@ -156,7 +156,7 @@ def write(sid: str, data: str) -> None:
 
 def resize(sid: str, cols: int, rows: int) -> None:
     session = get(sid)
-    session.cols, session.rows = max(10, cols), max(4, rows)
+    session.cols, session.rows = min(1000, max(1, cols)), min(1000, max(1, rows))
     if session.alive and session.proc is not None:
         session.proc.setwinsize(session.rows, session.cols)
 

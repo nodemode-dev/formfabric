@@ -49,4 +49,5 @@ def cors_origins() -> list[str]:
 
 def window_origins() -> list[str]:
     preview = FRONTEND_PORT + 2
-    return [*cors_origins(), f"http://localhost:{preview}", f"http://127.0.0.1:{preview}", "tauri://localhost", "http://tauri.localhost"]
+    own = engine_port()
+    return [*cors_origins(), f"http://localhost:{preview}", f"http://127.0.0.1:{preview}", f"http://127.0.0.1:{own}", f"http://localhost:{own}", "tauri://localhost", "http://tauri.localhost"]

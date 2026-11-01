@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
+from app.core.window_guard import require_window
 from app.services import engine, scripting
 
 router = APIRouter()
@@ -17,7 +18,7 @@ def plugins() -> dict:
     return {"plugins": [{k: p[k] for k in ("name", "title", "description", "params", "click")} for p in scripting.list_plugins()]}
 
 
-@router.post("/plugins/run")
+@router.post("/plugins/run", dependencies=[Depends(require_window)])
 async def run(body: RunRequest) -> dict:
     plugin = next((p for p in scripting.list_plugins() if p["name"] == body.name), None)
     if plugin is None:

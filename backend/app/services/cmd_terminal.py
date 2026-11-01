@@ -51,6 +51,7 @@ def read(id: str, chars: int | None = None) -> dict:
 @command("terminal.resize", "Resize a Terminal", {"id": ID, "cols": {"type": "integer"}, "rows": {"type": "integer"}})
 def resize(id: str, cols: int, rows: int) -> dict:
     _session(id)
+    cols, rows = min(1000, max(1, cols)), min(1000, max(1, rows))
     terminal.resize(id, cols, rows)
     return {"id": id, "cols": cols, "rows": rows}
 

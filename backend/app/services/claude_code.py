@@ -18,6 +18,7 @@ NOTE = ("You are Claude Code running in the terminal dock inside formfabric, the
         "Work with the formfabric MCP server's tools: start with pattern_get for the panels and their outlines, and system_capabilities for what the engine can do. "
         "The tools act on the garment open in the window, the person sees every change happen, "
         "and each change is one undo step.")
+TOKEN_ENV = "FFB_INAPP_TOKEN"
 _cache: dict = {"at": 0.0, "value": None}
 
 
@@ -75,7 +76,7 @@ def info(fresh: bool = False) -> dict:
 
 
 def mcp_config() -> str:
-    return json.dumps({"mcpServers": {"formfabric": {"type": "http", "url": config.engine_url() + "/api/mcp", "headers": {agents.INAPP_HEADER: agents.INAPP_TOKEN}}}})
+    return json.dumps({"mcpServers": {"formfabric": {"type": "http", "url": config.engine_url() + "/api/mcp", "headers": {agents.INAPP_HEADER: "${" + TOKEN_ENV + "}"}}}})
 
 
 def workdir() -> Path:
@@ -123,7 +124,7 @@ def open_(prompt: str | None = None, cols: int | None = None, rows: int | None =
         raise CommandError(INSTALL, 400)
     prompt = prompt or _pref("claudeFirstMessage") or None
     session = terminal.open_session(str(workdir()), cols or 100, rows or 30, "Claude Code (from Chat)" if resume else "Claude Code",
-                                    argv(found["path"], prompt, resume), child_env(), "claude")
+                                    argv(found["path"], prompt, resume), child_env() | {TOKEN_ENV: agents.INAPP_TOKEN}, "claude")
     return session.describe()
 
 

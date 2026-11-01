@@ -1,8 +1,9 @@
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from app.core.window_guard import require_window, require_window_read
 from app.services import engine
 
 router = APIRouter()
@@ -24,13 +25,13 @@ def catalogue() -> dict:
     return engine.catalogue()
 
 
-@router.post("/dispatch")
+@router.post("/dispatch", dependencies=[Depends(require_window)])
 def dispatch(call: Call) -> dict:
     _guard()
     return engine.dispatch(call.name, call.args)
 
 
-@router.get("/stream")
+@router.get("/stream", dependencies=[Depends(require_window_read)])
 def stream() -> dict:
     _guard()
     return engine.stream_info()

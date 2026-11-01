@@ -1,9 +1,10 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Depends
 from fastapi.responses import JSONResponse
 
+from app.core.window_guard import require_window
 from app.services.commands import REGISTRY, CommandError, catalogue, dispatch
 
 router = APIRouter(tags=["commands"])
@@ -26,7 +27,7 @@ def describe(cid: str) -> Any:
     return {"id": spec.id, "label": spec.label, "group": spec.group, "params": spec.params, "description": spec.description}
 
 
-@router.post("/commands/{cid}")
+@router.post("/commands/{cid}", dependencies=[Depends(require_window)])
 def run(cid: str, params: dict | None = Body(default=None)) -> Any:
     try:
         result = dispatch(cid, params or {})

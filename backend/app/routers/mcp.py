@@ -1,12 +1,12 @@
 import json
 import secrets
-import urllib.parse
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from app import __version__
+from app.core import window_guard
 from app.services import agents, engine, events, mcp_tools
 
 router = APIRouter()
@@ -18,8 +18,7 @@ UNBUILT = "The formfabric engine module is not built; run ./formfabric engine bu
 def _local_origin(origin: str | None) -> bool:
     if not origin:
         return True
-    host = urllib.parse.urlparse(origin).hostname or ""
-    return host in ("localhost", "127.0.0.1", "::1", "tauri.localhost") or origin.startswith("tauri://")
+    return window_guard.exact(origin) in window_guard.window_origins()
 
 
 def _ok(req_id, result: dict, modern: bool, cacheable: bool = False) -> dict:
@@ -93,19 +92,19 @@ def status() -> dict:
     return {"endpoint": "/api/mcp", "engine": engine.available(), "tools": len(mcp_tools.tools()) if engine.available() else 0, **agents.status()}
 
 
-@router.get("/mcp/window")
+@router.get("/mcp/window", dependencies=[Depends(window_guard.require_window_read)])
 def window(since: int = -1) -> dict:
     agents.seen()
     return {"epoch": engine.epoch(), "changed": engine.epoch() != since, "consent": agents.pending()}
 
 
-@router.post("/mcp/consent")
+@router.post("/mcp/consent", dependencies=[Depends(window_guard.require_window)])
 def consent(body: Consent) -> dict:
     agents.answer(body.allow)
     return agents.status()
 
 
-@router.post("/mcp/reset")
+@router.post("/mcp/reset", dependencies=[Depends(window_guard.require_window)])
 def reset() -> dict:
     agents.reset()
     return agents.status()
