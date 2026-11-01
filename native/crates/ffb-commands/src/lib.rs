@@ -4,6 +4,7 @@ mod fabric_cmds;
 mod file_cmds;
 mod history;
 mod history_cmds;
+mod hooks;
 mod mesh_cmds;
 mod pattern_cmds;
 mod pattern_tools_cmds;
@@ -78,13 +79,31 @@ pub struct Command {
     pub run: fn(&mut Session, &Value) -> Result<Value, CommandError>,
 }
 
-#[derive(Debug, Default)]
+pub trait FrameSink: Send + Sync {
+    fn topology(&self, object: u32, indices: &[u32], panel_ids: &[u16]);
+    fn positions(&self, object: u32, positions: &[f32]);
+}
+
+#[derive(Default)]
 pub struct Session {
     pub garment: Garment,
     pub history: History,
     pub path: Option<String>,
     pub unknown: Vec<(String, Vec<u8>)>,
     pub epoch: u64,
+    pub sink: Option<std::sync::Arc<dyn FrameSink>>,
+    pub mesh: mesh_cmds::MeshState,
+}
+
+impl std::fmt::Debug for Session {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Session")
+            .field("panels", &self.garment.panels.len())
+            .field("path", &self.path)
+            .field("epoch", &self.epoch)
+            .field("sink", &self.sink.is_some())
+            .finish()
+    }
 }
 
 impl Session {
@@ -149,7 +168,12 @@ pub fn dispatch(session: &mut Session, name: &str, args: &Value) -> Result<Value
     let schema = (command.schema)();
     args::coerce_scalars(&schema, &mut args);
     args::validate(&schema, &args)?;
-    (command.run)(session, &args)
+    let before = session.epoch;
+    let result = (command.run)(session, &args)?;
+    if session.epoch != before {
+        hooks::after_change(session, command.id);
+    }
+    Ok(result)
 }
 
 pub fn reply(result: Result<Value, CommandError>) -> Value {
