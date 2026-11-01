@@ -37,7 +37,7 @@ export function comboOf(e: KeyboardEvent): string {
   else if (e.code in CODE_KEYS) key = CODE_KEYS[e.code];
   else key = e.key;
   const mod = isMac ? e.metaKey : e.ctrlKey;
-  return (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + (mod ? 'Mod+' : '') + key;
+  return (mod ? 'Mod+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + key;
 }
 
 const GLYPHS: Record<string, string> = {
