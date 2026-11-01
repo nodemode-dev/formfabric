@@ -3,6 +3,7 @@ import os
 import shutil
 import sys
 import threading
+import time
 import uuid
 from collections import deque
 from pathlib import Path
@@ -35,20 +36,27 @@ class Session:
         self.gen = 0
         self.cols = 100
         self.rows = 30
+        self.pos = 0
 
     def describe(self) -> dict:
         return {"id": self.id, "title": self.title, "cwd": self.cwd, "alive": self.alive, "kind": self.kind}
 
-    def keep(self, text: str) -> None:
+    def keep(self, text: str) -> int:
         with self.lock:
             self.chunks.append(text)
             self.size += len(text)
+            self.pos += len(text)
             while self.size > SCROLLBACK and len(self.chunks) > 1:
                 self.size -= len(self.chunks.popleft())
+            return self.pos
 
     def scrollback(self) -> str:
         with self.lock:
             return "".join(self.chunks)
+
+    def snapshot(self) -> tuple[str, int]:
+        with self.lock:
+            return "".join(self.chunks), self.pos
 
 
 SESSIONS: dict[str, Session] = {}
@@ -81,15 +89,27 @@ def base_env() -> dict:
     return env
 
 
-def _deliver(session: Session, text: str | None) -> None:
+HIGH_WATER = 48
+HARD_LIMIT = 20000
+
+
+def _deliver(session: Session, text: str | None, pos: int) -> None:
+    item = None if text is None else (text, pos)
     for q in list(session.subscribers):
-        if q.qsize() < 4000:
-            q.put_nowait(text)
+        if q.qsize() < HARD_LIMIT or text is None:
+            q.put_nowait(item)
 
 
-def _send(session: Session, text: str | None) -> None:
+def _backpressure(session: Session) -> None:
+    waited = 0.0
+    while waited < 1.0 and any(q.qsize() > HIGH_WATER for q in list(session.subscribers)):
+        time.sleep(0.004)
+        waited += 0.004
+
+
+def _send(session: Session, text: str | None, pos: int = -1) -> None:
     if _loop is not None and not _loop.is_closed():
-        _loop.call_soon_threadsafe(_deliver, session, text)
+        _loop.call_soon_threadsafe(_deliver, session, text, pos)
 
 
 def _pump(session: Session, proc, gen: int) -> None:
@@ -102,8 +122,8 @@ def _pump(session: Session, proc, gen: int) -> None:
             continue
         if session.gen != gen:
             return
-        session.keep(text)
-        _send(session, text)
+        _send(session, text, session.keep(text))
+        _backpressure(session)
     if session.gen != gen:
         return
     session.alive = False

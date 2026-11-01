@@ -9,6 +9,7 @@ export interface Stream {
 }
 
 const RETRY_MS = 1500;
+const IDLE_MS = 45000;
 
 export function openStream(url: string, handlers: StreamHandlers): Stream {
   let stopped = false;
@@ -32,21 +33,30 @@ export function openStream(url: string, handlers: StreamHandlers): Stream {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    const watch = (): void => { window.clearTimeout(idle); idle = window.setTimeout(() => controller?.abort(), IDLE_MS); };
+    let idle = 0;
     try {
       for (;;) {
+        watch();
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        let cut = buffer.indexOf('\n\n');
+        let from = 0;
+        let cut = buffer.indexOf('\n\n', from);
         while (cut >= 0) {
-          const block = buffer.slice(0, cut);
-          buffer = buffer.slice(cut + 2);
-          const data = block.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).replace(/^ /, '')).join('\n');
-          if (data) handlers.message(data);
-          cut = buffer.indexOf('\n\n');
+          const block = buffer.slice(from, cut);
+          from = cut + 2;
+          if (block.startsWith('data:') && block.indexOf('\n') < 0) handlers.message(block.slice(5).replace(/^ /, ''));
+          else {
+            const data = block.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).replace(/^ /, '')).join('\n');
+            if (data) handlers.message(data);
+          }
+          cut = buffer.indexOf('\n\n', from);
         }
+        if (from) buffer = buffer.slice(from);
       }
-    } catch { retry(false); return; }
+    } catch { window.clearTimeout(idle); controller?.abort(); retry(false); return; }
+    window.clearTimeout(idle);
     retry(false);
   };
 

@@ -198,7 +198,9 @@ def send(text: str, context: str = "", note: str = "") -> dict:
     if not shown:
         raise CommandError("Type a message first")
     text = f"{shown} ({context.strip()})" if context.strip() else shown
-    found = claude_code.info(fresh=True)
+    found = claude_code.info()
+    if not found["installed"]:
+        found = claude_code.info(fresh=True)
     if not found["installed"]:
         raise CommandError(claude_code.INSTALL, 400)
     folder = str(claude_code.workdir())

@@ -51,6 +51,7 @@
 .ff-chat-msg { max-width: 82ch; display: flex; flex-direction: column; gap: 4px; line-height: 1.45; }
 .ff-chat-msg.is-user { align-self: flex-end; padding: 6px 10px; border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary); white-space: pre-wrap; }
 .ff-chat-msg.is-claude { align-self: flex-start; color: var(--text-primary); }
+.ff-chat-msg.is-settled { content-visibility: auto; contain-intrinsic-size: auto 60px; }
 .ff-chat-text { white-space: pre-wrap; }
 .ff-chat-note { color: var(--text-muted); font-size: 11px; }
 .ff-chat-tool { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 2px 8px; border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; align-self: flex-start; }

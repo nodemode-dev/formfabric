@@ -119,7 +119,9 @@ def open_(prompt: str | None = None, cols: int | None = None, rows: int | None =
         if prompt:
             terminal.write(running.id, prompt + "\r")
         return running.describe()
-    found = info(fresh=True)
+    found = info()
+    if not found["installed"]:
+        found = info(fresh=True)
     if not found["installed"]:
         raise CommandError(INSTALL, 400)
     prompt = prompt or _pref("claudeFirstMessage") or None

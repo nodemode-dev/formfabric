@@ -15,6 +15,8 @@ function tokens(n: number): string {
   return String(n);
 }
 
+const MAX_NODES = 400;
+
 export class ChatPane {
   readonly root: HTMLElement;
   onBusy: (busy: boolean) => void = () => undefined;
@@ -33,6 +35,10 @@ export class ChatPane {
   private readonly off: Array<() => void> = [];
   private busy = false;
   private loaded = false;
+  private pending = '';
+  private textFrame = 0;
+  private scrollFrame = 0;
+  private pinned = true;
 
   constructor(private readonly link: Link, private readonly deps: DockDeps) {
     const t = deps.t;
@@ -46,6 +52,7 @@ export class ChatPane {
 <div class="ff-chat-log" role="log" aria-live="polite"><p class="ff-chat-empty ff-note">${t('Ask Claude about your garment in the line below: draw panels, shape curves, add inner lines or check measurements. It works through formfabric\'s tools, every change shows here and in the views, and each one can be undone.')}</p></div>
 </div>`);
     this.log = q(this.root, '.ff-chat-log');
+    this.log.addEventListener('scroll', () => { this.pinned = this.log.scrollHeight - this.log.scrollTop - this.log.clientHeight < 80; }, { passive: true });
     this.empty = q(this.root, '.ff-chat-empty');
     this.meter = q(this.root, '.ff-chat-usage');
     this.pick = q(this.root, '.ff-chat-pick');
@@ -76,7 +83,20 @@ export class ChatPane {
   }
 
   private clearLog(): void {
+    this.pending = '';
+    this.pinned = true;
     for (const n of Array.from(this.log.children)) if (n !== this.empty) n.remove();
+  }
+
+  private prune(): void {
+    let cut = false;
+    while (this.log.childElementCount > MAX_NODES) {
+      const first = this.empty.nextElementSibling;
+      if (!first) break;
+      first.remove();
+      cut = true;
+    }
+    if (cut) for (const [id, chip] of this.chips) if (!chip.isConnected) this.chips.delete(id);
   }
 
   release(): void {
@@ -85,7 +105,7 @@ export class ChatPane {
   }
 
   async load(): Promise<void> {
-    if (this.loaded) return;
+    if (this.loaded) { this.scroll(); return; }
     this.loaded = true;
     try {
       const s = await this.link.cmd<State>('chat.state');
@@ -117,16 +137,20 @@ export class ChatPane {
   }
 
   private scroll(): void {
-    const l = this.log;
-    if (l.scrollHeight - l.scrollTop - l.clientHeight < 80) l.scrollTop = l.scrollHeight;
+    if (this.scrollFrame) return;
+    this.scrollFrame = requestAnimationFrame(() => {
+      this.scrollFrame = 0;
+      if (this.pinned) this.log.scrollTop = this.log.scrollHeight;
+    });
   }
 
   private user(text: string, note = ''): void {
     setHidden(this.empty, true);
-    const n = el('<div class="ff-chat-msg is-user"><span class="ff-chat-said"></span></div>');
+    const n = el('<div class="ff-chat-msg is-user is-settled"><span class="ff-chat-said"></span></div>');
     setText(q(n, '.ff-chat-said'), text);
     if (note) { const m = el('<span class="ff-chat-note"></span>'); setText(m, note); n.appendChild(m); }
     this.log.appendChild(n);
+    this.prune();
     this.scroll();
   }
 
@@ -141,12 +165,22 @@ export class ChatPane {
 
   private delta(text: string): void {
     if (!this.reply) this.begin();
-    if (!this.md) { this.md = new MarkdownStream('ff-chat-text ff-md'); this.reply?.appendChild(this.md.root); }
-    this.md.push(text);
-    this.scroll();
+    this.pending += text;
+    if (!this.textFrame) this.textFrame = document.hidden ? window.setTimeout(this.flushText, 60) : requestAnimationFrame(this.flushText);
   }
 
+  private readonly flushText = (): void => {
+    this.textFrame = 0;
+    if (!this.pending || !this.reply) { this.pending = ''; return; }
+    const text = this.pending;
+    this.pending = '';
+    if (!this.md) { this.md = new MarkdownStream('ff-chat-text ff-md'); this.reply.appendChild(this.md.root); }
+    this.md.push(text);
+    this.scroll();
+  };
+
   private endText(): void {
+    this.flushText();
     this.md?.end();
     this.md = null;
   }
@@ -254,8 +288,10 @@ export class ChatPane {
       setText(n, `${meta.seconds} s${meta.turns ? ` · ${meta.turns} ${this.deps.t('steps')}` : ''}${used}${meta.costUsd ? ` · $${meta.costUsd.toFixed(3)}` : ''}`);
       this.reply?.appendChild(n);
     }
+    this.reply?.classList.add('is-settled');
     this.reply = null;
     this.setBusy(false);
+    this.prune();
     this.scroll();
   }
 }

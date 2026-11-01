@@ -18,6 +18,12 @@ interface Tab {
   tab: HTMLElement;
   socket: WebSocket | null;
   kind: string;
+  queue: string[];
+  frame: number;
+  retry: number;
+  retryTimer: number;
+  closed: boolean;
+  wired: boolean;
 }
 
 const KEY = 'formfabric.dock';
@@ -61,6 +67,7 @@ export class TerminalDock {
   private chatTab: HTMLElement | null = null;
   private started = false;
   private pending: Promise<void> | null = null;
+  private fitTimer = 0;
 
   constructor(host: HTMLElement, private readonly link: Link, private readonly deps: DockDeps) {
     const t = deps.t;
@@ -99,7 +106,7 @@ export class TerminalDock {
     this.restartBtn.addEventListener('click', () => void this.restart());
     q(host, '.ff-dock-ask').addEventListener('submit', (e) => { e.preventDefault(); void this.send(); });
     host.addEventListener('keydown', (e) => { if (!isToggle(e)) e.stopPropagation(); });
-    const ro = new ResizeObserver(() => this.fitActive());
+    const ro = new ResizeObserver(() => this.fitSoon());
     ro.observe(this.stage);
     this.watchers.push(() => ro.disconnect());
     const onKey = (e: KeyboardEvent): void => {
@@ -161,7 +168,8 @@ export class TerminalDock {
   destroy(): void {
     for (const stop of this.watchers) stop();
     this.watchers.length = 0;
-    for (const entry of this.tabs.values()) { entry.socket?.close(); entry.term.dispose(); }
+    window.clearTimeout(this.fitTimer);
+    for (const entry of this.tabs.values()) this.dispose(entry);
     this.tabs.clear();
     this.chat?.release();
   }
@@ -177,12 +185,20 @@ export class TerminalDock {
       e.preventDefault();
       grip.setPointerCapture(e.pointerId);
       const bottom = this.root.getBoundingClientRect().bottom;
-      const move = (ev: PointerEvent): void => {
-        const h = Math.round(Math.min(window.innerHeight * 0.7, Math.max(MIN_H, bottom - ev.clientY)));
+      let frame = 0;
+      let want = e.clientY;
+      const apply = (): void => {
+        frame = 0;
+        const h = Math.round(Math.min(window.innerHeight * 0.7, Math.max(MIN_H, bottom - want)));
         html.setAttribute('data-ft-dock-h', String(h));
         html.style.setProperty('--ft-dock-size', `${h}px`);
       };
+      const move = (ev: PointerEvent): void => {
+        want = ev.clientY;
+        if (!frame) frame = requestAnimationFrame(apply);
+      };
       const up = (): void => {
+        if (frame) { cancelAnimationFrame(frame); apply(); }
         grip.removeEventListener('pointermove', move);
         grip.removeEventListener('pointerup', up);
         grip.removeEventListener('pointercancel', up);
@@ -319,7 +335,7 @@ export class TerminalDock {
     });
     this.stage.appendChild(host);
     this.tabsEl.appendChild(tab);
-    const entry: Tab = { id: info.id, term, fit, host, tab, socket: null, kind };
+    const entry: Tab = { id: info.id, term, fit, host, tab, socket: null, kind, queue: [], frame: 0, retry: 0, retryTimer: 0, closed: false, wired: false };
     this.tabs.set(info.id, entry);
     setHidden(this.empty, true);
     term.open(host);
@@ -330,18 +346,63 @@ export class TerminalDock {
   private connect(entry: Tab): void {
     const socket = new WebSocket(this.link.socketUrl(`/api/terminal/${encodeURIComponent(entry.id)}`));
     entry.socket = socket;
-    socket.addEventListener('open', () => { this.link.handshake(socket); this.sendSize(entry); });
+    socket.addEventListener('open', () => {
+      if (entry.retry) { this.drop(entry); entry.term.reset(); }
+      entry.retry = 0;
+      this.link.handshake(socket);
+      this.sendSize(entry);
+    });
     socket.addEventListener('message', (msg) => {
       const data = String(msg.data);
       if (data === '{"type": "exit"}') {
-        entry.term.write(`\r\n\x1b[2m[${entry.kind === 'claude' ? 'Claude Code' : 'shell'} ${this.deps.t('exited')} - ${this.deps.t('Restart runs it again')}]\x1b[0m\r\n`);
+        this.feed(entry, `\r\n\x1b[2m[${entry.kind === 'claude' ? 'Claude Code' : 'shell'} ${this.deps.t('exited')} - ${this.deps.t('Restart runs it again')}]\x1b[0m\r\n`);
         return;
       }
-      entry.term.write(data);
+      this.feed(entry, data);
     });
-    entry.term.onData((data) => {
-      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'input', data }));
+    socket.addEventListener('close', (ev) => {
+      if (entry.closed || entry.socket !== socket || ev.code === 4403 || ev.code === 4404 || entry.retry >= 6) return;
+      entry.retry += 1;
+      entry.retryTimer = window.setTimeout(() => { if (!entry.closed) this.connect(entry); }, 600 * entry.retry);
     });
+    if (!entry.wired) {
+      entry.wired = true;
+      entry.term.onData((data) => {
+        const s = entry.socket;
+        if (s && s.readyState === WebSocket.OPEN) s.send(JSON.stringify({ type: 'input', data }));
+      });
+    }
+  }
+
+  private feed(entry: Tab, data: string): void {
+    entry.queue.push(data);
+    if (entry.frame) return;
+    entry.frame = document.hidden ? window.setTimeout(() => this.flush(entry), 60) : requestAnimationFrame(() => this.flush(entry));
+  }
+
+  private flush(entry: Tab): void {
+    entry.frame = 0;
+    if (entry.closed || !entry.queue.length) return;
+    const data = entry.queue.length === 1 ? entry.queue[0] : entry.queue.join('');
+    entry.queue.length = 0;
+    entry.term.write(data);
+  }
+
+  private drop(entry: Tab): void {
+    entry.queue.length = 0;
+  }
+
+  private dispose(entry: Tab): void {
+    entry.closed = true;
+    window.clearTimeout(entry.retryTimer);
+    entry.queue.length = 0;
+    entry.socket?.close();
+    entry.term.dispose();
+  }
+
+  private fitSoon(): void {
+    window.clearTimeout(this.fitTimer);
+    this.fitTimer = window.setTimeout(() => { this.fitTimer = 0; requestAnimationFrame(() => this.fitActive()); }, 50);
   }
 
   private sendSize(entry: Tab): void {
@@ -385,8 +446,7 @@ export class TerminalDock {
   private async close(id: string): Promise<void> {
     const entry = this.tabs.get(id);
     if (!entry) return;
-    entry.socket?.close();
-    entry.term.dispose();
+    this.dispose(entry);
     entry.host.remove();
     entry.tab.remove();
     this.tabs.delete(id);

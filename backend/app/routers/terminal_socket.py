@@ -7,6 +7,7 @@ from app.core import window_guard
 from app.services import terminal
 
 router = APIRouter(tags=["terminal"])
+BATCH = 128 * 1024
 
 
 @router.websocket("/api/terminal/{sid}")
@@ -24,14 +25,31 @@ async def attach(ws: WebSocket, sid: str) -> None:
     session.subscribers.add(q)
 
     async def outbound() -> None:
-        backlog = session.scrollback()
+        backlog, seen = session.snapshot()
         if backlog:
             await ws.send_text(backlog)
         if not session.alive:
             await ws.send_text(json.dumps({"type": "exit"}))
         while True:
-            text = await q.get()
-            await ws.send_text(json.dumps({"type": "exit"}) if text is None else text)
+            item = await q.get()
+            parts: list[str] = []
+            size = 0
+            ended = False
+            while True:
+                if item is None:
+                    ended = True
+                    break
+                text, pos = item
+                if pos < 0 or pos > seen:
+                    parts.append(text)
+                    size += len(text)
+                if size >= BATCH or q.empty():
+                    break
+                item = q.get_nowait()
+            if parts:
+                await ws.send_text("".join(parts))
+            if ended:
+                await ws.send_text(json.dumps({"type": "exit"}))
 
     sender = asyncio.create_task(outbound())
     try:
