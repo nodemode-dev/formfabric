@@ -8,6 +8,7 @@ export class StatusBar {
   private readonly panels: HTMLElement;
   private readonly engine: HTMLElement;
   private readonly gpu: HTMLElement;
+  private readonly pos: HTMLElement;
   private readonly hint: HTMLElement;
   private readonly busy: HTMLElement;
   private hintSegs: string[] = [];
@@ -23,12 +24,14 @@ export class StatusBar {
       '<button class="cv-st-units" type="button" title="Units: click to change" aria-label="Units"></button>' +
       '<span class="cv-st-panels"></span>' +
       '<span class="cv-st-engine"></span><span class="cv-st-gpu"></span>' +
+      '<span class="cv-st-pos"></span>' +
       '<span class="cv-st-hint"></span>' +
       `<span class="cv-st-busy">${icon('loading', 12)}<span class="cv-st-busy-text"></span></span>`);
     this.units = q(root, '.cv-st-units');
     this.panels = q(root, '.cv-st-panels');
     this.engine = q(root, '.cv-st-engine');
     this.gpu = q(root, '.cv-st-gpu');
+    this.pos = q(root, '.cv-st-pos');
     this.hint = q(root, '.cv-st-hint');
     this.busy = q(root, '.cv-st-busy');
     this.units.addEventListener('click', () => this.onUnits?.());
@@ -62,6 +65,8 @@ export class StatusBar {
   setGpu(name: string): void { this.gpuName = name; this.paintGpu(); }
 
   private paintGpu(): void { setText(this.gpu, this.gpuName ? `${t('GPU')}: ${this.gpuName}` : ''); }
+
+  setCursor(text: string): void { setText(this.pos, text); }
 
   setHint(text: string, error = false): void {
     window.clearTimeout(this.hintTimer);

@@ -58,7 +58,7 @@ export class ChatPane {
     q(this.root, '.ff-chat-pick-ok').addEventListener('click', () => void this.adoptChosen());
     const on = (type: string, fn: (e: EngineEvent) => void): void => { this.off.push(link.on(type, fn)); };
     on('chat.usage', (e) => this.showUsage({ ...this.usage, context: Number(e.context ?? 0), window: Number(e.window ?? 0) || this.usage.window, model: String(e.model ?? this.usage.model) }, Number(e.output ?? 0)));
-    on('chat.adopted', () => { this.loaded = false; this.log.replaceChildren(this.empty); this.reply = null; this.md = null; this.chips.clear(); void this.load(); });
+    on('chat.adopted', () => { this.loaded = false; this.clearLog(); this.reply = null; this.md = null; this.chips.clear(); void this.load(); });
     on('chat.start', (e) => { this.user(String(e.text ?? ''), String(e.note ?? '')); this.begin(); });
     on('chat.delta', (e) => this.delta(String(e.text ?? '')));
     on('chat.tool', (e) => this.tool({ kind: 'tool', id: String(e.id ?? ''), name: String(e.name ?? ''), input: String(e.input ?? ''), status: 'running', objects: Array.isArray(e.objects) ? (e.objects as number[]) : [] }));
@@ -70,9 +70,13 @@ export class ChatPane {
     });
     on('chat.done', (e) => { this.finish(e); if (e.usage) this.showUsage(e.usage as Usage, -1); });
     on('chat.reset', () => {
-      this.log.replaceChildren(this.empty); setHidden(this.empty, false); this.reply = null; this.md = null; this.chips.clear(); this.setBusy(false);
+      this.clearLog(); setHidden(this.empty, false); this.reply = null; this.md = null; this.chips.clear(); this.setBusy(false);
       this.showUsage({ input: 0, output: 0, costUsd: 0, context: 0, window: 0, model: '' }, -1);
     });
+  }
+
+  private clearLog(): void {
+    for (const n of Array.from(this.log.children)) if (n !== this.empty) n.remove();
   }
 
   release(): void {
@@ -188,13 +192,14 @@ export class ChatPane {
       if (!first) { this.onFail(new Error(t('No other Claude Code conversation in formfabric yet: open one with the Claude Code button first'))); return; }
       const lang = this.deps.language?.() ?? undefined;
       const when = (s: number): string => new Date(s * 1000).toLocaleString(lang, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      const options = r.sessions.map((s) => {
-        const o = el<HTMLOptionElement>('<option></option>');
-        o.value = s.id;
-        o.textContent = `${when(s.modified)} · ${s.title || t('Untitled')}${s.current ? ` (${t('this chat')})` : ''}`;
-        return o;
+      const opts = this.pickSelect.options;
+      while (opts.length > r.sessions.length) this.pickSelect.remove(opts.length - 1);
+      r.sessions.forEach((s, i) => {
+        if (i >= opts.length) this.pickSelect.append(el<HTMLOptionElement>('<option></option>'));
+        const o = opts[i];
+        if (o.value !== s.id) o.value = s.id;
+        setText(o, `${when(s.modified)} · ${s.title || t('Untitled')}${s.current ? ` (${t('this chat')})` : ''}`);
       });
-      this.pickSelect.replaceChildren(...options);
       this.pickSelect.value = first.id;
       setHidden(this.pick, false);
       this.pickSelect.focus();

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 
-const FRONTEND_PORT = 5280;
+const frontendRaw = Number(process.env.FFB_FRONTEND_PORT);
+const FRONTEND_PORT = Number.isInteger(frontendRaw) && frontendRaw > 0 && frontendRaw < 65534 ? frontendRaw : 5280;
 const BACKEND_PORT = Number(process.env.FFB_PORT) || 8280;
 
 export default defineConfig({

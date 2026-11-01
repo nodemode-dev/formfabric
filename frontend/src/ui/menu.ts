@@ -155,6 +155,7 @@ export class PopupMenu {
       const cmd = this.commands.get(r.id);
       if (!cmd) continue;
       setText(q(r.node, '.cv-menu-label'), t(this.commands.label(cmd)));
+      setText(q(r.node, '.cv-menu-keys'), this.commands.keyLabel(cmd));
       setDisabled(r.node, !this.commands.enabled(cmd));
       const why = t(this.commands.why(cmd));
       if (why || r.node.dataset.why) { setTitle(r.node, why); r.node.dataset.why = why; }

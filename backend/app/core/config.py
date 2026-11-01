@@ -5,7 +5,8 @@ from app import __version__
 
 APP_NAME = "formfabric"
 VERSION = __version__
-FRONTEND_PORT = 5280
+_frontend_raw = os.environ.get("FFB_FRONTEND_PORT", "").strip()
+FRONTEND_PORT = int(_frontend_raw) if _frontend_raw.isdigit() and 0 < int(_frontend_raw) < 65534 else 5280
 BACKEND_PORT = 8280
 REPO = Path(__file__).resolve().parents[3]
 
@@ -47,5 +48,5 @@ def cors_origins() -> list[str]:
 
 
 def window_origins() -> list[str]:
-    preview = FRONTEND_PORT + 1
+    preview = FRONTEND_PORT + 2
     return [*cors_origins(), f"http://localhost:{preview}", f"http://127.0.0.1:{preview}", "tauri://localhost", "http://tauri.localhost"]
