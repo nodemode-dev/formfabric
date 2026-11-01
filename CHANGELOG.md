@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.6.0 · 2026-11-01
+
+Phases 4, 5 and 6, built in parallel and released together.
+
+Phase 4, pattern tools:
+
+- Seam allowance with miter, square, round and mirror corners and per-segment widths; offset outlines.
+- Notches (slit, V, T, U) that stay in place through point edits and transforms; grain lines; fold and dart roles on inner lines with fold angle and strength; match lengths.
+- Darts on the outline and internal darts, slash and spread, Mirror Edit and Instances with linked copies that undo with their source, unfold, spiral, trace.
+- DXF-AAMA (ASTM D6673) and plain DXF import and export.
+- Eleven new Pattern View tools with keys and Exact Input; the Inspector edits seam allowance, notches, inner roles and links.
+
+Phase 5, meshing and 3D View:
+
+- Constrained Delaunay meshing of every panel at its particle distance, minimum angle 20 degrees, with per-segment vertex counts ready for seams.
+- Meshes stream from the native engine to the 3D View as panels change.
+- The 3D View draws meshed panels with their fabric's front and back surfaces, four view styles, stats, view presets, picking shared with the Pattern View, and a placement gizmo.
+
+Phase 6, fabric:
+
+- Fabrics with physical properties in SI units, 15 presets traced to measured data (8 marked provisional), Fabric Lab, looks with PBR maps, colorways, `.ffab` files.
+- The Fabric panel beside the Inspector.
+
+Fixes: drag start no longer spikes; menus update in place; the i18n check reads the real tables and every string is translated; projects reopen bit-exact; enhanced selects show one control.
+
 ## v0.3.0 · 2026-10-31
 
 Phase 3, the pattern core.
