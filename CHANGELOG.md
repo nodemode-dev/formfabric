@@ -1,5 +1,44 @@
 # Changelog
 
+## v0.12.0 · 2026-11-01
+
+Phases 10, 11 and 12, built in parallel and released together.
+
+Phase 10, solver:
+
+- An implicit solver (Gauss-Newton with preconditioned conjugate gradients) is now the default. It converges: a hanging 1 m square stays within 0.007 mm of the reference after 3 s.
+- Cloth self contact, Untangle, and layer order from each panel's layer.
+- Presets: Fast, Normal, Quality and Final.
+- A GPU solver on wgpu compute, checked against the CPU on a hanging square. It is not yet used by Drape.
+- Not yet met: speed on large garments (about 22 ms per frame at 676 vertices and 273 ms at 5,041 on the Normal preset), and GPU self contact.
+
+Phase 11, 3D editing:
+
+- Pinch; box and lasso pins; Freeze, Disable, Stiffen, Hold Shape and Shrink per panel; Wind with an arrow in the 3D View; Fold Place; Body Tape.
+- Refit to another body by blend, measurement sweep or re-drape.
+- A seam-closing phase at the start of a drape.
+- Choice of solver method and device.
+- Not yet met: a whole shirt hanging cleanly on the shoulders, and Refit leaving no cloth inside the new body. Style Lines and Fit Shell move to Phase 13.
+
+Phase 12, trims:
+
+- Buttons and buttonholes with fastening; zippers.
+- Topstitch and puckering.
+- Edge finishes: piping, binding, elastic (shirring), tape, bond, press and crease.
+- Prints, quilting, rip, mend and fray.
+- Imported trim meshes.
+- All of it works in the Pattern View, the 3D View, the inspector and MCP, with undo that follows seam edits.
+
+Security and fixes from two independent audits:
+
+- The engine and service now use a per-launch window token from the desktop shell. It is never inherited by terminal or agent processes and never appears in a URL.
+- Host checks against DNS rebinding.
+- Import caps on file size, vertex and triangle counts, and glTF buffers confined to the model folder.
+- Bounded simulation calls; undo history capped by size.
+- Quilting no longer explodes the drape.
+- Placement wraps panels around the body.
+- Seams close relative to the cloth's stiffness.
+
 ## v0.9.0 · 2026-11-01
 
 Phases 7, 8 and 9, built in parallel and released together.

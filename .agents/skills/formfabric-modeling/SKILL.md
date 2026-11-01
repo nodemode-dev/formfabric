@@ -41,16 +41,16 @@ The tool reference below is generated from the engine's command registry by `./f
 ## Tool reference
 
 [ffb-tools:begin]
-Generated from the engine's command registry (formfabric 0.9.0) by `./formfabric agents sync`; do not edit between the markers by hand.
+Generated from the engine's command registry (formfabric 0.12.0) by `./formfabric agents sync`; do not edit between the markers by hand.
 
 - Engine: `system_info`, `system_capabilities`
 - Files: `file_new`, `file_save`, `file_open`, `exchange_import_dxf`, `exchange_export_dxf`
 - History: `history_undo`, `history_redo`, `history_list`
 - Viewing: `view_units`, `mesh_get`, `mesh_stats`
-- Pattern: `pattern_get`, `pattern_select`, `pattern_measure`, `pattern_snap`, `pattern_draw_panel`, `pattern_rectangle`, `pattern_ellipse`, `pattern_inner_shape`, `pattern_inner_line`, `pattern_move_point`, `pattern_set_handle`, `pattern_add_point`, `pattern_split_line`, `pattern_delete_point`, `pattern_set_point_kind`, `pattern_curvature`, `pattern_smooth`, `pattern_transform`, `pattern_duplicate`, `pattern_delete`, `pattern_rename`, `pattern_set_props`, `pattern_begin_drag`, `pattern_end_drag`, `pattern_seam_allowance`, `pattern_offset_outline`, `pattern_notch_add`, `pattern_notch_set`, `pattern_notch_delete`, `pattern_grain_line`, `pattern_set_inner`, `pattern_segment_lengths`, `pattern_match_length`, `pattern_dart`, `pattern_slash_spread`, `pattern_unfold`, `pattern_spiral`, `pattern_trace`, `pattern_mirror_link`, `pattern_instance`, `pattern_unlink`
-- Simulation: `mesh_build`, `arrange_place`, `arrange_reset`, `sim_start`, `sim_stop`, `sim_toggle`, `sim_step`, `sim_reset`, `sim_settings`, `sim_state`, `sim_compare`, `pin_add`, `pin_remove`, `pin_clear`, `sim_grab`, `sim_apply`, `place_panel`, `place_reset`
+- Pattern: `pattern_get`, `pattern_select`, `pattern_measure`, `pattern_snap`, `pattern_draw_panel`, `pattern_rectangle`, `pattern_ellipse`, `pattern_inner_shape`, `pattern_inner_line`, `pattern_move_point`, `pattern_set_handle`, `pattern_add_point`, `pattern_split_line`, `pattern_delete_point`, `pattern_set_point_kind`, `pattern_curvature`, `pattern_smooth`, `pattern_transform`, `pattern_duplicate`, `pattern_delete`, `pattern_rename`, `pattern_set_props`, `pattern_begin_drag`, `pattern_end_drag`, `pattern_seam_allowance`, `pattern_offset_outline`, `pattern_notch_add`, `pattern_notch_set`, `pattern_notch_delete`, `pattern_grain_line`, `pattern_set_inner`, `pattern_segment_lengths`, `pattern_match_length`, `pattern_dart`, `pattern_slash_spread`, `pattern_unfold`, `pattern_spiral`, `pattern_trace`, `pattern_mirror_link`, `pattern_instance`, `pattern_unlink`, `panel_state`, `style_create`, `style_update`, `style_delete`, `style_list`, `print_add`, `print_set`, `print_delete`
+- Simulation: `mesh_build`, `arrange_place`, `arrange_reset`, `sim_start`, `sim_stop`, `sim_toggle`, `sim_step`, `sim_reset`, `sim_settings`, `sim_state`, `sim_positions`, `sim_compare`, `pin_add`, `pin_remove`, `pin_clear`, `sim_grab`, `sim_apply`, `sim_pinch`, `refit`, `place_panel`, `place_reset`, `wind_set`, `pin_box`, `pin_lasso`, `fold_place`, `body_tape`
 - Fabrics: `fabric_presets`, `fabric_list`, `fabric_create`, `fabric_update`, `fabric_duplicate`, `fabric_delete`, `fabric_assign`, `fabric_set_default`, `fabric_lab`, `fabric_export`, `fabric_import`, `colorway_create`, `colorway_update`, `colorway_delete`, `colorway_activate`
-- Sewing: `sew_segment`, `sew_free`, `sew_multi`, `sew_edit`, `sew_flip`, `sew_delete`, `sew_list`, `sew_check`, `sew_bindings`, `tack_add`, `tack_delete`, `sew_pleat`, `sew_gather`, `sew_auto`
+- Sewing: `sew_segment`, `sew_free`, `sew_multi`, `sew_edit`, `sew_flip`, `sew_delete`, `sew_list`, `sew_check`, `sew_bindings`, `tack_add`, `tack_delete`, `sew_pleat`, `sew_gather`, `sew_auto`, `button_add`, `buttonhole_add`, `button_fasten`, `hardware_move`, `hardware_delete`, `zipper_add`, `zipper_set`, `zipper_delete`, `stitch_add`, `stitch_set`, `stitch_delete`, `fray_add`, `finish_add`, `finish_set`, `finish_delete`, `sew_rip`, `sew_mend`, `quilt_make`, `trim_import`, `trim_debug`
 - Bodies: `body_load_default`, `body_import`, `body_remove`, `body_show`, `body_set`, `body_resize`, `body_pose`, `body_list`, `body_measure`, `body_joints`, `place_volume_set`, `place_point_set`, `place_points`, `place_defaults`
 
 ### system_info
@@ -1005,18 +1005,25 @@ Rebuild the cloth from the garment and return every panel to its placed state, f
 
 ### sim_settings
 
-Get or set the solver parameters and the quality preset (normal, fast, fine). Settings are not saved in the document.
+Get or set the solver parameters and the quality preset (fast, normal, quality, final). Settings are not saved in the document.
 
 - `air_damping`: number; range 0 to 1
+- `cg_iterations`: integer; range 1 to 2000; Conjugate gradient iterations per Newton iteration (implicit method).
+- `cg_tolerance`: number; range 1e-06 to 0.1; Conjugate gradient relative tolerance (implicit method).
+- `close_frames`: integer; range 0 to 600; Seam closing phase at the start of a drape: up to this many frames with stiffened seams, reduced gravity, strong damping and collisions on, then the normal simulation. 0 turns it off. Only applies when the garment has seams or links.
+- `close_gap`: number; range 0.1 to 50; The closing phase may end early once the largest seam gap is under this.
 - `collision_thickness`: number; range 0 to 100
+- `device`: string (cpu | gpu); Where the solver runs. gpu is accepted and reported unavailable until a GPU solver exists; the simulation stays on the cpu.
 - `friction`: number; range 0 to 5
 - `gravity`: array of number
 - `iterations`: integer; range 1 to 200; Solver iterations per substep.
-- `preset`: string (normal | fast | fine); normal: 5 substeps, 10 iterations. fast: 3 substeps, 6 iterations, thicker contact. fine: 10 substeps, 20 iterations, self collision, thin contact. Leave out every field to read the settings.
+- `method`: string (vbd | implicit); Solver method: vbd is vertex block descent, implicit is implicit Euler with conjugate gradient.
+- `newton`: integer; range 1 to 10; Newton iterations per substep (implicit method).
+- `preset`: string (fast | normal | quality | final); Implicit method: fast 2 substeps, normal 3, quality 4 with self contact, final 6 with 3 Newton iterations and self contact. Block descent: fast 3x6, normal 5x10, quality 8x15 and final 12x25 (substeps x iterations), the last two with self contact. Leave out every field to read the settings.
 - `self_collision`: boolean
 - `skin_offset`: number; range 0 to 100
 - `substeps`: integer; range 1 to 40
-- `time_step`: number; range 0.002 to 0.1; Seconds per frame. The run thread steps at 1 / time_step frames per second.
+- `time_step`: number; range 0.004 to 0.0667; Seconds per frame, from 1/240 to 1/15. The run thread steps at 1 / time_step frames per second.
 
 Note: safe to repeat.
 
@@ -1025,6 +1032,15 @@ Note: safe to repeat.
 Read whether the simulation runs, the frame, the vertex count, the last step statistics and the preset.
 
 - no parameters
+
+Note: read-only.
+
+### sim_positions
+
+Read the current simulated 3D positions of one panel's vertices. decimate keeps every n-th vertex; the answer never holds more than 5000 vertices, so large panels are decimated further. Read only.
+
+- `decimate`: integer; default 1; range 1 to 1000; Keep every n-th vertex of the panel mesh.
+- `panel`: integer; required; range 1 to inf; Panel id as listed by pattern.get.
 
 Note: read-only.
 
@@ -1070,9 +1086,37 @@ Note: safe to repeat.
 
 ### sim_apply
 
-Write the draped state into the document as one undo step: each panel gets the rigid placement (place3d) that best fits its draped vertices, and the draped vertex positions are kept in a cache keyed by that placement so the viewer and the next simulation start from the drape. Undo restores the earlier placement.
+Write the draped state into the document as one undo step: each panel gets the rigid placement (place3d) that best fits its draped vertices, and the draped vertex positions are saved in place3d.pose (kept by save and open). The viewer and the next simulation or reset start from the pose while the mesh vertex count matches. Undo restores the earlier placement.
 
 - no parameters
+
+### sim_pinch
+
+Pull a picked vertex to a 3D target while the simulation runs, with the vertices around it following by a falloff weight (bump or linear, radius 1 to 500 mm, power -2 to 2, straight or surface distance). Send again with a new target to drag; a null target releases. Not saved and not an undo step.
+
+- `distance`: string (straight | surface); default "straight"; straight: every panel within the radius. surface: along the picked panel's mesh only.
+- `falloff`: string (bump | linear); default "bump"
+- `frames`: integer; default 0; range 0 to 120; Frames to step after setting the pinch (use with a stopped simulation).
+- `panel`: integer; range 1 to inf; Panel id. With vertex, the index is in that panel's mesh; with point, the nearest vertex is taken.
+- `point`: array of number; Panel-local point (needs panel).
+- `power`: number; default 0; range -2 to 2; Falloff power: above 0 narrows the weights, below 0 widens them.
+- `radius`: number; default 50; range 1 to 500; Falloff distance.
+- `target`: ['array', 'null']; Where the picked vertex is pulled to in 3D. Neighbours follow by the falloff weight. Null or missing releases the pinch.
+- `vertex`: integer; range 0 to inf; Vertex index in the panel mesh when panel is given, else an index into the whole cloth.
+
+Note: in the window: Shift+C.
+
+### refit
+
+Move the draped garment from body A to body B without opening a seam. The body is morphed from A to B in steps while the solver runs, so the garment follows only by simulation and contact: no reference garment, no correspondence map between the bodies, no stored fit data, no pattern change. Bodies of identical topology blend per vertex; other bodies are stepped through a measurement sweep of body A and then the garment settles on B, or use method redrape to drape from the placed layout on B. Ends by hiding A, showing B and saving the draped shape (one undo step).
+
+- `fix_frames`: integer; default 150; range 0 to 1000; Frame budget after the settle: each frame pushes cloth out of the target body and steps with collisions on, until the deepest vertex is under 1 mm inside or the budget is spent. The result reports inside_mm and the frames used.
+- `frames`: integer; default 4; range 1 to 30; Solver frames run at each increment.
+- `from`: integer; range 1 to inf; Body id the garment is draped on. Defaults to the first visible body.
+- `method`: string (auto | blend | sweep | redrape); default "auto"; blend: bodies of identical topology, per-vertex linear blend from A to B. sweep: other bodies, body A is stepped through a measurement sweep to B's measurements, then the garment settles on B. redrape: no morph, the garment returns to its placed layout and drapes on B. auto picks blend when the topology matches, else sweep.
+- `settle`: integer; default 40; range 0 to 600; Frames run on the target body at the end.
+- `steps`: integer; default 20; range 1 to 400; Increments along the body morph path.
+- `to`: integer; required; range 1 to inf; Body id to move the garment to.
 
 ### body_load_default
 
@@ -1244,6 +1288,359 @@ Propose seams for the garment from the notches on the panels' own outline segmen
 - `min_length`: number; default 10; range 0 to 10000; Ignore outline segments shorter than this.
 - `panels`: array of integer; Only consider the outlines of these panels. Leave out for all panels.
 - `tags`: array of object; Join tags for this call: segments given the same tag are proposed as a seam, whatever their notches. Nothing is stored.
+
+### panel_state
+
+Set the simulation state of panels: freeze, disable, stiffen (strengthen), hold shape (solidify) and shrinkage. One undo step. The simulation rebuilds with the new state and keeps the other panels where they are.
+
+- `disabled`: boolean; Disable: the panel is left out of the simulation together with its seams.
+- `frozen`: boolean; Freeze: the panel is held as pins at its current positions and still collides.
+- `hold_shape`: boolean; Hold Shape: a weak spring pulls each vertex back to the shape it has when the simulation is built.
+- `panels`: array of integer; required; Panel ids as listed by pattern.get.
+- `shrink_warp`: number; range 0.3 to 2; Warp shrinkage factor. 1 is none.
+- `shrink_weft`: number; range 0.3 to 2; Weft shrinkage factor. 1 is none.
+- `stiffen`: number; range 0.01 to 1000; Multiplier on stretch, shear and bending. 1 is none.
+
+Note: safe to repeat.
+
+### wind_set
+
+Set the wind: on or off, kind (directional or radial), origin, direction, strength in m/s, decay with distance from the origin, turbulence. The simulation applies it as a force on every triangle (pressure on the face, so it also needs the face to be turned toward the wind). One undo step.
+
+- `decay`: number; range 0 to 100; Weakening with distance from the origin. 0 is none; 100 drops the speed to 37 percent per metre.
+- `direction`: array of number; Wind direction (directional).
+- `enabled`: boolean
+- `kind`: string (directional | radial); directional blows along direction; radial blows away from origin.
+- `origin`: array of number; Where the wind starts. Decay is measured from here.
+- `strength`: number; range 0 to 100; Wind speed at the origin.
+- `turbulence`: number; range 0 to 100; Percent of irregularity in speed and direction (deterministic noise in space and time).
+
+Note: safe to repeat.
+
+### pin_box
+
+Pin every vertex inside a 3D box, or a list of mesh vertices picked in the viewer, at its current position. One pin per vertex, all alike; one undo step.
+
+- `max`: array of number; The opposite corner.
+- `min`: array of number; One corner of the 3D box.
+- `panel`: integer; range 1 to inf; Limit to this panel. Needed with vertices.
+- `panels`: array of object; Mesh vertices picked in the viewer for several panels at once, recorded as one undo step. Replaces panel, vertices and the 3D region.
+- `vertices`: array of integer; Mesh vertex indices picked by the viewer (of the given panel). Replaces the 3D region.
+
+Note: in the window: Shift+X.
+
+### pin_lasso
+
+Pin every vertex whose projection along the view direction falls inside a lasso outline, or a list of mesh vertices picked in the viewer, at its current position. One pin per vertex, all alike; one undo step.
+
+- `direction`: array of number; View direction the outline is extruded along.
+- `panel`: integer; range 1 to inf; Limit to this panel. Needed with vertices.
+- `panels`: array of object; Mesh vertices picked in the viewer for several panels at once, recorded as one undo step. Replaces panel, vertices and the 3D region.
+- `polygon`: array of array; Lasso outline in 3D, drawn on the view plane.
+- `vertices`: array of integer; Mesh vertex indices picked by the viewer (of the given panel). Replaces the 3D region.
+
+Note: in the window: Shift+L.
+
+### fold_place
+
+Fold a panel before draping: the part of the panel on one side of a fold line is rotated about that line in the placed shape, by an angle. The folded shape is saved as the panel's pose and the next simulation starts from it. One undo step.
+
+- `angle`: number; required; range -180 to 180; Fold angle. Positive turns the folded part toward the front of the panel; 180 lays it flat over the rest.
+- `line`: array of array; required; Fold line as two panel-local points; it extends across the whole panel.
+- `panel`: integer; required; range 1 to inf
+- `side`: string (left | right); default "left"; Which part moves, looking along the line from its first to its second point in the panel plane.
+
+Note: in the window: Shift+D.
+
+### body_tape
+
+Hold a panel point to a point of the body during simulation: a tack between the cloth vertex and a body point, one rest length, one stiffness. Without body_point the nearest body surface point is used. One undo step; remove it with tack.delete.
+
+- `body`: integer; range 1 to inf; Body id for the nearest-point search. Defaults to the first visible body.
+- `body_point`: array of number; World point to hold the cloth point to. Leave out to take the nearest point of the body surface.
+- `length`: number; default 0; range 0 to 1000; Rest length of the tack.
+- `panel`: integer; required; range 1 to inf
+- `point`: array of number; Panel-local point; the nearest mesh vertex is held. Give point or vertex.
+- `vertex`: integer; range 0 to inf; Vertex index in the panel mesh.
+
+Note: in the window: Shift+K.
+
+### style_create
+
+Create a named style for buttons, buttonholes, zippers, topstitch, puckering or imported trims. Parameters merge over the defaults of the kind and are range checked. Returns the style with its id.
+
+- `kind`: string (button | buttonhole | zipper | topstitch | puckering | trim); required; button, buttonhole, zipper, topstitch, puckering or trim.
+- `name`: string; Style name. Defaults to the kind and the new id.
+- `params`: object; Style parameters merged over the defaults of the kind. Known keys are range checked: button width 0.5 to 100 mm, thickness 0.1 to 50 mm, weight 0 to 500 g; buttonhole length 1 to 100 mm, z_offset -5 to 5 mm; zipper width 1 to 100 mm; topstitch count 1 to 5, spi 1 to 40, thickness 0.05 to 5 mm, offset -50 to 50 mm, stiffen 1 to 5; puckering density 0 to 100 percent, width 0 to 50 mm; stiffness 0 to 20 on any kind. Unknown keys are kept as given.
+
+### style_update
+
+Rename a style or change parameters (merged; null removes a key). Everything that uses the style follows. The kind and an imported trim mesh cannot change.
+
+- `name`: string; New name.
+- `params`: object; Keys to set; null removes a key. Known keys are range checked: button width 0.5 to 100 mm, thickness 0.1 to 50 mm, weight 0 to 500 g; buttonhole length 1 to 100 mm, z_offset -5 to 5 mm; zipper width 1 to 100 mm; topstitch count 1 to 5, spi 1 to 40, thickness 0.05 to 5 mm, offset -50 to 50 mm, stiffen 1 to 5; puckering density 0 to 100 percent, width 0 to 50 mm; stiffness 0 to 20 on any kind. Unknown keys are kept as given.
+- `style`: integer; required; range 1.0 to 4294967295.0; Style id as listed by style.list.
+
+Note: safe to repeat.
+
+### style_delete
+
+Remove a style. Refused while any hardware, zipper or stitch uses it.
+
+- `style`: integer; required; range 1.0 to 4294967295.0; Style id as listed by style.list.
+
+Note: removes or replaces (undoable).
+
+### style_list
+
+List styles, optionally of one kind, with their parameters and how many hardware, zippers and stitches use each.
+
+- `kind`: string (button | buttonhole | zipper | topstitch | puckering | trim); button, buttonhole, zipper, topstitch, puckering or trim.
+
+Note: read-only.
+
+### button_add
+
+Place a button of a button style at a point inside a panel. In the simulation it is a small rigid disc attached to the panel triangle that holds the anchor.
+
+- `panel`: integer; required; range 1.0 to 4294967295.0; Panel the hardware is attached to.
+- `point`: array of number; required; Anchor point on the panel; it must lie inside the outline.
+- `rotation`: number; range -360.0 to 360.0; Rotation about the surface normal, 0 to 360 degrees.
+- `space`: string (world | local); default "world"; world: coordinates on the pattern plane. local: coordinates inside the panel before its position, rotation and mirror apply.
+- `style`: integer; required; range 1.0 to 4294967295.0; Style id of the right kind, from style.list.
+
+Note: in the window: Shift+B.
+
+### buttonhole_add
+
+Place a buttonhole of a buttonhole style at a point inside a panel.
+
+- `panel`: integer; required; range 1.0 to 4294967295.0; Panel the hardware is attached to.
+- `point`: array of number; required; Anchor point on the panel; it must lie inside the outline.
+- `rotation`: number; range -360.0 to 360.0; Rotation about the surface normal, 0 to 360 degrees.
+- `space`: string (world | local); default "world"; world: coordinates on the pattern plane. local: coordinates inside the panel before its position, rotation and mirror apply.
+- `style`: integer; required; range 1.0 to 4294967295.0; Style id of the right kind, from style.list.
+
+Note: in the window: Shift+H.
+
+### button_fasten
+
+Fasten a button to a buttonhole: during simulation the two anchor points are held together by one pair constraint. A button holds one buttonhole and the reverse. unfasten releases the button.
+
+- `button`: integer; required; range 1.0 to 4294967295.0; Hardware id of the button.
+- `buttonhole`: integer; range 1.0 to 4294967295.0; Hardware id of the buttonhole it fastens to.
+- `unfasten`: boolean; default false; Release the button from its buttonhole instead.
+
+Note: safe to repeat; in the window: Shift+F.
+
+### hardware_move
+
+Move a button, buttonhole or trim to another point or panel, or turn it.
+
+- `hardware`: integer; required; range 1.0 to 4294967295.0; Hardware id.
+- `panel`: integer; range 1.0 to 4294967295.0; Move to this panel; needs point.
+- `point`: array of number; New anchor point; it must lie inside the outline.
+- `rotation`: number; range -360.0 to 360.0; New rotation about the surface normal.
+- `space`: string (world | local); default "world"; world: coordinates on the pattern plane. local: coordinates inside the panel before its position, rotation and mirror apply.
+
+Note: safe to repeat; in the window: Shift+A.
+
+### hardware_delete
+
+Remove buttons, buttonholes or trims. A fastened partner is released. An imported trim mesh that nothing else uses is removed with it.
+
+- `hardware`: integer; range 1.0 to 4294967295.0; Hardware id.
+- `hardware_ids`: array of integer; Several hardware ids.
+
+Note: removes or replaces (undoable).
+
+### zipper_add
+
+Add a zipper between two sides, each a list of spans listed in the direction the zipper zips. The closed part binds like a seam, the open part does not. Reports both side lengths and the mismatch.
+
+- `a`: array of object; required; Spans of the first side, listed in the direction the zipper zips. A span with t0 above t1 walks against its line.
+- `b`: array of object; required; Spans of the second side, listed in the same zipping direction.
+- `closed`: number; range 0.0 to 1.0; How far the zipper is closed, 0 (open) to 1 (closed), measured from the start of the spans, which is the direction the zipper zips.
+- `style`: integer; required; range 1.0 to 4294967295.0; Style id of a zipper style.
+
+Note: in the window: Shift+Z.
+
+### zipper_set
+
+Set how far a zipper is closed (0 to 1) or change its style.
+
+- `closed`: number; range 0.0 to 1.0; How far the zipper is closed, 0 (open) to 1 (closed), measured from the start of the spans, which is the direction the zipper zips.
+- `style`: integer; range 1.0 to 4294967295.0; Move the zipper to another zipper style.
+- `zipper`: integer; required; range 1.0 to 4294967295.0; Zipper id.
+
+Note: safe to repeat.
+
+### zipper_delete
+
+Remove a zipper.
+
+- `zipper`: integer; required; range 1.0 to 4294967295.0; Zipper id.
+
+Note: removes or replaces (undoable).
+
+### stitch_add
+
+Add a topstitch or puckering line along spans of a panel outline or inner line, at an offset in mm. Render data, with a slight stiffening along the line (the stiffen parameter of the style).
+
+- `offset`: number; range -50.0 to 50.0; Distance of the stitch line from the span, positive to the left of the walking direction. Default is the offset of the style.
+- `spans`: array of object; required; Spans the stitch line follows, on outlines or inner lines.
+- `style`: integer; required; range 1.0 to 4294967295.0; Style id of a topstitch or puckering style.
+
+Note: in the window: Shift+S.
+
+### stitch_set
+
+Change a stitch after creation: its offset in mm from the span, its topstitch or puckering style, or its spans. Give at least one. One undo step.
+
+- `offset`: number; range -50.0 to 50.0; New distance of the stitch line from the span, positive to the left of the walking direction.
+- `spans`: array of object; New spans, replacing the old ones.
+- `stitch`: integer; required; range 1.0 to 4294967295.0; Stitch id.
+- `style`: integer; range 1.0 to 4294967295.0; New style id, a topstitch or puckering style.
+
+### stitch_delete
+
+Remove one stitch by id, several by stitches, or every stitch with all. Fray lines are stitches too.
+
+- `all`: boolean; default false; Remove every stitch.
+- `stitch`: integer; range 1.0 to 4294967295.0; Stitch id.
+- `stitches`: array of integer; Several stitch ids.
+
+Note: removes or replaces (undoable).
+
+### fray_add
+
+Fray an edge or a seam for rendering: stores a stitch whose style carries the fray length in mm. No effect on the simulation. Remove it with stitch.delete.
+
+- `amount`: number; required; range 0.1 to 30.0; Length of loose threads for rendering.
+- `seam`: integer; range 1.0 to 4294967295.0; Seam id; both sides of the seam fray. Use instead of spans.
+- `spans`: array of object; Edge spans that fray.
+
+### finish_add
+
+Add an edge finish along spans. piping and binding create a strip panel of the given width, sewn to the spans by a real seam, and record it in generated. elastic and shirring create an elastic strip that shrinks to ratio and pulls the edge in. tape, bond and press stiffen a band of the given half width along the spans. crease adds a fold line from the start of the first span to the end of the last. One undo step.
+
+- `angle`: number; range 0.0 to 360.0; Crease only: fold angle, 180 flat, lower folds to the front, higher to the back. Default 120.
+- `fabric`: integer; range 1.0 to 4294967295.0; Fabric id of the strip; default is the fabric of the first span panel.
+- `kind`: string (piping | binding | elastic | shirring | tape | bond | press | crease); required; piping and binding generate a strip panel sewn along the spans; elastic and shirring generate a narrow elastic strip (shirring when the spans lie on inner lines); tape, bond and press stiffen a band along the spans; crease adds a fold line between the ends of the spans.
+- `ratio`: number; range 0.2 to 2.0; Elastic and shirring: length of the elastic at rest over its drawn length, 0.2 to 2 (default 0.8; 0.7 for shirring). Below 1 gathers the edge.
+- `spans`: array of object; required; Spans of one or more panels the finish follows, in walking order.
+- `strength`: number; range 0.0 to 20.0; Elastic: seam tension, default 1. Tape default 3, bond default 5, press default 1.5: stiffness multiplier of the band. Crease: fold strength 0 to 20, default 1.
+- `width`: number; range 1.0 to 100.0; Piping 1 to 15 mm (default 6), binding 1 to 50 mm per side (default 12), elastic 1 to 50 mm (default 8), tape, bond and press: band half width on each side, 1 to 100 mm (default 10).
+
+Note: in the window: Shift+E.
+
+### finish_set
+
+Change the width, ratio (elastic), strength or fabric (piping, binding, elastic) of an edge finish. Strip finishes regenerate their strip panel and seam, so panel and seam ids change. One undo step.
+
+- `fabric`: integer; range 1.0 to 4294967295.0; Piping, binding and elastic only: fabric id of the strip.
+- `finish`: integer; required; range 1.0 to 4294967295.0; Finish id as returned by finish.add.
+- `ratio`: number; range 0.2 to 2.0; Elastic only: rest length over drawn length, 0.2 to 2.
+- `strength`: number; range 0.0 to 20.0; Elastic seam tension, or stiffness multiplier of tape, bond and press, 0 to 20.
+- `width`: number; range 1.0 to 100.0; New width, in the range of the finish kind (see finish.add).
+
+### finish_delete
+
+Remove edge finishes together with the strip panels they generated and every seam that touches those panels, in one undo step.
+
+- `finish`: integer; range 1.0 to 4294967295.0; Finish id as returned by finish.add.
+- `finishes`: array of integer; Several finish ids.
+
+Note: removes or replaces (undoable).
+
+### print_add
+
+Place an image on a panel at a position (centre), rotation and size in mm, on the front, back or either face, with an optional emboss height. Render data. The image path must exist now; it is stored as given.
+
+- `emboss`: number; range -5.0 to 5.0; Raised height of the print for rendering.
+- `image`: string; required; Absolute path of a png, jpg, jpeg, webp or svg image.
+- `name`: string; Print name.
+- `panel`: integer; required; range 1.0 to 4294967295.0; Panel the print is placed on.
+- `position`: array of number; Centre of the print on the panel.
+- `rotation`: number; range -360.0 to 360.0; Rotation of the print.
+- `side`: string (auto | front | back); Which face of the fabric carries the print.
+- `size`: array of number; required; Width and height of the print on the panel.
+- `space`: string (world | local); default "world"; world: coordinates on the pattern plane. local: coordinates inside the panel before its position, rotation and mirror apply.
+
+Note: in the window: Shift+I.
+
+### print_set
+
+Change the image, position, rotation, size, side or emboss of a print. Only the given values change.
+
+- `emboss`: number; range -5.0 to 5.0; Raised height of the print for rendering.
+- `image`: string; Absolute path of a png, jpg, jpeg, webp or svg image.
+- `name`: string; Print name.
+- `position`: array of number; Centre of the print on the panel.
+- `print`: integer; required; range 1.0 to 4294967295.0; Print id.
+- `rotation`: number; range -360.0 to 360.0; Rotation of the print.
+- `side`: string (auto | front | back); Which face of the fabric carries the print.
+- `size`: array of number; Width and height of the print on the panel.
+- `space`: string (world | local); default "world"; world: coordinates on the pattern plane. local: coordinates inside the panel before its position, rotation and mirror apply.
+
+Note: safe to repeat.
+
+### print_delete
+
+Remove a print from its panel.
+
+- `print`: integer; required; range 1.0 to 4294967295.0; Print id.
+
+Note: removes or replaces (undoable).
+
+### sew_rip
+
+Open seams: the seams stay in the document but the simulation leaves them out until they are mended.
+
+- `seams`: array of integer; required; Seam ids as listed by sew.list.
+
+Note: safe to repeat.
+
+### sew_mend
+
+Close ripped seams again, the listed ones or all.
+
+- `all`: boolean; default false; Close every ripped seam.
+- `seams`: array of integer; Seam ids to close again.
+
+Note: safe to repeat.
+
+### quilt_make
+
+Quilt a panel: clone it as a lining layer behind it with the opposite pressure, copy the chosen inner lines onto the lining as flat fold lines and sew each outer line to its copy; the outlines are sewn together too unless edge is false. One undo step.
+
+- `edge`: boolean; default true; Also sew the two outlines together so the cells hold the filling.
+- `gap`: number; range 0.0 to 100.0; Distance of the lining behind the outer layer in the 3D placement.
+- `lines`: array of integer; required; Inner line ids of the panel that become quilting lines. Shape and reference lines turn into flat fold lines.
+- `panel`: integer; required; range 1.0 to 4294967295.0; Panel to quilt; it keeps the outer layer.
+- `pressure`: number; range -5000.0 to 5000.0; Pressure of the outer layer in pascals; the lining gets the opposite value so the cells puff. Default 2 Pa; the solver clamps it to 8 times the fabric weight per area (about 12 Pa for a 150 g/m2 cloth), because larger values blow the cloth apart.
+
+### trim_import
+
+Import an OBJ file as a rigid trim glued to a panel point. The mesh is recentred (x and y on the anchor, base at z 0), scaled to millimetres and stored inside the document as a trim style, so the project does not depend on the file afterwards. One undo step.
+
+- `collision`: boolean; default true; Whether the trim collides with the cloth.
+- `name`: string; Name of the trim style. Defaults to the file name.
+- `panel`: integer; required; range 1.0 to 4294967295.0; Panel the trim is attached to.
+- `path`: string; required; Absolute path of an .obj file, at most 8 MB and 20,000 triangles after fan triangulation.
+- `point`: array of number; required; Anchor point on the panel; it must lie inside the outline.
+- `rotation`: number; range -360.0 to 360.0; Rotation about the surface normal.
+- `scale`: number; range 1e-06 to 1000000.0; Millimetres per unit of the file. Default 1.
+- `space`: string (world | local); default "world"; world: coordinates on the pattern plane. local: coordinates inside the panel before its position, rotation and mirror apply.
+- `up`: string (z | y); default "z"; Axis of the file that points out of the cloth.
+
+### trim_debug
+
+Read only: what the simulation would read from the trims right now. Hardware attached to mesh triangles with barycentric weights, button and buttonhole fastenings, zipper binding counts and the stiffened triangle count per panel.
+
+- no parameters
+
+Note: read-only.
 [ffb-tools:end]
 
 ## Not yet available
