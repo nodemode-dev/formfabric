@@ -150,6 +150,8 @@ export const srLatn: Record<string, string> = {
   "Step": "Korak",
   "Fast": "Brzo",
   "Fine": "Fino",
+  "Quality": "Kvalitet",
+  "Final": "Završno",
   "Drape on or off (Space)": "Uključi ili isključi pad tkanine (razmaknica)",
   "Back to the placed state": "Nazad na postavljeno stanje",
   "Keep the draped shape": "Zadrži oblik posle pada",

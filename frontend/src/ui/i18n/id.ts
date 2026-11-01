@@ -150,6 +150,8 @@ export const id: Record<string, string> = {
   "Step": "Langkah",
   "Fast": "Cepat",
   "Fine": "Halus",
+  "Quality": "Kualitas",
+  "Final": "Final",
   "Drape on or off (Space)": "Jatuhnya kain aktif atau mati (Spasi)",
   "Back to the placed state": "Kembali ke kondisi yang ditempatkan",
   "Keep the draped shape": "Pertahankan bentuk setelah jatuh",

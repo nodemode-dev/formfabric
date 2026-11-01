@@ -150,6 +150,8 @@ export const vi: Record<string, string> = {
   "Step": "Bước",
   "Fast": "Nhanh",
   "Fine": "Mịn",
+  "Quality": "Chất lượng",
+  "Final": "Cuối cùng",
   "Drape on or off (Space)": "Bật hoặc tắt độ rủ (Phím cách)",
   "Back to the placed state": "Quay lại trạng thái đã đặt",
   "Keep the draped shape": "Giữ hình dạng sau khi rủ",

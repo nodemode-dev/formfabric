@@ -24,9 +24,10 @@ const CSS = `
 `;
 
 const PRESETS: Array<[string, string]> = [
-  ['normal', 'Normal'],
   ['fast', 'Fast'],
-  ['fine', 'Fine'],
+  ['normal', 'Normal'],
+  ['quality', 'Quality'],
+  ['final', 'Final'],
 ];
 
 const SYNC_KEYS = ['simSubsteps', 'simGravity', 'simThickness'] as const;

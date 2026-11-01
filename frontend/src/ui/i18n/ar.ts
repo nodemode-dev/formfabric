@@ -150,6 +150,8 @@ export const ar: Record<string, string> = {
   "Step": "خطوة",
   "Fast": "سريع",
   "Fine": "دقيق",
+  "Quality": "الجودة",
+  "Final": "نهائي",
   "Drape on or off (Space)": "تشغيل السقوط أو إيقافه (مسافة)",
   "Back to the placed state": "العودة إلى الحالة الموضوعة",
   "Keep the draped shape": "الاحتفاظ بالشكل بعد السقوط",

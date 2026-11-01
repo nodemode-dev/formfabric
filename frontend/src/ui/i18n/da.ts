@@ -150,6 +150,8 @@ export const da: Record<string, string> = {
   "Step": "Trin",
   "Fast": "Hurtig",
   "Fine": "Fin",
+  "Quality": "Kvalitet",
+  "Final": "Endelig",
   "Drape on or off (Space)": "Fald til eller fra (Mellemrum)",
   "Back to the placed state": "Tilbage til den placerede tilstand",
   "Keep the draped shape": "Behold den faldne form",

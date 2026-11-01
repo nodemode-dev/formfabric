@@ -150,6 +150,8 @@ export const hi: Record<string, string> = {
   "Step": "चरण",
   "Fast": "तेज़",
   "Fine": "बारीक",
+  "Quality": "गुणवत्ता",
+  "Final": "अंतिम",
   "Drape on or off (Space)": "ड्रेप चालू या बंद करें (स्पेस)",
   "Back to the placed state": "रखी हुई स्थिति पर लौटें",
   "Keep the draped shape": "ड्रेप किया हुआ आकार रखें",

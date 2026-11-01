@@ -150,6 +150,8 @@ export const ptBR: Record<string, string> = {
   "Step": "Passo",
   "Fast": "Rápido",
   "Fine": "Fino",
+  "Quality": "Qualidade",
+  "Final": "Final",
   "Drape on or off (Space)": "Ligar ou desligar o caimento (Espaço)",
   "Back to the placed state": "Voltar ao estado posicionado",
   "Keep the draped shape": "Manter a forma caída",

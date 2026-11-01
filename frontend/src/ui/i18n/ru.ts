@@ -150,6 +150,8 @@ export const ru: Record<string, string> = {
   "Step": "Шаг",
   "Fast": "Быстро",
   "Fine": "Точно",
+  "Quality": "Качество",
+  "Final": "Финальный",
   "Drape on or off (Space)": "Включить или выключить драпировку (Пробел)",
   "Back to the placed state": "Вернуться к исходному положению",
   "Keep the draped shape": "Сохранить форму после драпировки",

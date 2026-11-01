@@ -150,6 +150,8 @@ export const de: Record<string, string> = {
   "Step": "Schritt",
   "Fast": "Schnell",
   "Fine": "Fein",
+  "Quality": "Qualität",
+  "Final": "Final",
   "Drape on or off (Space)": "Drapieren ein oder aus (Leertaste)",
   "Back to the placed state": "Zurück zum platzierten Zustand",
   "Keep the draped shape": "Drapierte Form übernehmen",

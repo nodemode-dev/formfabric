@@ -150,6 +150,8 @@ export const uk: Record<string, string> = {
   "Step": "Крок",
   "Fast": "Швидко",
   "Fine": "Точно",
+  "Quality": "Якість",
+  "Final": "Фінальний",
   "Drape on or off (Space)": "Увімкнути або вимкнути драпірування (Пробіл)",
   "Back to the placed state": "Повернутися до початкового положення",
   "Keep the draped shape": "Зберегти форму після драпірування",

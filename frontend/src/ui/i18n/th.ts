@@ -150,6 +150,8 @@ export const th: Record<string, string> = {
   "Step": "ทีละขั้น",
   "Fast": "เร็ว",
   "Fine": "ละเอียด",
+  "Quality": "คุณภาพ",
+  "Final": "ขั้นสุดท้าย",
   "Drape on or off (Space)": "เปิดหรือปิดการตกทิ้งตัว (Space)",
   "Back to the placed state": "กลับสู่สถานะที่วางไว้",
   "Keep the draped shape": "เก็บรูปทรงหลังตกทิ้งตัว",

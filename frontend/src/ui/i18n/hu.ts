@@ -150,6 +150,8 @@ export const hu: Record<string, string> = {
   "Step": "Lépés",
   "Fast": "Gyors",
   "Fine": "Finom",
+  "Quality": "Minőség",
+  "Final": "Végleges",
   "Drape on or off (Space)": "Esés be vagy ki (szóköz)",
   "Back to the placed state": "Vissza az elhelyezett állapotba",
   "Keep the draped shape": "Az esett forma megtartása",

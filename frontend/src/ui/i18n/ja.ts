@@ -150,6 +150,8 @@ export const ja: Record<string, string> = {
   "Step": "ステップ",
   "Fast": "高速",
   "Fine": "高精細",
+  "Quality": "高品質",
+  "Final": "最終",
   "Drape on or off (Space)": "ドレープのオンとオフ（スペース）",
   "Back to the placed state": "配置した状態に戻す",
   "Keep the draped shape": "ドレープした形を保持",

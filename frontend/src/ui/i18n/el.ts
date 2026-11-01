@@ -150,6 +150,8 @@ export const el: Record<string, string> = {
   "Step": "Βήμα",
   "Fast": "Γρήγορα",
   "Fine": "Λεπτομερώς",
+  "Quality": "Ποιότητα",
+  "Final": "Τελικό",
   "Drape on or off (Space)": "Ενεργοποίηση ή απενεργοποίηση πτώσης (Διάστημα)",
   "Back to the placed state": "Επιστροφή στην τοποθετημένη κατάσταση",
   "Keep the draped shape": "Διατήρηση του σχήματος μετά την πτώση",

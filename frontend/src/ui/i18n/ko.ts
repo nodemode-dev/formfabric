@@ -150,6 +150,8 @@ export const ko: Record<string, string> = {
   "Step": "단계",
   "Fast": "빠름",
   "Fine": "정밀",
+  "Quality": "품질",
+  "Final": "최종",
   "Drape on or off (Space)": "드레이프 켜기 또는 끄기 (스페이스)",
   "Back to the placed state": "배치한 상태로 되돌리기",
   "Keep the draped shape": "드레이프된 형태 유지",

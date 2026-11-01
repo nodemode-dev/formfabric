@@ -150,6 +150,8 @@ export const fi: Record<string, string> = {
   "Step": "Askel",
   "Fast": "Nopea",
   "Fine": "Hieno",
+  "Quality": "Laatu",
+  "Final": "Lopullinen",
   "Drape on or off (Space)": "Laskeutuminen päälle tai pois (välilyönti)",
   "Back to the placed state": "Takaisin sijoitettuun tilaan",
   "Keep the draped shape": "Säilytä laskeutunut muoto",

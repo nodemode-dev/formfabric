@@ -150,6 +150,8 @@ export const cs: Record<string, string> = {
   "Step": "Krok",
   "Fast": "Rychle",
   "Fine": "Jemně",
+  "Quality": "Kvalita",
+  "Final": "Finální",
   "Drape on or off (Space)": "Zapnout nebo vypnout splývání (mezerník)",
   "Back to the placed state": "Zpět do umístěného stavu",
   "Keep the draped shape": "Zachovat splynulý tvar",

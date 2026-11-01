@@ -150,6 +150,8 @@ export const sv: Record<string, string> = {
   "Step": "Steg",
   "Fast": "Snabb",
   "Fine": "Fin",
+  "Quality": "Kvalitet",
+  "Final": "Slutlig",
   "Drape on or off (Space)": "Fall på eller av (mellanslag)",
   "Back to the placed state": "Tillbaka till det placerade läget",
   "Keep the draped shape": "Behåll den fallna formen",

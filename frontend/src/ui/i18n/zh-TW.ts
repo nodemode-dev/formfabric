@@ -150,6 +150,8 @@ export const zhTW: Record<string, string> = {
   "Step": "單步",
   "Fast": "快速",
   "Fine": "精細",
+  "Quality": "品質",
+  "Final": "最終",
   "Drape on or off (Space)": "開啟或關閉垂墜（空白鍵）",
   "Back to the placed state": "回到擺放狀態",
   "Keep the draped shape": "保留垂墜後的形狀",

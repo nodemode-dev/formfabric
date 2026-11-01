@@ -150,6 +150,8 @@ export const zhCN: Record<string, string> = {
   "Step": "单步",
   "Fast": "快速",
   "Fine": "精细",
+  "Quality": "质量",
+  "Final": "最终",
   "Drape on or off (Space)": "开启或关闭悬垂（空格键）",
   "Back to the placed state": "回到摆放状态",
   "Keep the draped shape": "保留悬垂后的形状",

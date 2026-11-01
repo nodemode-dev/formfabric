@@ -150,6 +150,8 @@ export const nl: Record<string, string> = {
   "Step": "Stap",
   "Fast": "Snel",
   "Fine": "Fijn",
+  "Quality": "Kwaliteit",
+  "Final": "Definitief",
   "Drape on or off (Space)": "Val aan of uit (Spatie)",
   "Back to the placed state": "Terug naar de geplaatste stand",
   "Keep the draped shape": "De gevallen vorm behouden",

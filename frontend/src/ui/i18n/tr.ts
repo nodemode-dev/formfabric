@@ -150,6 +150,8 @@ export const tr: Record<string, string> = {
   "Step": "Adım",
   "Fast": "Hızlı",
   "Fine": "İnce",
+  "Quality": "Kalite",
+  "Final": "Nihai",
   "Drape on or off (Space)": "Dökümü aç veya kapat (Boşluk)",
   "Back to the placed state": "Yerleştirilmiş duruma dön",
   "Keep the draped shape": "Dökülmüş şekli koru",

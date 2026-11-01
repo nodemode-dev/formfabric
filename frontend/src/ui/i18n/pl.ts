@@ -150,6 +150,8 @@ export const pl: Record<string, string> = {
   "Step": "Krok",
   "Fast": "Szybko",
   "Fine": "Dokładnie",
+  "Quality": "Jakość",
+  "Final": "Finalny",
   "Drape on or off (Space)": "Włącz lub wyłącz układanie tkaniny (Spacja)",
   "Back to the placed state": "Wróć do stanu początkowego",
   "Keep the draped shape": "Zachowaj ułożony kształt",
