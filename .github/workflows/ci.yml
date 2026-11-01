@@ -1,0 +1,109 @@
+name: ci
+
+on:
+  push:
+    branches: [main, 'compile_v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+# A pull request's newer push cancels its older run. Runs on main and compile_v* are never cancelled: formcompiler
+# releases a commit only when this workflow passed on that exact commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain (pinned in rust-toolchain.toml)
+        run: rustup toolchain install && rustc --version && cargo clippy --version
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - name: Check and clippy
+        run: ./formfabric engine check
+      - name: Browser engine
+        run: ./formfabric engine wasm
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain (pinned in rust-toolchain.toml)
+        run: rustup toolchain install && rustc --version && cargo clippy --version
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Window bundle where the freeze puts it
+        run: |
+          (cd ../frontend && npm ci && npm run build)
+          cp -R ../frontend/dist frontend_dist
+      - name: Service venv with the engine module
+        run: |
+          python -m venv venv
+          venv/bin/pip install -r requirements.txt
+          ../formfabric engine build
+      - run: venv/bin/python formfabric_engine.py --selfcheck
+
+  desktop-shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tauri system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - name: Rust toolchain (pinned in rust-toolchain.toml)
+        run: rustup toolchain install && rustc --version
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Window bundle and sidecar placeholder the Tauri build script looks for
+        run: |
+          (cd frontend && npm ci && npm run build)
+          mkdir -p src-tauri/binaries src-tauri/engine
+          touch "src-tauri/binaries/formfabric-engine-$(rustc -vV | awk '/^host:/ {print $2}')"
+      - name: Cargo check of the desktop shell
+        working-directory: src-tauri
+        run: cargo check --locked
