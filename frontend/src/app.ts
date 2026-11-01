@@ -25,6 +25,7 @@ import { HomeScreen } from './shell/home';
 import { probeGpu } from './shell/gpu';
 import { LayoutState } from './shell/layout';
 import { buildMenus } from './shell/menus';
+import { nativeDialogs, pickPath } from './shell/file-dialog';
 import { Session } from './shell/session';
 import { StatusBar } from './shell/statusbar';
 import { TitleBar } from './shell/titlebar';
@@ -88,6 +89,12 @@ export function startApp(): void {
 
   const runEngine = async (c: CatalogueCommand, params?: Record<string, unknown>): Promise<unknown> => {
     let args = params;
+    const filing = c.id === 'file.open' || c.id === 'file.save';
+    if (!args && filing && nativeDialogs() && !(c.id === 'file.save' && session.path)) {
+      const picked = await pickPath(c.id === 'file.open' ? 'open' : 'save', session.path);
+      if (!picked) return undefined;
+      args = { path: picked };
+    }
     if (!args && hasRequired(c.inputSchema)) {
       args = (await exactInput(t(c.label).replace(/\.\.\.$/, ''), c.inputSchema, c.id === 'file.save' || c.id === 'file.open' ? { path: session.path ?? undefined } : {})) ?? undefined;
       if (!args) return undefined;
@@ -98,7 +105,7 @@ export function startApp(): void {
       const result = await call(c.id, args ?? {});
       const path = typeof args?.path === 'string' ? args.path : session.path;
       if (c.id === 'file.new') session.set(null, false);
-      else if ((c.id === 'file.open' || c.id === 'file.save') && path) { session.set(path, false); session.remember(path, loadPrefs().recentFileCount); }
+      else if ((c.id === 'file.open' || c.id === 'file.save') && path) { session.set(path, false); session.remember(path, loadPrefs().recentFileCount); void session.pull(); }
       void refresh();
       return result;
     } catch (err) {
@@ -120,6 +127,7 @@ export function startApp(): void {
       native?.refresh();
       home.refresh();
       void refresh();
+      void session.pull();
     } catch { loaded = false; }
   };
 

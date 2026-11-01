@@ -4,7 +4,7 @@ import sys
 from fastapi import APIRouter
 
 from app.core import config
-from app.services import engine
+from app.services import engine, recent
 
 router = APIRouter()
 
@@ -17,6 +17,11 @@ def health() -> dict:
 @router.get("/version")
 def version() -> dict:
     return {"app": config.APP_NAME, "version": config.VERSION}
+
+
+@router.get("/recent")
+def recent_files() -> dict:
+    return {"files": recent.listing()}
 
 
 @router.get("/capabilities")

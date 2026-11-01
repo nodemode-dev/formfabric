@@ -83,6 +83,15 @@ export function catalogue(fresh = false): Promise<Catalogue> {
   return pending;
 }
 
+export async function fetchRecent(): Promise<string[] | null> {
+  try {
+    const response = await fetch(`${base()}/api/recent`, { cache: 'no-store' });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { files?: Array<{ path?: unknown }> };
+    return Array.isArray(body.files) ? body.files.map((f) => f.path).filter((p): p is string => typeof p === 'string') : null;
+  } catch { return null; }
+}
+
 export async function fetchVersion(): Promise<Version | null> {
   try {
     const response = await fetch(`${base()}/api/version`, { cache: 'no-store' });

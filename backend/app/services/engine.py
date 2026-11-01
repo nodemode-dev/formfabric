@@ -1,7 +1,7 @@
 import json
 import threading
 
-from app.services import events
+from app.services import events, recent
 
 try:
     import ffb_engine
@@ -13,6 +13,7 @@ _lock = threading.Lock()
 _engine = ffb_engine.Engine() if ffb_engine else None
 _epoch = 0
 _read_only: set[str] | None = None
+_RECENT_NAMES = {"file.save", "file.open", "file_save", "file_open"}
 
 
 class EngineUnavailable(RuntimeError):
@@ -63,6 +64,8 @@ def dispatch(name: str, args: dict | None, notify: bool = True) -> dict:
     _require()
     with _lock:
         reply = json.loads(_engine.dispatch(name, json.dumps(args or {})))
+    if reply.get("ok") and name in _RECENT_NAMES and isinstance((args or {}).get("path"), str):
+        recent.note(args["path"])
     if reply.get("ok") and not read_only(name):
         _bump()
         if notify:

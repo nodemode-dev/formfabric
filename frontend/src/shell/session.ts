@@ -1,9 +1,12 @@
+import { fetchRecent } from '../engine/service';
+
 export class Session {
   path: string | null = null;
   dirty = false;
   active = false;
   private readonly listeners = new Set<() => void>();
   private readonly KEY = 'formfabric.recent';
+  private remote: string[] | null = null;
 
   name(): string {
     return this.path ? (this.path.split(/[\\/]/).pop() ?? this.path) : 'Untitled';
@@ -30,7 +33,15 @@ export class Session {
 
   private emit(): void { for (const fn of this.listeners) fn(); }
 
+  async pull(): Promise<void> {
+    const list = await fetchRecent();
+    if (!list || (this.remote && this.remote.join('\n') === list.join('\n'))) return;
+    this.remote = list;
+    this.emit();
+  }
+
   recent(): string[] {
+    if (this.remote) return this.remote;
     try {
       const v: unknown = JSON.parse(localStorage.getItem(this.KEY) ?? '[]');
       return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
@@ -45,6 +56,7 @@ export class Session {
 
   forget(path?: string): void {
     const next = path ? this.recent().filter((p) => p !== path) : [];
+    if (this.remote) this.remote = next;
     try { localStorage.setItem(this.KEY, JSON.stringify(next)); } catch { return; }
     this.emit();
   }
