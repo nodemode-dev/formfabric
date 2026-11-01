@@ -33,7 +33,11 @@ export function buildMenus(commands: Commands, recent: () => string[]): MenuDef[
     { label: 'File', items: () => {
       used.clear();
       const files = recent().slice(0, 10).map((_, i) => `app.recent.${i}`);
-      return tidy([...fixed(['file.new', 'file.open']), { label: 'Open Recent', items: files.length ? [...files, '-', 'app.clear_recent'] : NONE }, '-', ...fixed(['file.save', 'app.save_as', '-', 'app.home']), ...group('Export').length ? ['-' as const, ...group('Export')] : [], '-', ...fixed(['app.exit'])]);
+      const exports = fixed(commands.all().filter((c) => c.id.startsWith('app.export.')).map((c) => c.id));
+      fixed(['export.formats', 'export.run']);
+      const others = group('Export');
+      const sub: MenuItem[] = [...exports, ...(exports.length && others.length ? ['-' as const] : []), ...others];
+      return tidy([...fixed(['file.new', 'file.open']), { label: 'Open Recent', items: files.length ? [...files, '-', 'app.clear_recent'] : NONE }, '-', ...fixed(['file.save', 'app.save_as', '-', 'app.home']), ...(sub.length ? ['-' as const, { label: 'Export', items: sub }] : []), '-', ...fixed(['app.exit'])]);
     } },
     { label: 'Edit', items: () => {
       used.clear();
@@ -44,6 +48,7 @@ export function buildMenus(commands: Commands, recent: () => string[]): MenuDef[
     { label: 'Drape', items: () => withGroup([], 'Sim') },
     { label: 'Body', items: () => withGroup([], 'Body') },
     { label: 'Fabric', items: () => withGroup([], 'Fabric') },
+    { label: 'Output', items: () => { used.clear(); return tidy(fixed(['app.output.panel', 'app.output.uv', '-', 'app.output.guides', 'app.output.bake', 'app.output.gameready'])); } },
     { label: 'View', items: () => {
       used.clear();
       return withGroup(fixed(['app.layout_2d', 'app.layout_split', 'app.layout_3d', '-', 'app.snap_grid', 'app.snap_points', 'app.snap_edges', '-', 'app.units_mm', 'app.units_cm', 'app.units_in', '-', 'app.theme_toggle', 'app.custom_title_bar', 'app.menus_in_window']), 'View');

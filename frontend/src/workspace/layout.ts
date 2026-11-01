@@ -63,6 +63,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   void import('./fabric').then((m) => m.mountFabric(root, deps, doc, sel));
   void import('./body').then((m) => m.mountBody(root, deps, doc, sel));
   void import('./trims').then((m) => m.mountTrims(root, deps, doc, sel));
+  void import('./anim').then((m) => m.mountAnim(root, deps, doc, sel));
   const zoomEl = q(root, '[data-k="zoom"]');
 
   const toolsEl = q(root, '[data-k="tools"]');
@@ -79,6 +80,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   });
   setText(zoomEl, `${Math.round(view.cam.s * 100)}%`);
   trimHooks.addPrint = (id) => { void addPrint(view, id, null); };
+  void import('./output').then((m) => m.mountOutput(root, deps, doc, sel, view));
   const check = new SeamCheck(q(root, '[data-k="pane2d"]'), doc, sel, () => { inspector.update(); view.redraw(); check.update(); }, (on) => setClass(checkBtn, 'is-on', on));
 
   const addButton = (id: string, iconName: string, key: string, label: string, onClick: () => void): HTMLButtonElement => {
