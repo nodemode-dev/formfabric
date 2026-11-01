@@ -2,6 +2,40 @@
 
 Living context for the window. What would be comments in `frontend/` lives here, newest first. Read before editing.
 
+## v0.4.0 to v0.6.0 · 2026-11-01
+
+### Shell
+
+- Menus build their items once per command list and refresh labels, enabled state, checks and key hints in place; a second open adds or removes no node.
+- `StatusBar.setCursor(text)` owns the fixed-width cursor slot; the workspace no longer inserts its own.
+- Exact Input still builds its rows on each open, while the dialog is hidden, then shows it once: nothing visible moves.
+- `setup/i18n.py` reads the TypeScript tables and every `t()` and `tn()` call; strings reached only through arrays (fabric labels and help) are not found by `extract` but are in every table.
+- JetBrains Mono 400 is preloaded, but `--font-mono` lists `ui-monospace` first, so macOS uses the system monospace.
+
+### Pattern View, Phase 4 tools
+
+- Keys: Seam Allowance W, Notch K (1 to 4 pick the kind), Grain Line G, Dart D (Alt for an internal dart), Slash and Spread X, Mirror Edit Y, Instances J (digits set the count), Unfold O, Spiral Q, Trace T, Match Lengths H.
+- Trial protocol for the new tools (`DocStore.beginTrial`, `trial`, `commitTrial`, `cancelTrial`): every pointer move reloads the gesture-start garment into wasm, runs the command, and reuses unchanged panel objects; release sends the command once to the service.
+- Drag start: Select and Edit open the wasm drag group on pointer down and prime the caches with a zero-delta command and a snap call (`DocStore.prime`); a click without a drag discards the group. This took the first pointer move from up to 42 ms to under 3 ms at 4x throttling.
+- Derived panels draw dimmed with a link badge; edits on them are snapped back by the engine.
+
+### 3D View
+
+- Data priority per panel: stream frames, then `mesh.get`, then a local outline triangulation built synchronously on every garment change, so the view is never empty.
+- Colours: `look.front.color` and `look.back.color` (the back defaults to the front times 0.72; no fabric is grey 0.62, 0.63, 0.66), with the active colorway's colour overriding the front.
+- Shading: linear lighting with view-space key, fill and rim lights, hemisphere ambient, a highlight scaled by one minus roughness and a Fresnel sheen; two-sided through `gl_FrontFacing`. The light idea follows formsculpt's renderer; the shader is new.
+- The camera refits when the panel count changes until the user moves it. Keys 1 to 5, 0 and F act only when the pointer is over the 3D pane, the canvas has focus or the layout is 3D.
+- Selection is the workspace's shared `Selection`: a click sets it, Shift toggles, an empty click clears.
+- The gizmo appears for exactly one selected panel and only when `arrange.place` exists; dragging writes the panel's model matrix (no buffer copy) and commits once on release.
+- Measured on this sandbox's software GL at 4x throttling with a 200k-triangle panel: feed 152 ms, in-place position update 54 ms, a completed frame about 1 s. No GPU was available to measure the 60 fps target.
+
+### Fabric panel
+
+- A drawer docked against the Inspector (`right: var(--ff-insp)`, 344 px, `z-index: var(--z-chrome)`), opened from the workspace bar; the Inspector never moves.
+- Every edit is one `fabric.*` or `colorway.*` command. Store refreshes are coalesced, skipped while the drawer is closed and replayed when it opens. Lists have reserved heights and update through keyed patching.
+- Map picking is desktop-only (native dialog); the path field works in both builds.
+- No shortcut or palette entry opens the drawer yet.
+
 ## v0.1.0 to v0.3.0 · 2026-10-31
 
 ### Shell (from formvis 1.98.6, Apache-2.0, nodemode-ai)

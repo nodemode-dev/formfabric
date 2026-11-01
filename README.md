@@ -12,7 +12,7 @@ Planned stack · Rust engine (`native/`, one Cargo workspace, wgpu compute solve
 
 ## Status
 
-Phases 1 to 3 of 18 have landed: the family window shell, the Rust engine skeleton and the 2D pattern core. You can draw and edit panels with exact dimensions, undo every step, and save and reopen `.ffbrc` projects, from the window or through MCP. Sewing, simulation, bodies and export follow in later phases (see the parity matrix).
+Phases 1 to 6 of 18 have landed: the family window shell, the Rust engine, the 2D pattern core and advanced pattern tools, meshing with a live 3D View, and fabrics. You can draft panels with seam allowance, notches, darts, slash and spread, mirrored and instanced copies, exchange patterns as DXF-AAMA, see every panel meshed at its particle distance in 3D, and give panels fabrics with physical properties from measured data. Sewing, simulation, bodies, animation and export follow in later phases (see the parity matrix).
 
 ## Quick start
 

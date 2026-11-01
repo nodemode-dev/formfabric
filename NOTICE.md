@@ -11,6 +11,12 @@ formfabric is licensed under the Apache License 2.0 (see `LICENSE`). Copyright 2
 | formsculpt scripts, service, dock and engine pieces (nodemode-ai) | Apache-2.0 | `formfabric`, `formfabric.bat`, `build_app`, `setup/`, `backend/app/` (core, terminal, Claude Code, chat, agents, MCP), `frontend/src/dock/`, `frontend/src/styles/dock.css`, `native/crates/ffb-core/src/{bvh,mesh}.rs`, the registry and history shape in `native/crates/ffb-commands`, `ffb-py`, `ffb-wasm`, `frontend/src/workspace/view3d/{camera,math}.ts`, `.claude/` and `.agents/` kit layout, `setup/agents.py` (adapted) |
 | NodeMode design system tokens | MIT | `frontend/src/styles/tokens.css` (values) |
 
+## Data
+
+Fabric presets and Fabric Lab formulas are derived from published measurements and textile-testing literature cited in `docs/encyclopedia/16-FABRIC-DATA.md`; the values are formfabric's own and no dataset is redistributed.
+
+The DXF-AAMA reader and writer follow the public ASTM D6673 conventions as described in the sources cited in the build notes; no code from any CAD vendor is included.
+
 ## Referenced, not included
 
 `docs/encyclopedia/` describes Marvelous Designer (CLO Virtual Fashion Inc.) from public sources, paraphrased and linked. No code, artwork, avatars, presets or manual text from it are included. Marvelous Designer and CLO are trademarks of CLO Virtual Fashion Inc.
@@ -24,7 +30,8 @@ formfabric is licensed under the Apache License 2.0 (see `LICENSE`). Copyright 2
 | @tauri-apps/api, @tauri-apps/plugin-dialog | MIT or Apache-2.0 | window bridge, file dialogs |
 | Tauri 2 crates and plugins (updater, dialog, shell, single instance) | MIT or Apache-2.0 | desktop shell |
 | glam, serde, serde_json, regex | MIT or Apache-2.0 | engine and shell |
-| zip, flate2, miniz_oxide, zopfli, adler2 | MIT, Zlib, Apache-2.0, 0BSD | `.ffbrc` container |
+| zip, flate2, miniz_oxide, zopfli, adler2 | MIT, Zlib, Apache-2.0, 0BSD | `.ffbrc` and `.ffab` containers |
+| spade and its dependencies | MIT or Apache-2.0 | constrained Delaunay meshing of panels |
 | tungstenite, getrandom, rand, sha1 and the RustCrypto support crates | MIT or Apache-2.0 | frame stream |
 | pyo3 | MIT or Apache-2.0 | Python engine module |
 | FastAPI, Starlette, pydantic | MIT, BSD-3-Clause | engine service |
