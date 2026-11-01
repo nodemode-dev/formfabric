@@ -1,6 +1,20 @@
 # formfabric
 
-Garment pattern design and cloth simulation app in the NodeMode design system: Rust engine workspace, vanilla TypeScript and Vite frontend, Python and FastAPI service, Tauri 2 shell. At v0.0.1 the repo holds the research encyclopedia only; the build follows the plan of record in the planning sidecar.
+Garment pattern design and cloth simulation app in the NodeMode design system: Rust engine workspace, vanilla TypeScript and Vite frontend, Python and FastAPI service, Tauri 2 shell. The build follows the plan of record in the planning sidecar, phase by phase.
+
+## Skills
+
+- `formfabric-harness` · the orchestrator for all formfabric development. Route through its `SKILL.md` to the specialist `SUB-SKILL.md` (engine, pattern, shell-ui, service, desktop, release).
+- `formfabric-modeling` · operating formfabric through its MCP tools to draft patterns, not changing its code.
+
+## Code rules
+
+- `native/crates/ffb-commands` is the only place a command is declared. Menus, palette, shortcuts, Exact Input dialogs, MCP and the agent skill all read its catalogue. After adding or changing a command, run `./formfabric engine build` and `./formfabric agents sync`.
+- The living logs `frontend/HASHOUT_LOG.md`, `backend/HASHOUT_LOG.md` and `native/HASHOUT_LOG.md` are in the tree: read them before editing their side, and add to them in the same change.
+- Every `z-index` comes from a `--z-*` token in `frontend/src/styles/tokens.css`. Vite binds localhost only. No icon libraries, no emoji, no em dashes in markdown, near-zero comments.
+- Edits are single-region hand edits against a fresh read; no scripted or patch-applied edits.
+- No test files unless the owner asks; testing intent goes to `TEST_PLAN.md` in the planning sidecar.
+- A new interface string lands in every table under `frontend/src/ui/i18n/` in the same change.
 
 ## Repo layout notes
 

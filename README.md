@@ -12,7 +12,45 @@ Planned stack · Rust engine (`native/`, one Cargo workspace, wgpu compute solve
 
 ## Status
 
-v0.0.1 is the planning release. The repo holds the research encyclopedia and the license; the application is built in phases once the plan of record is approved.
+Phases 1 to 3 of 18 have landed: the family window shell, the Rust engine skeleton and the 2D pattern core. You can draw and edit panels with exact dimensions, undo every step, and save and reopen `.ffbrc` projects, from the window or through MCP. Sewing, simulation, bodies and export follow in later phases (see the parity matrix).
+
+## Quick start
+
+```bash
+./formfabric_oc_install      # frontend packages, backend venv, engine module
+./formfabric boot            # service on 127.0.0.1:8280, window on 127.0.0.1:5280
+./formfabric desktop dev     # the desktop app with the splash
+```
+
+Requirements: Node 22, Python 3.12 or later, Rust (pinned by `rust-toolchain.toml`), and on Linux the Tauri 2 system packages.
+
+| Service | Address | Notes |
+| --- | --- | --- |
+| Window (Vite) | http://127.0.0.1:5280 | bound to localhost only |
+| Engine service | http://127.0.0.1:8280 | FastAPI, API under `/api`; the desktop app picks a free port |
+| Frame stream | 127.0.0.1, OS-assigned port | binary WebSocket from the native engine, token required |
+
+## Commands
+
+| Command | Does |
+| --- | --- |
+| `./formfabric engine build` | builds the Rust engine and the `ffb_engine` Python module |
+| `./formfabric engine wasm` | builds the in-page preview engine |
+| `./formfabric mcp` | serves every engine command over MCP's stdio transport |
+| `./formfabric agents sync` | regenerates the agent skill's tool reference from the engine |
+| `./formfabric desktop build` | builds the installable app; forwards `--config FILE` to Tauri |
+| `./formfabric help` | every verb |
+
+## Layout
+
+| Folder | Holds |
+| --- | --- |
+| `native/` | Rust workspace: `ffb-core`, `ffb-pattern`, `ffb-commands`, `ffb-io`, `ffb-stream`, `ffb-py`, `ffb-wasm` |
+| `backend/` | FastAPI engine service, MCP servers, terminal and Claude Code services |
+| `frontend/` | the window: shell, dock, workspace with Pattern View and 3D View |
+| `src-tauri/` | Tauri 2 desktop shell |
+| `setup/` | install, boot, build and freeze scripts |
+| `docs/encyclopedia/` | the behaviour specification formfabric is built against |
 
 ## The encyclopedia
 
