@@ -8,6 +8,8 @@ ffb_say "installing backend"
 if command -v cargo >/dev/null 2>&1; then
   ffb_say "building the engine"
   "$FFB_ROOT/setup/engine_build"
+  ffb_say "building the in-page preview engine"
+  "$FFB_ROOT/setup/engine_wasm" || ffb_say "the preview engine was not built; run ./formfabric engine wasm"
 fi
 ffb_say "installing frontend"
 ( cd "$FFB_ROOT/frontend" && ./oc_install )
