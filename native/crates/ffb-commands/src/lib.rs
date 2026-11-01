@@ -30,6 +30,7 @@ use serde_json::{json, Value};
 pub use file_cmds::{open_data, save_data};
 pub use history::{Edit, History, DEFAULT_STEPS, MAX_STEPS};
 pub use body_cmds::StreamState as BodyStream;
+pub use remesh_cmds::{quad_meshes, QuadPanel};
 
 pub fn publish_all(session: &mut Session) {
     mesh_cmds::publish_all(session);
@@ -98,6 +99,7 @@ pub struct Command {
 pub trait FrameSink: Send + Sync {
     fn topology(&self, object: u32, indices: &[u32], panel_ids: &[u16]);
     fn positions(&self, object: u32, positions: &[f32]);
+    fn scalars(&self, _object: u32, _map: u32, _component: u32, _min: f32, _max: f32, _values: &[f32]) {}
 }
 
 #[derive(Default)]
@@ -110,8 +112,11 @@ pub struct Session {
     pub sink: Option<std::sync::Arc<dyn FrameSink>>,
     pub mesh: mesh_cmds::MeshState,
     pub sim: sim_cmds::SimState,
+    pub anim: anim_cmds::AnimState,
+    pub remesh: remesh_cmds::RemeshState,
     pub bodies: Vec<ffb_body::Body>,
     pub body_stream: body_cmds::StreamState,
+    pub viz: viz_cmds::VizState,
 }
 
 impl std::fmt::Debug for Session {

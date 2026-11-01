@@ -12,3 +12,9 @@ ffb-core.workspace = true
 glam.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+ffb-body.workspace = true
+ffb-pattern.workspace = true
+gltf = { version = "1.4", default-features = false, features = ["utils", "names"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ufbx = "0.11"
