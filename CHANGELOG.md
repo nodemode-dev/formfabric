@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.0 · 2026-10-31
+
+Phase 2, the engine skeleton.
+
+- Rust engine workspace with one command registry that drives menus, palette, shortcuts, Exact Input dialogs and MCP; typed undo history.
+- `.ffbrc` project files: save and reopen, unknown entries preserved.
+- The `ffb_engine` Python module behind the service, a wasm build for in-page previews, and the binary frame stream the solver will use.
+- MCP over stdio and HTTP generated from the catalogue; harness and modeling skills kept in sync with it.
+- CI checks on `main` and `compile_v*` branches.
+- Recent projects from the service, native Open and Save dialogs in the desktop app.
+
 ## v0.1.0 · 2026-10-31
 
 Phase 1, the family shell.
