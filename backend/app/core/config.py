@@ -51,3 +51,8 @@ def window_origins() -> list[str]:
     preview = FRONTEND_PORT + 2
     own = engine_port()
     return [*cors_origins(), f"http://localhost:{preview}", f"http://127.0.0.1:{preview}", f"http://127.0.0.1:{own}", f"http://localhost:{own}", "tauri://localhost", "http://tauri.localhost"]
+
+
+def window_token() -> str | None:
+    raw = os.environ.get("FFB_WINDOW_TOKEN", "").strip()
+    return raw if len(raw) >= 16 else None

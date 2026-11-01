@@ -31,12 +31,22 @@ export class Link {
   socketUrl(path: string): string {
     const u = new URL(this.serviceUrl(path), location.href);
     u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+    const token = this.token();
+    if (token) u.searchParams.set('ffb_window', token);
     return u.toString();
   }
 
+  private token(): string {
+    const found = (window as unknown as { __FFB_WINDOW__?: unknown }).__FFB_WINDOW__;
+    return typeof found === 'string' ? found : '';
+  }
+
   async cmd<T = unknown>(id: string, params: Record<string, unknown> = {}): Promise<T> {
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    const token = this.token();
+    if (token) headers['x-ffb-window'] = token;
     const res = await fetch(this.serviceUrl(`/api/commands/${encodeURIComponent(id)}`), {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(params),
+      method: 'POST', headers, body: JSON.stringify(params),
     });
     const body = await res.json().catch(() => ({})) as { result?: T; detail?: string; error?: string };
     if (!res.ok) throw new ServiceError(body.detail || body.error || `${id} failed (${res.status})`, res.status);

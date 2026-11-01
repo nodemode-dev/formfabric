@@ -291,6 +291,38 @@ fn single_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
         .build()
 }
 
+#[cfg(unix)]
+fn fill_random(buf: &mut [u8]) -> std::io::Result<()> {
+    use std::io::Read;
+    std::fs::File::open("/dev/urandom")?.read_exact(buf)
+}
+
+#[cfg(windows)]
+fn fill_random(buf: &mut [u8]) -> std::io::Result<()> {
+    #[link(name = "advapi32")]
+    extern "system" {
+        fn SystemFunction036(buffer: *mut u8, length: u32) -> u8;
+    }
+    let ok = unsafe { SystemFunction036(buf.as_mut_ptr(), buf.len() as u32) };
+    if ok != 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
+}
+
+fn window_token() -> String {
+    let mut bytes = [0u8; 32];
+    fill_random(&mut bytes).expect("the operating system gave no random bytes for the window token");
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn window_script(url: &str, token: &str) -> String {
+    let url = serde_json::to_string(url).unwrap_or_default();
+    let token = serde_json::to_string(token).unwrap_or_default();
+    format!("(function(){{if(location.origin!=={url})return;window.__FFB_ENGINE__={url};window.__FFB_WINDOW__={token};}})();")
+}
+
 fn main() {
     reveal::mark_launch();
     if let Some(code) = packaged::command_line() {
@@ -351,7 +383,8 @@ fn main() {
                     .sidecar("formfabric-engine")
                     .expect("the formfabric engine sidecar is missing; bundle its binary"),
             };
-            let mut sidecar = engine.env("FFB_PORT", "0");
+            let token = window_token();
+            let mut sidecar = engine.env("FFB_PORT", "0").env("FFB_WINDOW_TOKEN", &token);
             if let Some(path) = packaged::launcher() {
                 sidecar = sidecar.env("FORMFABRIC_LAUNCHER", path);
             }
@@ -414,6 +447,7 @@ fn main() {
                         .inner_size(width, height)
                         .min_inner_size(MIN_SIZE.0, MIN_SIZE.1)
                         .disable_drag_drop_handler()
+                        .initialization_script(window_script(&url, &token))
                         .on_navigation({
                             let handle = handle.clone();
                             move |url| match window_state::shell_choice(url) {

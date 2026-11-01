@@ -3,6 +3,8 @@ import { defineConfig } from 'vite';
 const frontendRaw = Number(process.env.FFB_FRONTEND_PORT);
 const FRONTEND_PORT = Number.isInteger(frontendRaw) && frontendRaw > 0 && frontendRaw < 65534 ? frontendRaw : 5280;
 const BACKEND_PORT = Number(process.env.FFB_PORT) || 8280;
+const WINDOW_TOKEN = (process.env.FFB_WINDOW_TOKEN ?? '').trim();
+const WINDOW_HEADERS = WINDOW_TOKEN.length >= 16 ? { 'x-ffb-window': WINDOW_TOKEN } : undefined;
 
 export default defineConfig({
   root: '.',
@@ -13,7 +15,7 @@ export default defineConfig({
     strictPort: true,
     hmr: { port: FRONTEND_PORT + 1 },
     proxy: {
-      '/api': { target: `http://127.0.0.1:${BACKEND_PORT}`, changeOrigin: true, ws: true },
+      '/api': { target: `http://127.0.0.1:${BACKEND_PORT}`, changeOrigin: true, ws: true, headers: WINDOW_HEADERS },
     },
   },
   preview: {
@@ -21,7 +23,7 @@ export default defineConfig({
     host: false,
     strictPort: true,
     proxy: {
-      '/api': { target: `http://127.0.0.1:${BACKEND_PORT}`, changeOrigin: true, ws: true },
+      '/api': { target: `http://127.0.0.1:${BACKEND_PORT}`, changeOrigin: true, ws: true, headers: WINDOW_HEADERS },
     },
   },
   build: {

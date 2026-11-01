@@ -1,3 +1,4 @@
+import logging
 import re
 import secrets
 
@@ -9,6 +10,10 @@ from app.services import agents
 _ORIGIN = re.compile(r"^([a-z][a-z0-9+.\-]*)://(\[[0-9a-f:]+\]|[a-z0-9._\-]+)(?::([0-9]{1,5}))?$")
 _DEFAULT_PORT = {"http": 80, "https": 443}
 REFUSAL = "this route answers the formfabric window only"
+WINDOW_HEADER = "x-ffb-window"
+WINDOW_QUERY = "ffb_window"
+_log = logging.getLogger("formfabric.window_guard")
+_warned = False
 
 
 def exact(value: str) -> str | None:
@@ -31,9 +36,25 @@ def _token(headers) -> bool:
     return secrets.compare_digest(given.encode("utf-8"), agents.INAPP_TOKEN.encode("utf-8"))
 
 
-def from_window(headers, same_origin_read: bool = False) -> bool:
+def _window_token(given: str, expected: str) -> bool:
+    return secrets.compare_digest(given.encode("utf-8"), expected.encode("utf-8"))
+
+
+def _warn_open() -> None:
+    global _warned
+    if not _warned:
+        _warned = True
+        _log.warning("FFB_WINDOW_TOKEN is not set: window routes fall back to the exact-origin rule, which a local program can forge")
+
+
+def from_window(headers, same_origin_read: bool = False, query=None) -> bool:
     if _token(headers):
         return True
+    expected = config.window_token()
+    if expected is not None:
+        given = headers.get(WINDOW_HEADER) or (query.get(WINDOW_QUERY, "") if query is not None else "")
+        return _window_token(given, expected)
+    _warn_open()
     origin = headers.get("origin")
     if origin is not None:
         key = exact(origin)
@@ -52,4 +73,4 @@ def require_window_read(request: Request) -> None:
 
 
 def socket_from_window(ws: WebSocket) -> bool:
-    return from_window(ws.headers)
+    return from_window(ws.headers, query=ws.query_params)

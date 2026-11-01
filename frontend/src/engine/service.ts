@@ -102,3 +102,19 @@ export async function fetchVersion(): Promise<Version | null> {
 export function serviceUrl(path: string): string {
   return `${base()}${path}`;
 }
+
+function installWindowToken(): void {
+  const token = (window as unknown as { __FFB_WINDOW__?: unknown }).__FFB_WINDOW__;
+  if (typeof token !== 'string' || !token) return;
+  const native = window.fetch.bind(window);
+  const origin = new URL(base() || location.origin, location.href).origin;
+  window.fetch = (input, init) => {
+    const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+    if (url.origin !== origin || !url.pathname.startsWith('/api/')) return native(input, init);
+    const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+    headers.set('x-ffb-window', token);
+    return native(input, { ...init, headers });
+  };
+}
+
+installWindowToken();
