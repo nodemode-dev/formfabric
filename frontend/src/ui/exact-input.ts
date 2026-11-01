@@ -2,6 +2,7 @@ import type { JsonSchema } from '../engine/service';
 import { Dialog } from './dialogs';
 import { el, q, setText } from './dom';
 import { t } from './i18n';
+import { evalExpr } from './number-fields';
 
 type Values = Record<string, unknown>;
 type Read = () => unknown;
@@ -62,13 +63,16 @@ export class ExactInputDialog extends Dialog {
       control = box;
       read = () => box.checked;
     } else if (type === 'number' || type === 'integer') {
-      const inp = el<HTMLInputElement>('<input class="cv-input" type="number">');
-      inp.step = type === 'integer' ? '1' : 'any';
-      if (s.minimum !== undefined) inp.min = String(s.minimum);
-      if (s.maximum !== undefined) inp.max = String(s.maximum);
+      const inp = el<HTMLInputElement>('<input class="cv-input" type="text" inputmode="decimal" data-numtext spellcheck="false">');
       if (typeof value === 'number') inp.value = String(value);
       control = inp;
-      read = () => (inp.value.trim() === '' ? undefined : Number(inp.value));
+      read = () => {
+        if (inp.value.trim() === '') return undefined;
+        const v = evalExpr(inp.value);
+        if (v === null) return Number.NaN;
+        const n = type === 'integer' ? Math.round(v) : v;
+        return Math.min(s.maximum ?? Infinity, Math.max(s.minimum ?? -Infinity, n));
+      };
     } else if (type === 'array' || type === 'object') {
       const area = el<HTMLTextAreaElement>('<textarea class="cv-input cv-exact-json" spellcheck="false" rows="3"></textarea>');
       area.value = value === undefined ? '' : JSON.stringify(value);
