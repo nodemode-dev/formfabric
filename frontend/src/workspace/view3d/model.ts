@@ -36,6 +36,7 @@ export interface Place3D {
 export interface PanelFull extends Panel {
   fabric?: number | null;
   place3d?: Place3D | null;
+  state?: { frozen?: boolean; disabled?: boolean };
 }
 
 export interface GarmentFull extends Omit<Garment, 'panels'> {

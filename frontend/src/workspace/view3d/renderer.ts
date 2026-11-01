@@ -33,6 +33,7 @@ uniform vec3 uBack;
 uniform float uRough;
 uniform float uSheen;
 uniform vec4 uTint;
+uniform vec4 uState;
 uniform float uUseMap;
 uniform sampler2D uMap;
 uniform vec4 uMapXf;
@@ -63,6 +64,7 @@ void main() {
   float spec = pow(max(dot(nv, h), 0.0), shin) * (1.0 - uRough) * 0.35;
   float fres = pow(1.0 - clamp(dot(nv, vv), 0.0, 1.0), 3.0);
   vec3 col = base * (amb + kd * 0.95 * vec3(1.0, 0.97, 0.92) + fd * 0.28 * vec3(0.65, 0.75, 1.0) + rd * 0.12) + vec3(spec) + base * fres * uSheen * 0.9;
+  col = mix(col, uState.rgb, uState.a);
   col = mix(col, uTint.rgb, uTint.a);
   outColor = vec4(pow(col, vec3(1.0 / 2.2)), 1.0);
 }`;
@@ -104,6 +106,7 @@ export interface DrawPalette {
   accent: Float32Array;
   accentLin: Float32Array;
   line: Float32Array;
+  bgLin: Float32Array;
 }
 
 interface MeshU {
@@ -118,6 +121,7 @@ interface MeshU {
   rough: WebGLUniformLocation | null;
   sheen: WebGLUniformLocation | null;
   tint: WebGLUniformLocation | null;
+  state: WebGLUniformLocation | null;
   useMap: WebGLUniformLocation | null;
   map: WebGLUniformLocation | null;
   mapXf: WebGLUniformLocation | null;
@@ -140,7 +144,7 @@ export class MeshRenderer {
     const u = (n: string): WebGLUniformLocation | null => gl.getUniformLocation(this.mesh, n);
     this.um = {
       vp: u('uVP'), model: u('uModel'), view: u('uView'), eye: u('uEye'), fwd: u('uFwd'), ortho: u('uOrtho'),
-      front: u('uFront'), back: u('uBack'), rough: u('uRough'), sheen: u('uSheen'), tint: u('uTint'),
+      front: u('uFront'), back: u('uBack'), rough: u('uRough'), sheen: u('uSheen'), tint: u('uTint'), state: u('uState'),
       useMap: u('uUseMap'), map: u('uMap'), mapXf: u('uMapXf'), mapOff: u('uMapOff'),
     };
     this.lvp = gl.getUniformLocation(this.line, 'uVP');
@@ -210,6 +214,9 @@ export class MeshRenderer {
       else gl.uniform3f(um.back, bk[0], bk[1], bk[2]);
       gl.uniform1f(um.rough, b.rough);
       gl.uniform1f(um.sheen, b.sheen);
+      if (b.stateKind === 1) gl.uniform4f(um.state, 0.16, 0.23, 0.36, 0.55);
+      else if (b.stateKind === 2) gl.uniform4f(um.state, pal.bgLin[0], pal.bgLin[1], pal.bgLin[2], 0.72);
+      else gl.uniform4f(um.state, 0, 0, 0, 0);
       const selected = sel.has(b.id);
       if (selected) gl.uniform4f(um.tint, pal.accentLin[0], pal.accentLin[1], pal.accentLin[2], 0.3);
       else if (b.id === hover) gl.uniform4f(um.tint, 1, 1, 1, 0.14);

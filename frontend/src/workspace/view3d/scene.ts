@@ -25,6 +25,7 @@ export class PanelBuf {
   readonly model = new Float32Array(IDENTITY);
   holdModel = false;
   moved = false;
+  stateKind = 0;
   readonly front = new Float32Array(3);
   readonly back = new Float32Array(3);
   readonly hue = new Float32Array(3);

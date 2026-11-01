@@ -1,7 +1,9 @@
 import { anyDialogOpen } from '../../ui/dialogs';
 import { textFieldFocused } from '../../ui/native-menu';
 import { Drape } from '../drape';
-import { Selection } from '../state';
+import type { Tool } from '../drape/types';
+import { Selection, fmtLen } from '../state';
+import { drawTapes, drawWind } from './annot';
 import { OrbitCamera } from './camera';
 import { Extras } from './extras';
 import { Frame } from './frame';
@@ -12,6 +14,7 @@ import { Picker } from './pick';
 import { placementOf, quatAxisAngle, quatMul, quatNormalize } from './place';
 import { MeshRenderer, type DrawPalette } from './renderer';
 import { PanelBuf, Scene } from './scene';
+import { SelectLayer, type Drawn } from './selectlayer';
 import { MeshFeed } from './source';
 import { StandaloneDoc, type DocLike } from './standalone';
 
@@ -84,6 +87,14 @@ function compile(gl: WebGL2RenderingContext, type: number, src: string): WebGLSh
   return sh;
 }
 
+function insidePolygon(p: number[], x: number, y: number): boolean {
+  let hit = false;
+  for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2) {
+    if ((p[i + 1] > y) !== (p[j + 1] > y) && x < ((p[j] - p[i]) * (y - p[i + 1])) / (p[j + 1] - p[i + 1]) + p[i]) hit = !hit;
+  }
+  return hit;
+}
+
 export class View3D {
   readonly camera = new OrbitCamera();
   readonly scene = new Scene();
@@ -96,8 +107,11 @@ export class View3D {
   private h = 0;
   private dpr = 1;
   private queued = false;
-  private drag: { x: number; y: number; sx: number; sy: number; left: number; top: number; mode: 'orbit' | 'pan' | 'gizmo' | 'grab'; moved: boolean; shift: boolean; button: number } | null = null;
+  private drag: { x: number; y: number; sx: number; sy: number; left: number; top: number; mode: 'orbit' | 'pan' | 'gizmo' | 'grab' | 'tool'; moved: boolean; shift: boolean; button: number } | null = null;
   private grabPlane: { panel: number; p: Float64Array } | null = null;
+  private foldPanel = -1;
+  private foldStart: { tri: number; u: number; v: number } | null = null;
+  private readonly layer: SelectLayer;
   private extras: Extras | null = null;
   private readonly drape: Drape;
   private accentCss = '';
@@ -105,7 +119,7 @@ export class View3D {
   private readonly ro = new Float64Array(3);
   private readonly rd = new Float64Array(3);
   private colors: { bg: [number, number, number]; line: [number, number, number]; x: [number, number, number]; z: [number, number, number]; text: string; bgCss: string } | null = null;
-  private readonly pal: DrawPalette = { accent: new Float32Array(3), accentLin: new Float32Array(3), line: new Float32Array(3) };
+  private readonly pal: DrawPalette = { accent: new Float32Array(3), accentLin: new Float32Array(3), line: new Float32Array(3), bgLin: new Float32Array(3) };
   private readonly probe: HTMLElement;
   private readonly swatch: CanvasRenderingContext2D;
   private meshes: MeshRenderer | null = null;
@@ -154,7 +168,11 @@ export class View3D {
     this.gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
     this.hud = new Hud(pane, { style: (s) => this.setStyle(s), preset: (p) => this.preset(p), stats: (on) => this.setStats(on) }, this.style, this.statsOn);
     this.feedIn = new MeshFeed(this.scene, () => this.onData(), () => this.redraw());
+    this.layer = new SelectLayer(pane);
     this.drape = new Drape(this.hud.bar, {
+      active: () => this.active(),
+      selected: () => [...this.sel.panels],
+      target: () => [this.camera.target[0], this.camera.target[1], this.camera.target[2]],
       redraw: () => this.redraw(),
       setSeams: (lines) => { if (this.extras) this.extras.seams = lines; },
       setPins: (pins) => { if (this.extras) this.extras.pins = pins; },
@@ -188,6 +206,7 @@ export class View3D {
     document.addEventListener('keydown', (e) => this.onKey(e), true);
     this.doc.onChange(() => {
       this.feedIn.sync(this.doc.garment as GarmentFull);
+      this.applyStates();
       this.drape.docChanged();
     });
     this.feedIn.sync(this.doc.garment as GarmentFull);
@@ -196,6 +215,20 @@ export class View3D {
   }
 
   get available(): boolean { return this.gl !== null; }
+
+  private applyStates(): void {
+    let changed = false;
+    for (const p of this.doc.garment.panels as PanelFull[]) {
+      const b = this.scene.get(p.id);
+      if (!b) continue;
+      const k = p.state?.disabled ? 2 : p.state?.frozen ? 1 : 0;
+      if (b.stateKind !== k) {
+        b.stateKind = k;
+        changed = true;
+      }
+    }
+    if (changed) this.redraw();
+  }
 
   feed(id: number, positions: Float32Array, indices: Uint32Array): void {
     this.feedIn.feed(id, positions, indices);
@@ -342,6 +375,7 @@ export class View3D {
     this.accentCss = `rgb(${Math.round(accent[0] * 255)} ${Math.round(accent[1] * 255)} ${Math.round(accent[2] * 255)})`;
     this.ringCss = bgCss;
     this.pal.accentLin.set([Math.pow(accent[0], 2.2), Math.pow(accent[1], 2.2), Math.pow(accent[2], 2.2)]);
+    this.pal.bgLin.set([Math.pow(bg[0], 2.2), Math.pow(bg[1], 2.2), Math.pow(bg[2], 2.2)]);
     return this.colors;
   }
 
@@ -379,7 +413,12 @@ export class View3D {
     const pan = e.button === 1 || e.button === 2 || (e.button === 0 && e.shiftKey);
     let mode: 'orbit' | 'pan' | 'gizmo' = pan ? 'pan' : 'orbit';
     this.drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, left: r.left, top: r.top, mode, moved: false, shift: e.shiftKey, button: e.button };
-    if (e.button === 0 && !e.shiftKey && this.drape.draping && !this.drape.pinTool && this.startGrab(e.clientX - r.left, e.clientY - r.top)) {
+    const tool = this.drape.tools.active;
+    if (e.button === 0 && !e.shiftKey && this.startTool(tool, e.clientX - r.left, e.clientY - r.top)) {
+      this.drag.mode = 'tool';
+      return;
+    }
+    if (e.button === 0 && !e.shiftKey && this.drape.draping && !this.drape.pinTool && (tool === 'none' || tool === 'pinch') && this.startGrab(e.clientX - r.left, e.clientY - r.top)) {
       this.drag.mode = 'grab';
       return;
     }
@@ -394,6 +433,78 @@ export class View3D {
     this.gizmoId = target.id;
     target.resetModel();
     this.gizmo.begin(handle, e.clientX - r.left, e.clientY - r.top);
+  }
+
+  private startTool(tool: Tool, x: number, y: number): boolean {
+    if (tool !== 'box' && tool !== 'lasso' && tool !== 'fold') return false;
+    this.palette();
+    if (tool === 'fold') {
+      this.ensureFrame();
+      const id = this.picker.pick(this.frame, this.scene, x, y);
+      if (id < 0 || this.scene.get(id)?.source === 'feed') return false;
+      this.foldPanel = id;
+      this.foldStart = { tri: this.picker.hitTri, u: this.picker.hitU, v: this.picker.hitV };
+      this.layer.begin('line', x, y, this.accentCss);
+      return true;
+    }
+    this.layer.begin(tool, x, y, this.accentCss);
+    return true;
+  }
+
+  private finishTool(r: Drawn | null): void {
+    if (!r) return;
+    const p = r.pts;
+    if (r.kind === 'line') {
+      this.finishFold(p);
+      return;
+    }
+    if (r.kind === 'box' ? Math.hypot(p[2] - p[0], p[3] - p[1]) < 3 : p.length < 6) return;
+    const x0 = Math.min(p[0], p[2]);
+    const x1 = Math.max(p[0], p[2]);
+    const y0 = Math.min(p[1], p[3]);
+    const y1 = Math.max(p[1], p[3]);
+    const out = new Float64Array(3);
+    const hits: Array<[number, number[]]> = [];
+    this.ensureFrame();
+    for (const b of this.scene.list) {
+      if (!b.ready || b.kind !== 'panel' || b.source === 'local' || b.source === 'feed') continue;
+      const list: number[] = [];
+      for (let i = 0; i < b.vcount; i++) {
+        if (!this.frame.project(b.pos[i * 3], b.pos[i * 3 + 1], b.pos[i * 3 + 2], out)) continue;
+        const inside = r.kind === 'box' ? out[0] >= x0 && out[0] <= x1 && out[1] >= y0 && out[1] <= y1 : insidePolygon(p, out[0], out[1]);
+        if (inside) list.push(i);
+      }
+      if (list.length) hits.push([b.id, list]);
+    }
+    const command = r.kind === 'box' ? 'pin.box' : 'pin.lasso';
+    void (async (): Promise<void> => {
+      for (const [panel, vertices] of hits) await this.drape.pinRegion(command, panel, vertices);
+    })();
+  }
+
+  private finishFold(p: number[]): void {
+    const id = this.foldPanel;
+    const a = this.foldStart;
+    const buf = this.scene.get(id);
+    if (!a || !buf || p.length < 4) return;
+    this.ensureFrame();
+    if (this.picker.pick(this.frame, this.scene, p[2], p[3]) !== id) return;
+    const b = { tri: this.picker.hitTri, u: this.picker.hitU, v: this.picker.hitV };
+    void this.drape.flat(id).then((flat) => {
+      if (!flat) return;
+      const at = (h: { tri: number; u: number; v: number }): [number, number] | null => {
+        const i0 = flat[buf.idx[h.tri * 3]];
+        const i1 = flat[buf.idx[h.tri * 3 + 1]];
+        const i2 = flat[buf.idx[h.tri * 3 + 2]];
+        if (!i0 || !i1 || !i2) return null;
+        const w = 1 - h.u - h.v;
+        return [w * i0[0] + h.u * i1[0] + h.v * i2[0], w * i0[1] + h.u * i1[1] + h.v * i2[1]];
+      };
+      const s = at(a);
+      const e = at(b);
+      if (!s || !e || Math.hypot(e[0] - s[0], e[1] - s[1]) < 1) return;
+      this.drape.foldPlace(id, [s, e]);
+    });
   }
 
   private startGrab(x: number, y: number): boolean {
@@ -438,6 +549,10 @@ export class View3D {
       this.moveGrab(e.clientX - d.left, e.clientY - d.top);
       return;
     }
+    if (d.mode === 'tool') {
+      this.layer.move(e.clientX - d.left, e.clientY - d.top);
+      return;
+    }
     if (d.mode === 'gizmo') {
       const b = this.scene.get(this.gizmoId);
       if (!b) return;
@@ -469,6 +584,10 @@ export class View3D {
       this.drape.grabEnd();
       this.cursor = '';
       this.canvas.style.cursor = '';
+      return;
+    }
+    if (d.mode === 'tool') {
+      this.finishTool(e.type === 'pointerup' ? this.layer.finish() : (this.layer.finish(), null));
       return;
     }
     if (d.mode === 'gizmo') {
@@ -505,7 +624,8 @@ export class View3D {
     const hotChanged = (hot?.kind ?? '') !== (before?.kind ?? '') || (hot?.axis ?? -1) !== (before?.axis ?? -1);
     this.gizmo.hot = hot;
     const id = hot ? -1 : this.picker.pick(this.frame, this.scene, this.hoverX, this.hoverY);
-    this.setCursor(hot ? 'grab' : this.drape.pinTool ? 'crosshair' : id >= 0 ? (this.drape.draping ? 'grab' : 'pointer') : '');
+    const aim = this.drape.pinTool || (this.drape.tools.active !== 'none' && this.drape.tools.active !== 'pinch');
+    this.setCursor(hot ? 'grab' : aim ? 'crosshair' : id >= 0 ? (this.drape.draping ? 'grab' : 'pointer') : '');
     if (id !== this.hover || hotChanged) {
       this.hover = id;
       this.redraw();
@@ -515,6 +635,10 @@ export class View3D {
   private click(x: number, y: number, shift: boolean): void {
     this.ensureFrame();
     const id = this.picker.pick(this.frame, this.scene, x, y);
+    if (this.drape.tools.active === 'tape') {
+      if (id >= 0 && this.picker.vertex >= 0 && this.scene.get(id)?.source !== 'local') void this.drape.tape(id, this.picker.vertex);
+      return;
+    }
     if (this.drape.pinTool) {
       if (id >= 0 && this.picker.vertex >= 0 && this.scene.get(id)?.source !== 'local') this.drape.togglePin(id, this.picker.vertex);
       return;
@@ -591,6 +715,7 @@ export class View3D {
     this.canvas.style.height = `${h}px`;
     this.dpr = dpr;
     this.hud.resize(w, h, dpr);
+    this.layer.resize(w, h, dpr);
     this.fontCss = `${Math.round(11 * dpr)}px ui-monospace, monospace`;
     this.font = '';
     this.paint();
@@ -614,6 +739,7 @@ export class View3D {
     if (!gl || !this.program || !this.meshes || this.w === 0 || this.h === 0) return;
     const t0 = performance.now();
     const p = this.palette();
+    this.drape.syncSelection(this.sel.panels);
     this.scene.upload(gl, this.style === 'shaded-mesh' || this.style === 'mesh');
     this.scene.recount();
     this.ensureFrame();
@@ -681,6 +807,9 @@ export class View3D {
     const H = this.hud.overlay.height;
     ctx.clearRect(0, 0, W, H);
     this.extras?.drawPins(ctx, this.frame, this.scene, this.dpr, this.accentCss, this.ringCss);
+    const wind = this.drape.wind;
+    if (wind?.enabled) drawWind(ctx, this.frame, this.dpr, wind, this.camera.worldPerPixel(this.h), this.accentCss);
+    drawTapes(ctx, this.frame, this.scene, this.drape.tapes, this.dpr, this.accentCss, this.ringCss, (mm) => fmtLen(mm, this.doc.garment.units));
     const target = this.gizmoTarget();
     if (target) {
       if (!this.gizmo.drag) this.placeGizmo(target);

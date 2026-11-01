@@ -7,9 +7,9 @@ export class Picker {
   panel = -1;
   vertex = -1;
   distance = 0;
-  private hitTri = -1;
-  private hitU = 0;
-  private hitV = 0;
+  hitTri = -1;
+  hitU = 0;
+  hitV = 0;
 
   pick(f: Frame, scene: Scene, px: number, py: number): number {
     this.panel = -1;

@@ -4,8 +4,11 @@ import { onLanguage, t } from '../../ui/i18n';
 import { icon } from '../../ui/icons';
 import { DEFAULT_PREFS, PREFS_EVENT, loadPrefs } from '../../ui/prefs';
 import { toast } from '../../ui/toast';
+import { PanelStrip } from './panelstate';
 import { seamLines, type MeshInfo, type SeamJson } from './seams';
-import type { DrapeHost, PinMark, SeamLine, SimState } from './types';
+import { SimPanel } from './simpanel';
+import { Tools } from './tools';
+import type { DrapeHost, PanelStateJson, PinMark, SeamLine, SimState, TapeMark, Tool, WindJson } from './types';
 
 export type { DrapeHost, PinMark, SeamLine } from './types';
 
@@ -32,8 +35,10 @@ const POLL_IDLE_MS = 2000;
 const OVERLAY_MS = 200;
 
 interface GarmentPins {
-  panels?: Array<{ id: number; outline?: unknown; inner?: unknown; particle_distance?: unknown }>;
+  panels?: Array<{ id: number; outline?: unknown; inner?: unknown; particle_distance?: unknown; state?: PanelStateJson }>;
   pins?: Array<{ id: number; panel: number; point: [number, number] }>;
+  tacks?: Array<{ id: number }>;
+  wind?: WindJson;
 }
 
 interface MeshReply {
@@ -49,6 +54,7 @@ interface GrabState {
   dirty: boolean;
   busy: boolean;
   ended: boolean;
+  pinch: boolean;
 }
 
 interface Caps {
@@ -57,12 +63,30 @@ interface Caps {
   sew: boolean;
   mesh: boolean;
   apply: boolean;
+  state: boolean;
+  wind: boolean;
+  refit: boolean;
+  settings: boolean;
+}
+
+interface TapeReply {
+  tack?: number;
+  panel?: number;
+  vertex?: number;
+  body_point?: [number, number, number];
 }
 
 export class Drape {
   readonly state: SimState = { running: false, frame: 0, vertices: 0, ms: 0, preset: 'normal', panels: 0 };
   private pinOn = false;
-  private caps: Caps = { sim: false, pin: false, sew: false, mesh: false, apply: false };
+  private caps: Caps = { sim: false, pin: false, sew: false, mesh: false, apply: false, state: false, wind: false, refit: false, settings: false };
+  readonly tools: Tools;
+  readonly tapes: TapeMark[] = [];
+  wind: WindJson | null = null;
+  private readonly strip: PanelStrip;
+  private readonly panel: SimPanel;
+  private readonly gearBtn: HTMLButtonElement;
+  private selKey = new Set<number>();
   private readonly toggleBtn: HTMLButtonElement;
   private readonly playIcon: HTMLElement;
   private readonly pauseIcon: HTMLElement;
@@ -124,7 +148,14 @@ export class Drape {
     tools.append(this.applyBtn, this.pinBtn, this.clearBtn);
     this.read = document.createElement('div');
     this.read.className = 'ffd-read';
-    bar.append(run, quality, tools, this.read);
+    this.tools = new Tools((tool) => this.toolChanged(tool), () => host.active());
+    const settings = group();
+    this.gearBtn = button(icon('settings', 14), () => { this.panel.toggle(this.gearBtn); this.paint(); });
+    settings.appendChild(this.gearBtn);
+    const pane = (bar.parentElement ?? bar) as HTMLElement;
+    this.strip = new PanelStrip(pane);
+    this.panel = new SimPanel(pane, { target: () => host.target() });
+    bar.append(run, quality, tools, ...this.tools.root, settings, this.read);
     this.labels();
     this.paint();
     onLanguage(() => this.labels());
@@ -146,7 +177,13 @@ export class Drape {
   setPinTool(on: boolean): void {
     if (on === this.pinOn) return;
     this.pinOn = on;
+    if (on) this.tools.set('none');
     this.paint();
+    this.host.redraw();
+  }
+
+  private toolChanged(tool: Tool): void {
+    if (tool !== 'none' && this.pinOn) this.setPinTool(false);
     this.host.redraw();
   }
 
@@ -163,6 +200,7 @@ export class Drape {
     setTitle(this.applyBtn, t('Keep the draped shape'));
     setTitle(this.pinBtn, t('Pin tool (P)'));
     setTitle(this.clearBtn, t('Remove every pin'));
+    setTitle(this.gearBtn, t('Wind, refit and solver settings'));
     for (const [id, label] of PRESETS) {
       const b = this.presetBtns.get(id) as HTMLButtonElement;
       setText(b, t(label));
@@ -182,7 +220,9 @@ export class Drape {
     setDisabled(this.applyBtn, !c.apply);
     setDisabled(this.pinBtn, !c.pin);
     setDisabled(this.clearBtn, !c.pin);
+    setDisabled(this.gearBtn, !(c.wind || c.refit || c.settings));
     setClass(this.pinBtn, 'is-on', this.pinOn);
+    setClass(this.gearBtn, 'is-on', this.panel.open);
     for (const [id, b] of this.presetBtns) {
       setDisabled(b, !c.sim);
       setClass(b, 'is-on', id === s.preset);
@@ -195,7 +235,13 @@ export class Drape {
     try {
       const cat = await catalogue(true);
       const has = (id: string): boolean => cat.commands.some((x) => x.id === id);
-      this.caps = { sim: has('sim.state') && has('sim.toggle'), pin: has('pin.add') && has('pin.remove'), sew: has('sew.list'), mesh: has('mesh.get'), apply: has('sim.apply') };
+      this.caps = {
+        sim: has('sim.state') && has('sim.toggle'), pin: has('pin.add') && has('pin.remove'), sew: has('sew.list'), mesh: has('mesh.get'), apply: has('sim.apply'),
+        state: has('panel.state'), wind: has('wind.set'), refit: has('refit') && has('body.list'), settings: has('sim.settings'),
+      };
+      this.tools.configure(cat.commands);
+      this.panel.setCaps(this.caps);
+      this.strip.setEnabled(this.caps.state);
     } catch { return; }
     this.paint();
     void this.pushPrefs(null);
@@ -272,7 +318,7 @@ export class Drape {
   }
 
   grabStart(panel: number, vertex: number, target: [number, number, number]): void {
-    this.grab = { panel, vertex, target, dirty: true, busy: false, ended: false };
+    this.grab = { panel, vertex, target, dirty: true, busy: false, ended: false, pinch: this.tools.active === 'pinch' };
     this.pumpGrab();
   }
 
@@ -298,7 +344,11 @@ export class Drape {
     if (!g || g.busy || !g.dirty) return;
     g.busy = true;
     g.dirty = false;
-    call('sim.grab', { panel: g.panel, vertex: g.vertex, target: g.target }).catch((err: unknown) => {
+    const o = this.tools.opts;
+    const task = g.pinch
+      ? call('sim.pinch', { panel: g.panel, vertex: g.vertex, target: g.target, falloff: o.falloff, radius: o.radius, power: o.power, distance: o.distance })
+      : call('sim.grab', { panel: g.panel, vertex: g.vertex, target: g.target });
+    task.catch((err: unknown) => {
       g.ended = true;
       g.dirty = false;
       toast(err instanceof Error ? err.message : String(err), 'error');
@@ -315,7 +365,57 @@ export class Drape {
     task.catch((err: unknown) => toast(err instanceof Error ? err.message : String(err), 'error'));
   }
 
+  syncSelection(sel: Set<number>): void {
+    if (sel.size === this.selKey.size && [...sel].every((id) => this.selKey.has(id))) return;
+    this.selKey = new Set(sel);
+    this.syncStrip();
+  }
+
+  private syncStrip(): void {
+    const ids = this.host.selected();
+    this.strip.select(ids);
+    const g = this.host.garment() as GarmentPins;
+    const first = ids.length ? (g.panels ?? []).find((p) => p.id === ids[0]) : undefined;
+    this.strip.sync(first?.state ?? null);
+  }
+
+  pinRegion(command: 'pin.box' | 'pin.lasso', panel: number, vertices: number[]): Promise<void> {
+    return call(command, { panel, vertices }).then(() => undefined, (err: unknown) => { toast(err instanceof Error ? err.message : String(err), 'error'); });
+  }
+
+  async flat(panel: number): Promise<number[][] | null> {
+    try {
+      return (await call<MeshReply>('mesh.get', { panel })).positions ?? null;
+    } catch { return null; }
+  }
+
+  foldPlace(panel: number, line: [[number, number], [number, number]]): void {
+    const o = this.tools.opts;
+    call('fold.place', { panel, line, angle: o.angle, side: o.side }).catch((err: unknown) => toast(err instanceof Error ? err.message : String(err), 'error'));
+  }
+
+  async tape(panel: number, vertex: number): Promise<void> {
+    try {
+      const r = await call<TapeReply>('body.tape', { panel, vertex, length: this.tools.opts.length });
+      if (r.tack !== undefined && r.body_point) {
+        this.tapes.push({ id: r.tack, panel, vertex: r.vertex ?? vertex, point: r.body_point });
+        this.host.redraw();
+      }
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), 'error');
+    }
+  }
+
   docChanged(): void {
+    const g = this.host.garment() as GarmentPins;
+    this.wind = g.wind ?? null;
+    this.panel.syncWind(this.wind);
+    this.syncStrip();
+    this.host.redraw();
+    if (this.tapes.length) {
+      const live = new Set((g.tacks ?? []).map((k) => k.id));
+      for (let i = this.tapes.length - 1; i >= 0; i--) if (!live.has(this.tapes[i].id)) this.tapes.splice(i, 1);
+    }
     window.clearTimeout(this.overlayTimer);
     this.overlayTimer = window.setTimeout(() => void this.refreshOverlay(), OVERLAY_MS);
   }
