@@ -1,5 +1,17 @@
 use serde::{Deserialize, Serialize};
 
+pub mod bvh;
+pub mod collide;
+pub mod energy;
+pub mod material;
+pub mod model;
+pub mod reference;
+pub mod selfcol;
+pub mod solver;
+
+pub use reference::{compare_positions, reference_step};
+pub use solver::Solver;
+
 #[derive(Debug, Clone, Default)]
 pub struct Cloth {
     pub positions: Vec<[f32; 3]>,
@@ -12,6 +24,24 @@ pub struct Cloth {
     pub seams: Vec<SeamPair>,
     pub folds: Vec<Fold>,
     pub pins: Vec<PinPoint>,
+    pub binds: Vec<SeamBind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct SeamBind {
+    pub a: u32,
+    pub b: [u32; 2],
+    pub w: f32,
+    pub stiffness: f32,
+    pub rest_length: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct StepStats {
+    pub ms: f32,
+    pub iterations: u32,
+    pub max_velocity: f32,
+    pub contacts: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
@@ -75,6 +105,9 @@ pub struct Params {
     pub collision_thickness: f32,
     pub friction: f32,
     pub self_collision: bool,
+    pub nonlinear: bool,
+    pub stiffening: f32,
+    pub accel: f32,
 }
 
 impl Default for Params {
@@ -89,6 +122,9 @@ impl Default for Params {
             collision_thickness: 1.5,
             friction: 0.3,
             self_collision: false,
+            nonlinear: false,
+            stiffening: 40.0,
+            accel: 0.0,
         }
     }
 }
