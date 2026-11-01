@@ -1,0 +1,17 @@
+[package]
+name = "ffb-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+name = "ffb_wasm"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ffb-commands.workspace = true
+ffb-pattern.workspace = true
+serde_json.workspace = true

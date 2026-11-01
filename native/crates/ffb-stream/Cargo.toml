@@ -1,0 +1,12 @@
+[package]
+name = "ffb-stream"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+tungstenite = { version = "0.30", default-features = false, features = ["handshake"] }
+getrandom = "0.4"
