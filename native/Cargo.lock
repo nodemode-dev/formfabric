@@ -141,14 +141,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
+name = "ffb-body"
+version = "0.6.0"
+dependencies = [
+ "ffb-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ffb-commands"
 version = "0.6.0"
 dependencies = [
+ "ffb-body",
  "ffb-core",
  "ffb-fabric",
  "ffb-io",
  "ffb-mesh",
  "ffb-pattern",
+ "ffb-sim",
  "serde",
  "serde_json",
 ]
@@ -207,6 +218,16 @@ dependencies = [
  "ffb-core",
  "ffb-stream",
  "pyo3",
+ "serde_json",
+]
+
+[[package]]
+name = "ffb-sim"
+version = "0.6.0"
+dependencies = [
+ "ffb-core",
+ "glam",
+ "serde",
  "serde_json",
 ]
 

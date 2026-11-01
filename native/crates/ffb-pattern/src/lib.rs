@@ -33,6 +33,95 @@ pub struct Garment {
     pub default_fabric: Option<u32>,
     pub colorways: Vec<Colorway>,
     pub active_colorway: Option<u32>,
+    pub seams: Vec<Seam>,
+    pub tacks: Vec<Tack>,
+    pub pins: Vec<Pin>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SeamEnd {
+    pub panel: u32,
+    pub inner: Option<u32>,
+    pub segment: usize,
+    pub t0: f64,
+    pub t1: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SeamFold {
+    #[default]
+    Turned,
+    Flat,
+    Custom,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SeamSide {
+    #[default]
+    Auto,
+    Front,
+    Back,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Seam {
+    pub id: u32,
+    pub a: Vec<SeamEnd>,
+    pub b: Vec<SeamEnd>,
+    pub reversed: bool,
+    pub fold: SeamFold,
+    pub fold_angle: f64,
+    pub fold_strength: f64,
+    pub ratio: f64,
+    pub tension: f64,
+    pub side: SeamSide,
+}
+
+impl Default for Seam {
+    fn default() -> Self {
+        Seam {
+            id: 0,
+            a: Vec::new(),
+            b: Vec::new(),
+            reversed: false,
+            fold: SeamFold::Turned,
+            fold_angle: 180.0,
+            fold_strength: 0.0,
+            ratio: 1.0,
+            tension: 1.0,
+            side: SeamSide::Auto,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TackEnd {
+    pub panel: Option<u32>,
+    pub point: [f64; 2],
+    pub body_point: Option<[f64; 3]>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Tack {
+    pub id: u32,
+    pub a: TackEnd,
+    pub b: TackEnd,
+    pub length: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Pin {
+    pub id: u32,
+    pub panel: u32,
+    pub point: [f64; 2],
+    pub target: Option<[f64; 3]>,
 }
 
 impl Default for Garment {
@@ -45,6 +134,9 @@ impl Default for Garment {
             default_fabric: None,
             colorways: Vec::new(),
             active_colorway: None,
+            seams: Vec::new(),
+            tacks: Vec::new(),
+            pins: Vec::new(),
         }
     }
 }

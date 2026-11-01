@@ -5,7 +5,11 @@ mod file_cmds;
 mod history;
 mod history_cmds;
 mod hooks;
+mod body_cmds;
 mod mesh_cmds;
+mod place_cmds;
+mod sew_cmds;
+mod sim_cmds;
 mod pattern_cmds;
 mod pattern_tools_cmds;
 mod system_cmds;
@@ -94,6 +98,8 @@ pub struct Session {
     pub epoch: u64,
     pub sink: Option<std::sync::Arc<dyn FrameSink>>,
     pub mesh: mesh_cmds::MeshState,
+    pub sim: sim_cmds::SimState,
+    pub bodies: Vec<ffb_body::Body>,
 }
 
 impl std::fmt::Debug for Session {
@@ -149,6 +155,10 @@ static COMMANDS: LazyLock<Vec<Command>> = LazyLock::new(|| {
     all.extend(exchange_cmds::commands());
     all.extend(mesh_cmds::commands());
     all.extend(fabric_cmds::commands());
+    all.extend(sew_cmds::commands());
+    all.extend(sim_cmds::commands());
+    all.extend(body_cmds::commands());
+    all.extend(place_cmds::commands());
     all
 });
 
