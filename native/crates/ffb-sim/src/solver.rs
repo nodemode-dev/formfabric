@@ -3,7 +3,6 @@ use glam::DVec3;
 use crate::collide::{contact_force, deepest, max_penetration, pair_friction, resolve, Contact, Prepared};
 use crate::energy::{Acc, HingeEval, NonLinear};
 use crate::model::{Model, KIND_HINGE, KIND_LINK, KIND_TRI};
-use crate::selfcol::{resolve_pass, SelfInput, SpatialHash};
 use crate::{Cloth, Collider, Params, PinPoint, StepStats};
 
 pub const GRAB_STIFFNESS: f64 = 100.0;
@@ -359,15 +358,7 @@ impl Solver {
         let n = self.x.len();
         let offset = self.params.skin_offset.max(0.0) as f64;
         if self.params.self_collision && n > 0 {
-            let thick = self.params.collision_thickness.max(0.0) as f64;
-            if thick > 0.0 {
-                let cell = (self.model.rest_edge * 1.5).max(thick * 2.0);
-                let hash = SpatialHash::build(&self.x, &self.model.triangles, cell, thick);
-                let input = SelfInput { tris: &self.model.triangles, neighbors: &self.model.neighbors, inv_mass: &self.inv_mass, thickness: thick };
-                for _ in 0..2 {
-                    resolve_pass(&mut self.x, &hash, &input);
-                }
-            }
+            self.resolve_self_contact();
         }
         if !self.colliders.is_empty() {
             for i in 0..n {

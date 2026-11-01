@@ -24,13 +24,7 @@ fn round(x: f64, places: i32) -> f64 {
 }
 
 pub(super) fn preset_params(name: &str, base: Params) -> Option<Params> {
-    let (substeps, iterations, self_collision, collision_thickness) = match name {
-        "normal" => (5, 10, false, 1.5),
-        "fast" => (3, 6, false, 2.0),
-        "fine" => (10, 20, true, 1.0),
-        _ => return None,
-    };
-    Some(Params { substeps, iterations, self_collision, collision_thickness, ..base })
+    adapter::preset(name, base)
 }
 
 pub(super) fn state_json(session: &Session) -> Value {
@@ -190,7 +184,7 @@ fn settings_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
-            "preset": {"type": "string", "enum": ["normal", "fast", "fine"], "description": "normal: 5 substeps, 10 iterations. fast: 3 substeps, 6 iterations, thicker contact. fine: 10 substeps, 20 iterations, self collision, thin contact. Leave out every field to read the settings."},
+            "preset": {"type": "string", "enum": ["fast", "normal", "quality", "final"], "description": "Implicit method: fast 2 substeps, normal 3, quality 4 with self contact, final 6 with 3 Newton iterations and self contact. Block descent: fast 3x6, normal 5x10, quality 8x15 and final 12x25 (substeps x iterations), the last two with self contact. Leave out every field to read the settings."},
             "time_step": {"type": "number", "minimum": 0.004, "maximum": 0.0667, "unit": "s", "description": "Seconds per frame, from 1/240 to 1/15. The run thread steps at 1 / time_step frames per second."},
             "substeps": {"type": "integer", "minimum": 1, "maximum": 40},
             "iterations": {"type": "integer", "minimum": 1, "maximum": 200, "description": "Solver iterations per substep."},
@@ -232,7 +226,7 @@ fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let mut preset = s.sim.preset.clone();
     let mut touched = false;
     if let Some(name) = a.get("preset").and_then(Value::as_str) {
-        p = preset_params(name, p).ok_or_else(|| bad("preset must be normal, fast or fine"))?;
+        p = preset_params(name, p).ok_or_else(|| bad("preset must be fast, normal, quality or final"))?;
         preset = name.into();
         touched = true;
     }
@@ -277,6 +271,11 @@ fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         if !adapter::set_method(&mut p, name) {
             return Err(bad("method must be vbd or implicit"));
         }
+        if !manual && preset != "custom" {
+            if let Some(q) = preset_params(&preset, p) {
+                p = q;
+            }
+        }
         touched = true;
     }
     if let Some(x) = number(a, "newton", 1.0, 10.0)? {
@@ -312,7 +311,7 @@ fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         "preset": s.sim.preset,
         "params": params_json(&p),
         "changed": touched,
-        "presets": ["normal", "fast", "fine"],
+        "presets": ["fast", "normal", "quality", "final"],
         "device": {"requested": requested, "active": "cpu", "gpu_available": gpu, "message": if requested == "gpu" && !gpu { "gpu solver is not available yet; running on the cpu" } else { "" }}
     }))
 }

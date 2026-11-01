@@ -52,6 +52,18 @@ pub(crate) fn gpu_available() -> bool {
     false
 }
 
+pub(crate) fn preset(name: &str, base: Params) -> Option<Params> {
+    let made = Params::preset(name, base.method)?;
+    Some(Params {
+        time_step: base.time_step,
+        gravity: base.gravity,
+        air_damping: base.air_damping,
+        skin_offset: base.skin_offset,
+        friction: base.friction,
+        ..made
+    })
+}
+
 pub(crate) fn trim_bindings(garment: &ffb_pattern::Garment, meshes: &std::collections::BTreeMap<u32, ffb_mesh::PanelMesh>) -> Vec<ffb_pattern::sew::Binding> {
     use ffb_pattern::sew::{Binding, VertexRef};
     use ffb_pattern::trim::Barycentric;

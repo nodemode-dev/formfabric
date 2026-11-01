@@ -28,6 +28,8 @@ pub struct Model {
     pub links: Vec<LinkElem>,
     pub mass: Vec<f64>,
     pub friction: Vec<f64>,
+    pub thickness: Vec<f64>,
+    pub layer: Vec<i32>,
     pub adj_start: Vec<u32>,
     pub adj: Vec<Adj>,
     pub colors: Vec<Vec<u32>>,
@@ -131,14 +133,18 @@ impl Model {
         }
         model.mass = mass;
         model.friction = vec![0.0; n];
+        model.thickness = vec![0.0; n];
         for (ti, t) in cloth.triangles.iter().enumerate() {
             if t.iter().all(|&i| (i as usize) < n) {
                 let f = mat_of(ti).friction as f64;
+                let th = mat_of(ti).thickness as f64;
                 for &i in t {
                     model.friction[i as usize] = f;
+                    model.thickness[i as usize] = model.thickness[i as usize].max(th);
                 }
             }
         }
+        model.layer = (0..n).map(|i| cloth.vertex_layer.get(i).copied().unwrap_or(0)).collect();
 
         let mut edges: HashMap<(u32, u32), Vec<EdgeFace>> = HashMap::new();
         for (ti, t) in cloth.triangles.iter().enumerate() {

@@ -141,7 +141,11 @@ fn build(prep: &[Prepared], points: &[[f32; 3]], height: f32, spacing: f32, gap:
 }
 
 fn run(method: Method, cloth: &Cloth, colliders: &[Collider], frames: usize) {
-    let params = support::params_for(method);
+    let mut params = support::params_for(method);
+    if support::arg("selfcol", 0.0) > 0.0 {
+        params.self_collision = true;
+        params.collision_thickness = support::arg("thick", 1.0);
+    }
     let mut s = Solver::new(cloth.clone(), params);
     s.set_colliders(colliders.to_vec());
     let seams = cloth.seams.clone();
@@ -179,6 +183,7 @@ fn run(method: Method, cloth: &Cloth, colliders: &[Collider], frames: usize) {
         s.max_stretch(),
         s.max_compression()
     );
+    println!("  self intersecting triangle pairs at the end: {}", s.self_intersections().len());
 }
 
 fn main() {

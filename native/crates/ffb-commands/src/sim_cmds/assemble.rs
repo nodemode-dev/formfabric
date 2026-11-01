@@ -112,6 +112,7 @@ pub(crate) fn assemble(garment: &Garment, mesh: &mut MeshState, bodies: &[ffb_bo
         cloth.triangle_material.resize(cloth.triangles.len(), material as u16);
         cloth.triangle_grain.resize(cloth.triangles.len(), grain.to_radians() as f32);
         cloth.vertex_panel.resize(cloth.positions.len(), panel.id);
+        cloth.vertex_layer.resize(cloth.positions.len(), panel.layer);
         folds.extend(seams::inner_folds(panel, m, base));
         slices.push(Slice { id: panel.id, start, count: m.positions.len(), sig: h.finish() });
         if state.frozen {

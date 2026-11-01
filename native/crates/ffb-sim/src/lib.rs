@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod bvh;
 pub mod collide;
+pub mod contact;
 pub mod energy;
 pub mod external;
 pub mod implicit;
@@ -22,6 +23,7 @@ pub struct Cloth {
     pub triangle_material: Vec<u16>,
     pub triangle_grain: Vec<f32>,
     pub vertex_panel: Vec<u32>,
+    pub vertex_layer: Vec<i32>,
     pub materials: Vec<Material>,
     pub seams: Vec<SeamPair>,
     pub folds: Vec<Fold>,
@@ -130,10 +132,12 @@ impl Params {
         let p = match (method, name) {
             (Method::Vbd, "normal") => Params { substeps: 5, iterations: 10, ..base },
             (Method::Vbd, "fast") => Params { substeps: 3, iterations: 6, ..base },
-            (Method::Vbd, "fine") => Params { substeps: 10, iterations: 20, self_collision: true, collision_thickness: 1.0, ..base },
+            (Method::Vbd, "quality" | "fine") => Params { substeps: 8, iterations: 15, self_collision: true, collision_thickness: 1.0, ..base },
+            (Method::Vbd, "final") => Params { substeps: 12, iterations: 25, self_collision: true, collision_thickness: 0.8, ..base },
             (Method::Implicit, "normal") => Params { substeps: 3, newton: 2, cg_tolerance: 3.0e-3, ..base },
             (Method::Implicit, "fast") => Params { substeps: 2, newton: 2, cg_tolerance: 1.0e-2, ..base },
-            (Method::Implicit, "fine") => Params { substeps: 5, newton: 2, cg_tolerance: 1.0e-3, self_collision: true, collision_thickness: 1.0, ..base },
+            (Method::Implicit, "quality" | "fine") => Params { substeps: 4, newton: 2, cg_tolerance: 1.0e-3, self_collision: true, collision_thickness: 1.0, ..base },
+            (Method::Implicit, "final") => Params { substeps: 6, newton: 3, cg_iterations: 400, cg_tolerance: 3.0e-4, self_collision: true, collision_thickness: 0.8, ..base },
             _ => return None,
         };
         Some(p)
@@ -148,7 +152,7 @@ impl Default for Params {
             cg_iterations: 200,
             cg_tolerance: 3.0e-3,
             time_step: 1.0 / 30.0,
-            substeps: 5,
+            substeps: 3,
             iterations: 10,
             gravity: [0.0, -9800.0, 0.0],
             air_damping: 0.02,
