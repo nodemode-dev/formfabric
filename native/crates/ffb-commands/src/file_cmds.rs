@@ -1,4 +1,3 @@
-use ffb_pattern::Garment;
 use serde_json::{json, Value};
 
 use crate::{args, no_args, Command, CommandError, Group, Session, DESTROY, EXTERNAL};
@@ -25,7 +24,7 @@ fn path_schema() -> Value {
 }
 
 fn new(s: &mut Session, _: &Value) -> Result<Value, CommandError> {
-    s.reset(Garment::default());
+    s.reset(crate::fabric_cmds::new_garment());
     Ok(json!({"panels": 0, "units": s.garment.units.name()}))
 }
 

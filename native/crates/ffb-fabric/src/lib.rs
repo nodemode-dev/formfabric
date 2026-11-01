@@ -2,6 +2,12 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+pub mod ffab;
+pub mod lab;
+pub mod presets;
+pub mod units;
+pub mod validate;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Fabric {
