@@ -1,0 +1,6 @@
+{
+  "bundle": {
+    "externalBin": [],
+    "resources": { "../LICENSE": "LICENSE", "../NOTICE.md": "NOTICE.md", "engine": "engine" }
+  }
+}
