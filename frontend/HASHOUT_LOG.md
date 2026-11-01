@@ -102,3 +102,10 @@ Living context for the window. What would be comments in `frontend/` lives here,
 - The status bar has no cursor slot yet; `layout.ts` inserts one fixed-width span once at mount. Move it into the shell's StatusBar when that grows a `setCursor`.
 - 3D View: formsculpt's `OrbitCamera` and `math.ts` (Apache-2.0, comments stripped) over one shader drawing a fading three-decade floor grid with red x and blue z axes, colours read from the theme tokens. Meshed panels arrive in Phase 5.
 - Known limits: inner shape points are not editable yet; rotate and scale previews accumulate incrementally (the committed result is exact).
+
+### v0.10.0 to v0.12.0
+
+- Window token: every engine call goes through one fetch wrapper in `engine/service.ts` that adds `x-ffb-window`; the terminal socket passes `ffb_window` as a query parameter. In dev, Vite's proxy adds the header server-side, WebSocket upgrades included. `dock/agent-link.ts` marks the window live with POST.
+- 3D tools: the selection overlay is one canvas (`ff3-select`) created once; the wind arrow and tape labels paint on the existing HUD overlay. The renderer has a `uState` uniform and `PanelBuf.stateKind` (0 none, 1 frozen, 2 disabled). The picker's `hitTri`, `hitU`, `hitV` are public for fold mapping. Tool keys come only from the catalogue `keys`, titled with `formatKeys`.
+- Trims UI: a drawer plus eight Pattern View tools (Shift+B, H, F, Z, S, E, I, A), drawn in the existing canvas pass with no DOM per item. The selected trim item lives in `trims/state.ts`, pruned on `doc.onChange` in `layout.ts`; Selection is untouched. `trims/hook3d.ts` gives the 3D View line and point buffers.
+- Dev ports: Vite's HMR uses the frontend port plus one, so parallel checks must leave a gap of two between frontend ports. A snapshot of `src` served from /tmp avoids reloads while other edits land (needs `server.fs.allow` for the linked node_modules).
