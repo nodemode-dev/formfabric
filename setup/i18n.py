@@ -1,105 +1,103 @@
 """Interface text for translation.
 
-  extract   collect the English interface strings into frontend/src/i18n/strings.json
-  check     report each language table's coverage of strings.json and any {placeholder} mismatch
+  extract   print the English interface strings found in frontend/src (t('...'), t("..."), tn(n, '...', '...'))
+  check     report parent-table keys that are missing and {placeholder} mismatches; exit 1 on problems
 
-English is the source and the key: every table frontend/src/i18n/<code>.json maps an English string to its
-translation. Regional variants (es-MX, fr-CA) keep only the words that differ from their parent.
+English is the source and the key. Each table frontend/src/ui/i18n/<code>.ts is a TypeScript object literal
+mapping an English string to its translation. es-MX and fr-CA are regional delta tables over es and fr: they are
+checked for placeholders only. t() looks a key up without its trailing '...' or ':' first, and so does check.
 """
 
-import json
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "frontend" / "src"
-OUT = SRC / "i18n"
-REGISTRY = ROOT / "native" / "crates" / "ffb-commands" / "src"
+TABLES = SRC / "ui" / "i18n"
 REGIONAL = {"es-MX", "fr-CA"}
+NOT_TABLES = {"langs"}
 
-CALLS = [
-    re.compile(r"\bel\(\s*'[a-z0-9]+'\s*,\s*'[^']*'\s*,\s*'((?:[^'\\]|\\.)+)'"),
-    re.compile(r"\bt\(\s*'((?:[^'\\]|\\.)+)'"),
-    re.compile(r"\bfield\(\s*'((?:[^'\\]|\\.)+)'"),
-    re.compile(r"\bchoices\(\s*'((?:[^'\\]|\\.)+)'"),
-    re.compile(r"\bnote\(\s*'((?:[^'\\]|\\.)+)'"),
-    re.compile(r"\[\s*'[a-z0-9_.-]+'\s*,\s*'((?:[^'\\]|\\.)+)'"),
-    re.compile(r"\b(?:label|title|description)\s*:\s*'((?:[^'\\]|\\.)+)'"),
-    re.compile(r"'(aria-label|placeholder|title)'\s*,\s*'((?:[^'\\]|\\.)+)'"),
-    re.compile(r"\b(?:aria-label|title|placeholder)=\"([^\"$<>{}]+)\""),
-    re.compile(r">([A-Z][^<>{}$`]{1,200})<"),
-    re.compile(r"\b[cn]\(\s*'[a-z0-9_.]+'\s*,\s*'((?:[^'\\]|\\.)+)'"),
-    re.compile(r"\bdef\(\s*'((?:[^'\\]|\\.)+)'"),
-]
-RUST_LABEL = re.compile(r'^\s*label:\s*"([^"]+)"', re.M)
+LITERAL = r"""(?:'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)")"""
+T_CALL = re.compile(r"\bt\(\s*" + LITERAL + r"\s*[,)]")
+TN_CALL = re.compile(r"\btn\(\s*[^,()]+,\s*" + LITERAL + r"\s*,\s*" + LITERAL + r"\s*[,)]")
+ENTRY = re.compile(r'^\s*"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)",?\s*$')
+PLACEHOLDER = re.compile(r"\{\w+\}")
+ESCAPES = {"n": "\n", "t": "\t", "\\": "\\", "'": "'", '"': '"'}
 
 
-def looks_like_text(s: str) -> bool:
-    if not re.search(r"[A-Za-z]", s) or len(s) > 300:
-        return False
-    if re.fullmatch(r"[a-z0-9_.:/#-]+", s):
-        return False
-    if s.startswith(("http", "/", "--", ".", "#")) or "=>" in s:
-        return False
-    return True
+def unescape(raw: str) -> str:
+    return re.sub(r"\\(.)", lambda m: ESCAPES.get(m.group(1), m.group(1)), raw)
+
+
+def has_text(s: str) -> bool:
+    return bool(re.search(r"[A-Za-z]", s))
+
+
+def extract_keys() -> list[str]:
+    found: set[str] = set()
+    for f in sorted(SRC.rglob("*.ts")):
+        if TABLES in f.parents:
+            continue
+        text = f.read_text(encoding="utf-8")
+        for m in T_CALL.finditer(text):
+            found.add(unescape(m.group(1) if m.group(1) is not None else m.group(2)))
+        for m in TN_CALL.finditer(text):
+            for a, b in ((1, 2), (3, 4)):
+                found.add(unescape(m.group(a) if m.group(a) is not None else m.group(b)))
+    return sorted((k for k in found if k and has_text(k)), key=str.lower)
+
+
+def load_table(path: Path) -> dict[str, str]:
+    table: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        m = ENTRY.match(line)
+        if m:
+            table[unescape(m.group(1))] = unescape(m.group(2))
+    return table
+
+
+def known(table: dict[str, str], key: str) -> bool:
+    tail = "..." if key.endswith("...") else ":" if key.endswith(":") and not key.endswith("::") else ""
+    base = key[: -len(tail)] if tail else key
+    return base in table or (bool(tail) and key in table)
+
+
+def placeholders(s: str) -> list[str]:
+    return sorted(PLACEHOLDER.findall(s))
 
 
 def extract() -> int:
-    found: set[str] = set()
-    for f in sorted(SRC.rglob("*.ts")):
-        if "i18n" in f.parts:
-            continue
-        text = f.read_text(encoding="utf-8")
-        for rx in CALLS:
-            for m in rx.finditer(text):
-                s = m.group(m.lastindex or 1).replace("\\'", "'")
-                if looks_like_text(s):
-                    found.add(s.strip())
-    if REGISTRY.is_dir():
-        for f in sorted(REGISTRY.glob("*.rs")):
-            for m in RUST_LABEL.finditer(f.read_text(encoding="utf-8")):
-                found.add(m.group(1))
-    found.discard("")
-    OUT.mkdir(parents=True, exist_ok=True)
-    strings = sorted(found, key=str.lower)
-    (OUT / "strings.json").write_text(json.dumps(strings, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    print(f"[formfabric] {len(strings)} interface strings in frontend/src/i18n/strings.json")
+    keys = extract_keys()
+    for k in keys:
+        print(k)
+    print(f"[formfabric] {len(keys)} interface strings", file=sys.stderr)
     return 0
 
 
-def load_keys(path: Path) -> list[str]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return list(data.keys()) if isinstance(data, dict) else list(data)
-
-
 def check() -> int:
-    source = OUT / "strings.json"
-    if not source.is_file():
-        print("[formfabric] strings.json is missing; run ./formfabric i18n extract")
-        return 1
-    strings = load_keys(source)
+    keys = extract_keys()
     bad = 0
-    for path in sorted(OUT.glob("*.json")):
+    for path in sorted(TABLES.glob("*.ts")):
         code = path.stem
-        if code == "strings":
+        if code in NOT_TABLES:
             continue
-        table = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(table, dict):
-            print(f"  {code}: not an object of English string to translation")
+        table = load_table(path)
+        if not table:
+            print(f"  {code}: no entries found")
             bad += 1
             continue
-        missing = [s for s in strings if s not in table]
         for en, tr in table.items():
-            if sorted(re.findall(r"\{\w+\}", en)) != sorted(re.findall(r"\{\w+\}", str(tr))):
+            if placeholders(en) != placeholders(tr):
                 print(f"  {code}: placeholders differ in {en!r}")
                 bad += 1
         if code in REGIONAL:
-            print(f"  {code:6} regional overrides ({len(table)})")
+            print(f"  {code:7} regional overrides ({len(table)})")
             continue
-        print(f"  {code:6} {len(strings) - len(missing)}/{len(strings)}")
-        for s in missing[:5]:
-            print(f"         missing {s!r}")
+        missing = [k for k in keys if not known(table, k)]
+        print(f"  {code:7} {len(keys) - len(missing)}/{len(keys)}")
+        for k in missing[:5]:
+            print(f"          missing {k!r}")
         if missing:
             bad += 1
     return 1 if bad else 0
