@@ -350,7 +350,11 @@ impl<'a> Wrapper<'a> {
     }
 
     pub fn at(&mut self, u: f64, v: f64, offset: f64) -> Option<V> {
-        let key = (v * self.along / WRAP_STEP).round() as i64;
+        let raw = v * self.along / WRAP_STEP;
+        if !raw.is_finite() {
+            return None;
+        }
+        let key = raw.round().clamp(-400.0, 400.0) as i64;
         let dir = if key >= 0 { 1 } else { -1 };
         let mut j = 0;
         loop {

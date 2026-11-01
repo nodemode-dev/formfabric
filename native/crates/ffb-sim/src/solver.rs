@@ -39,6 +39,7 @@ pub struct Solver {
     hst: Vec<(f64, f64)>,
     tst: Vec<TriState>,
     pub(crate) imp: Option<Box<crate::implicit::State>>,
+    link_base: Vec<f64>,
 }
 
 pub(crate) fn v3(p: [f32; 3]) -> DVec3 {
@@ -171,7 +172,9 @@ impl Solver {
             hst: Vec::new(),
             tst: Vec::new(),
             imp: None,
+            link_base: Vec::new(),
         };
+        s.link_base = s.model.links.iter().map(|l| l.k).collect();
         s.set_pins(cloth.pins);
         s.sync_out();
         s
@@ -253,6 +256,34 @@ impl Solver {
             self.set_positions(&moved);
         }
         count
+    }
+
+    pub fn scale_links(&mut self, factor: f64) {
+        for (l, k) in self.model.links.iter_mut().zip(&self.link_base) {
+            l.k = k * factor;
+        }
+    }
+
+    pub fn link_count(&self) -> usize {
+        self.model.links.len()
+    }
+
+    pub fn max_link_gap(&self) -> f32 {
+        let mut worst: f64 = 0.0;
+        for l in &self.model.links {
+            let mut d = DVec3::ZERO;
+            for s in 0..l.n {
+                d += self.x[l.v[s] as usize] * l.c[s];
+            }
+            worst = worst.max(d.length() - l.rest);
+        }
+        worst as f32
+    }
+
+    pub fn damp_velocities(&mut self, keep: f64) {
+        for v in self.v.iter_mut() {
+            *v *= keep;
+        }
     }
 
     pub fn grab(&mut self, vertex: u32, target: Option<[f32; 3]>) {

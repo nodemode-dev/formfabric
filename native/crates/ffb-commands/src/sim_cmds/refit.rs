@@ -26,8 +26,9 @@ fn schema() -> Value {
             "from": {"type": "integer", "minimum": 1, "description": "Body id the garment is draped on. Defaults to the first visible body."},
             "to": {"type": "integer", "minimum": 1, "description": "Body id to move the garment to."},
             "steps": {"type": "integer", "minimum": 1, "maximum": MAX_STEPS, "default": 20, "description": "Increments along the body morph path."},
-            "frames": {"type": "integer", "minimum": 1, "maximum": 30, "default": 2, "description": "Solver frames run at each increment."},
+            "frames": {"type": "integer", "minimum": 1, "maximum": 30, "default": 4, "description": "Solver frames run at each increment."},
             "settle": {"type": "integer", "minimum": 0, "maximum": 600, "default": 40, "description": "Frames run on the target body at the end."},
+            "fix_frames": {"type": "integer", "minimum": 0, "maximum": 1000, "default": 150, "description": "Frame budget after the settle: each frame pushes cloth out of the target body and steps with collisions on, until the deepest vertex is under 1 mm inside or the budget is spent. The result reports inside_mm and the frames used."},
             "method": {
                 "type": "string",
                 "enum": ["auto", "blend", "sweep", "redrape"],
@@ -92,9 +93,69 @@ fn sweep_shape(a: &Body, from: &std::collections::BTreeMap<String, f64>, to: &st
     Ok(skin::posed_positions(&moved))
 }
 
-fn nearest(points: &[[f32; 3]], p: [f32; 3]) -> Option<usize> {
-    let (i, d) = points.iter().enumerate().map(|(i, q)| (i, (q[0] - p[0]).powi(2) + (q[1] - p[1]).powi(2) + (q[2] - p[2]).powi(2))).min_by(|a, b| a.1.total_cmp(&b.1))?;
-    (d.sqrt() <= FOLLOW_LIMIT).then_some(i)
+const TIME_BUDGET_SECONDS: f32 = 60.0;
+
+#[cfg(not(target_arch = "wasm32"))]
+fn clock() -> std::time::Instant {
+    std::time::Instant::now()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn late(began: &std::time::Instant) -> bool {
+    began.elapsed().as_secs_f32() > TIME_BUDGET_SECONDS
+}
+
+#[cfg(target_arch = "wasm32")]
+fn clock() {}
+
+#[cfg(target_arch = "wasm32")]
+fn late(_: &()) -> bool {
+    false
+}
+
+fn restore_visible(s: &mut Session, old: &[(usize, bool)]) {
+    for (index, visible) in old {
+        s.bodies[*index].visible = *visible;
+    }
+}
+
+struct Grid<'a> {
+    points: &'a [[f32; 3]],
+    cells: std::collections::HashMap<[i32; 3], Vec<u32>>,
+}
+
+fn cell(p: [f32; 3]) -> [i32; 3] {
+    [(p[0] / FOLLOW_LIMIT).floor() as i32, (p[1] / FOLLOW_LIMIT).floor() as i32, (p[2] / FOLLOW_LIMIT).floor() as i32]
+}
+
+impl<'a> Grid<'a> {
+    fn new(points: &'a [[f32; 3]]) -> Grid<'a> {
+        let mut cells: std::collections::HashMap<[i32; 3], Vec<u32>> = std::collections::HashMap::new();
+        for (i, p) in points.iter().enumerate() {
+            cells.entry(cell(*p)).or_default().push(i as u32);
+        }
+        Grid { points, cells }
+    }
+}
+
+fn nearest(grid: &Grid, p: [f32; 3]) -> Option<usize> {
+    let c = cell(p);
+    let mut best: Option<(usize, f32)> = None;
+    for dx in -1..=1 {
+        for dy in -1..=1 {
+            for dz in -1..=1 {
+                let Some(list) = grid.cells.get(&[c[0] + dx, c[1] + dy, c[2] + dz]) else { continue };
+                for &i in list {
+                    let q = grid.points[i as usize];
+                    let d = (q[0] - p[0]).powi(2) + (q[1] - p[1]).powi(2) + (q[2] - p[2]).powi(2);
+                    if best.is_none_or(|b| d < b.1) {
+                        best = Some((i as usize, d));
+                    }
+                }
+            }
+        }
+    }
+    best.filter(|b| b.1.sqrt() <= FOLLOW_LIMIT).map(|b| b.0)
 }
 
 fn flat(points: &[[f32; 3]]) -> Vec<f32> {
@@ -116,7 +177,7 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         None => u64::from(s.bodies.iter().find(|b| b.visible && b.id != to_id as u32).ok_or_else(|| CommandError::new("not_found", "there is no visible body to refit from"))?.id),
     };
     let steps = a.get("steps").and_then(Value::as_u64).unwrap_or(20);
-    let frames = a.get("frames").and_then(Value::as_u64).unwrap_or(2);
+    let frames = a.get("frames").and_then(Value::as_u64).unwrap_or(4);
     let settle = a.get("settle").and_then(Value::as_u64).unwrap_or(40);
     if !(1..=MAX_STEPS).contains(&steps) || !(1..=30).contains(&frames) || settle > 600 {
         return Err(bad("steps must be 1 to 400, frames 1 to 30, settle 0 to 600"));
@@ -147,17 +208,22 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let posed_b = skin::posed_positions(&body_b);
     let core = s.sim.core.clone();
     let sink = s.sink.clone();
+    let grid = Grid::new(&posed_a);
+    let began = clock();
     let follow: Vec<(u32, [f32; 3], Option<usize>)> = {
         let mut c = lock(&core);
         c.sink = sink.clone();
         c.pinch = None;
         let first = c.base.positions.len() - c.extras.anchors.len();
-        c.extras.anchors.iter().enumerate().map(|(k, an)| ((first + k) as u32, an.point, nearest(&posed_a, an.point))).collect()
+        c.extras.anchors.iter().enumerate().map(|(k, an)| ((first + k) as u32, an.point, nearest(&grid, an.point))).collect()
     };
     let (m_from, m_to) = if method == "sweep" { (measure::measure(&body_a), measure::measure(&body_b)) } else { Default::default() };
     let mut last_shape = posed_a.clone();
     if method != "redrape" {
         for k in 1..=steps {
+            if late(&began) {
+                break;
+            }
             let t = k as f64 / steps as f64;
             let shape = if method == "blend" { lerp(&posed_a, &posed_b, t as f32) } else { sweep_shape(&body_a, &m_from, &m_to, t)? };
             let colliders = scene(s, &skip, adapter::mesh_collider(shape.clone(), &body_a.triangles));
@@ -187,6 +253,7 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         }
     }
     let mut changes = Vec::new();
+    let old_visible = [(ia, s.bodies[ia].visible), (ib, s.bodies[ib].visible)];
     for (index, visible) in [(ia, false), (ib, true)] {
         let old = light_copy(&s.bodies[index]);
         s.bodies[index].visible = visible;
@@ -196,7 +263,10 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         }
     }
     if method == "redrape" {
-        rebuild(s)?;
+        if let Err(e) = rebuild(s) {
+            restore_visible(s, &old_visible);
+            return Err(e);
+        }
         lock(&core).reset();
     } else {
         let colliders = scene(s, &skip, adapter::mesh_collider(posed_b.clone(), &body_b.triangles));
@@ -212,7 +282,35 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         c.snapshot()
     };
     publish(&sink, &snapshot);
-    let panels = if method == "redrape" { Vec::new() } else { posed_panels(s)? };
+    let budget = a.get("fix_frames").and_then(Value::as_u64).unwrap_or(150).min(1000);
+    let mut fixed = 0;
+    let inside = {
+        let mut c = lock(&core);
+        loop {
+            let depth = c.stepper.as_ref().map_or(0.0, |st| st.max_penetration());
+            if depth < 1.0 || fixed >= budget {
+                break depth;
+            }
+            if let Some(st) = c.stepper.as_mut() {
+                st.push_out(1.0);
+            }
+            c.step_frames(1);
+            fixed += 1;
+        }
+    };
+    let snapshot = lock(&core).snapshot();
+    publish(&sink, &snapshot);
+    let panels = if method == "redrape" {
+        Vec::new()
+    } else {
+        match posed_panels(s) {
+            Ok(p) => p,
+            Err(e) => {
+                restore_visible(s, &old_visible);
+                return Err(e);
+            }
+        }
+    };
     let mut moved_panels = Vec::new();
     for (index, _, after) in panels {
         moved_panels.push(after.id);
@@ -223,7 +321,7 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             for end in [&mut tack.a, &mut tack.b] {
                 let Some(p) = end.body_point else { continue };
                 let q = [p[0] as f32, p[1] as f32, p[2] as f32];
-                if let Some(i) = nearest(&posed_a, q) {
+                if let Some(i) = nearest(&grid, q) {
                     end.body_point = Some([f64::from(q[0] + last_shape[i][0] - posed_a[i][0]), f64::from(q[1] + last_shape[i][1] - posed_a[i][1]), f64::from(q[2] + last_shape[i][2] - posed_a[i][2])]);
                 }
             }
@@ -248,6 +346,8 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         "steps": if method == "redrape" { 0 } else { steps },
         "frames_per_step": frames,
         "settle": settle,
+        "fix_frames": fixed,
+        "inside_mm": inside,
         "panels": moved_panels,
         "body_tapes": tapes,
         "note": if method == "redrape" && tapes > 0 { "body tapes keep their old body points; set them again on the new body" } else { "" }

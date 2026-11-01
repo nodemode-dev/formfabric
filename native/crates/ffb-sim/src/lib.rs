@@ -124,6 +124,8 @@ pub struct Params {
     pub nonlinear: bool,
     pub stiffening: f32,
     pub accel: f32,
+    pub close_frames: u32,
+    pub close_gap: f32,
 }
 
 impl Params {
@@ -163,6 +165,8 @@ impl Default for Params {
             nonlinear: false,
             stiffening: 40.0,
             accel: 0.0,
+            close_frames: 60,
+            close_gap: 2.0,
         }
     }
 }

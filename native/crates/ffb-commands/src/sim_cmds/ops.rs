@@ -106,6 +106,9 @@ fn describe(c: &super::runtime::Core, session: &Session) -> Value {
         "device": session.sim.device,
         "fps": round(1.0 / f64::from(p.time_step), 2),
         "kinetic_energy": c.stepper.as_ref().map(|s| round(f64::from(s.kinetic_energy()), 3)),
+        "seam_gap": c.stepper.as_ref().map(|s| round(f64::from(s.max_link_gap()), 2)),
+        "closing": !c.closing_over && c.stepper.is_some(),
+        "closing_frames_done": c.closing_done,
         "last": {
             "ms": round(f64::from(c.stats.ms), 3),
             "iterations": c.stats.iterations,
@@ -234,6 +237,8 @@ fn settings_schema() -> Value {
             "newton": {"type": "integer", "minimum": 1, "maximum": 10, "description": "Newton iterations per substep (implicit method)."},
             "cg_iterations": {"type": "integer", "minimum": 1, "maximum": 2000, "description": "Conjugate gradient iterations per Newton iteration (implicit method)."},
             "cg_tolerance": {"type": "number", "minimum": 0.000001, "maximum": 0.1, "description": "Conjugate gradient relative tolerance (implicit method)."},
+            "close_frames": {"type": "integer", "minimum": 0, "maximum": 600, "description": "Seam closing phase at the start of a drape: up to this many frames with stiffened seams, reduced gravity, strong damping and collisions on, then the normal simulation. 0 turns it off. Only applies when the garment has seams or links."},
+            "close_gap": {"type": "number", "minimum": 0.1, "maximum": 50, "unit": "mm", "description": "The closing phase may end early once the largest seam gap is under this."},
             "device": {"type": "string", "enum": ["cpu", "gpu"], "description": "Where the solver runs. gpu is accepted and reported unavailable until a GPU solver exists; the simulation stays on the cpu."}
         },
         "required": [],
@@ -253,7 +258,8 @@ fn params_json(p: &Params) -> Value {
         "time_step": p.time_step, "substeps": p.substeps, "iterations": p.iterations, "gravity": p.gravity,
         "air_damping": p.air_damping, "skin_offset": p.skin_offset, "collision_thickness": p.collision_thickness,
         "friction": p.friction, "self_collision": p.self_collision, "method": adapter::method_name(p),
-        "newton": p.newton, "cg_iterations": p.cg_iterations, "cg_tolerance": p.cg_tolerance
+        "newton": p.newton, "cg_iterations": p.cg_iterations, "cg_tolerance": p.cg_tolerance,
+        "close_frames": p.close_frames, "close_gap": p.close_gap
     })
 }
 
@@ -324,6 +330,14 @@ fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     }
     if let Some(x) = number(a, "cg_tolerance", 1.0e-6, 0.1)? {
         p.cg_tolerance = x;
+        touched = true;
+    }
+    if let Some(x) = number(a, "close_frames", 0.0, 600.0)? {
+        p.close_frames = x as u32;
+        touched = true;
+    }
+    if let Some(x) = number(a, "close_gap", 0.1, 50.0)? {
+        p.close_gap = x;
         touched = true;
     }
     let mut requested = s.sim.device.clone();

@@ -33,6 +33,21 @@ pub(crate) struct Core {
     pub pins: Vec<PinPoint>,
     pub pinch: Option<Pinch>,
     pub shared: Arc<Mutex<Params>>,
+    pub closing_done: u32,
+    pub closing_over: bool,
+}
+
+fn closing_params(base: &Params, u: f32) -> Params {
+    let ramp = ((u - 0.6) / 0.4).clamp(0.0, 1.0);
+    let gravity = 0.1 + 0.9 * ramp;
+    let damping = base.air_damping.max(6.0) * (1.0 - ramp) + base.air_damping * ramp;
+    Params { gravity: base.gravity.map(|g| g * gravity), air_damping: damping, ..*base }
+}
+
+fn closing_links(u: f32) -> f64 {
+    let up = (u / 0.35).clamp(0.0, 1.0);
+    let down = ((u - 0.7) / 0.3).clamp(0.0, 1.0);
+    f64::from(1.0 + 24.0 * up * (1.0 - down))
 }
 
 pub(crate) const MIN_TIME_STEP: f32 = 1.0 / 240.0;
@@ -84,6 +99,8 @@ impl Core {
         self.pinch = None;
         self.wind_on = false;
         self.stale = false;
+        self.closing_done = 0;
+        self.closing_over = false;
     }
 
     pub fn reset(&mut self) {
@@ -100,13 +117,28 @@ impl Core {
         self.grabbed = None;
         self.pinch = None;
         self.wind_on = false;
+        self.closing_done = 0;
+        self.closing_over = false;
     }
 
     pub fn step_frames(&mut self, n: u32) -> Stats {
         self.sync_params();
         let Some(stepper) = self.stepper.as_mut() else { return self.stats };
         let mut last = self.stats;
+        let base = self.params;
         for _ in 0..n {
+            if !self.closing_over && self.closing_done == 0 {
+                if base.close_frames == 0 || stepper.link_count() == 0 {
+                    self.closing_over = true;
+                } else {
+                    stepper.push_out(0.0);
+                }
+            }
+            if !self.closing_over {
+                let u = self.closing_done as f32 / base.close_frames as f32;
+                stepper.set_params(closing_params(&base, u));
+                stepper.scale_links(closing_links(u));
+            }
             if self.wind.enabled {
                 let time = self.frame as f64 * f64::from(self.params.time_step);
                 wind::forces(&self.wind, stepper.positions(), &self.base.triangles, time, &mut self.forces);
@@ -117,6 +149,16 @@ impl Core {
                 self.wind_on = false;
             }
             last = stepper.step();
+            if !self.closing_over {
+                stepper.damp_velocities(0.5);
+                self.closing_done += 1;
+                let u = self.closing_done as f32 / base.close_frames as f32;
+                if self.closing_done >= base.close_frames || (u >= 0.5 && stepper.max_link_gap() < base.close_gap) {
+                    self.closing_over = true;
+                    stepper.set_params(base);
+                    stepper.scale_links(1.0);
+                }
+            }
             self.frame += 1;
         }
         self.stats = last;

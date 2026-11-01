@@ -60,6 +60,8 @@ pub(crate) fn preset(name: &str, base: Params) -> Option<Params> {
         air_damping: base.air_damping,
         skin_offset: base.skin_offset,
         friction: base.friction,
+        close_frames: base.close_frames,
+        close_gap: base.close_gap,
         ..made
     })
 }
