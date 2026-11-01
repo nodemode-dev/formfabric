@@ -63,6 +63,52 @@ fn delete(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     Ok(json!({"changed": true, "removed": removed, "remaining": s.garment.stitches.len()}))
 }
 
+fn set_schema() -> Value {
+    obj(
+        json!({
+            "stitch": ident("Stitch id."),
+            "offset": num("New distance of the stitch line from the span, positive to the left of the walking direction.", -50.0, 50.0, Some("mm")),
+            "style": ident("New style id, a topstitch or puckering style."),
+            "spans": spans("New spans, replacing the old ones.")
+        }),
+        &["stitch"],
+    )
+}
+
+fn set(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
+    let target = required_id(a, "stitch")?;
+    let index = s.garment.stitches.iter().position(|x| x.id == target).ok_or_else(|| missing(format!("no stitch with id {target}")))?;
+    let offset = number(a, "offset");
+    if offset.is_some_and(|o| !(-50.0..=50.0).contains(&o)) {
+        return Err(bad("offset must be between -50 and 50 mm"));
+    }
+    let style = match id(a, "style") {
+        Some(sid) => Some(style_of(&s.garment, sid, &[StyleKind::Topstitch, StyleKind::Puckering])?.id),
+        None => None,
+    };
+    let ends = if a.get("spans").is_some() { Some(parse_spans(&s.garment, a, "spans")?) } else { None };
+    if offset.is_none() && style.is_none() && ends.is_none() {
+        return Err(bad("give offset, style or spans"));
+    }
+    let mut next = s.garment.stitches[index].clone();
+    if let Some(o) = offset {
+        next.offset = o;
+    }
+    if let Some(sid) = style {
+        next.style = sid;
+    }
+    if let Some(e) = ends {
+        next.spans = e;
+    }
+    if next == s.garment.stitches[index] {
+        return Ok(json!({"changed": false, "stitch": describe(&next)}));
+    }
+    let before = s.garment.clone();
+    s.garment.stitches[index] = next.clone();
+    record(s, "Set Stitch", before);
+    Ok(json!({"changed": true, "stitch": describe(&next)}))
+}
+
 fn fray_schema() -> Value {
     obj(
         json!({
@@ -111,10 +157,21 @@ pub(super) fn commands() -> Vec<Command> {
             group: Group::Sew,
             label: "Add Stitch",
             description: "Add a topstitch or puckering line along spans of a panel outline or inner line, at an offset in mm. Render data, with a slight stiffening along the line (the stiffen parameter of the style).",
-            keys: &[],
+            keys: &["Shift+S"],
             hints: WRITE,
             schema: add_schema,
             run: add,
+        },
+        Command {
+            id: "stitch.set",
+            mcp: "stitch_set",
+            group: Group::Sew,
+            label: "Set Stitch",
+            description: "Change a stitch after creation: its offset in mm from the span, its topstitch or puckering style, or its spans. Give at least one. One undo step.",
+            keys: &[],
+            hints: WRITE,
+            schema: set_schema,
+            run: set,
         },
         Command {
             id: "stitch.delete",

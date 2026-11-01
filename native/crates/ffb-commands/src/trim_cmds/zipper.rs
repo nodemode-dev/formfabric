@@ -96,7 +96,7 @@ pub(super) fn commands() -> Vec<Command> {
             group: Group::Sew,
             label: "Add Zipper",
             description: "Add a zipper between two sides, each a list of spans listed in the direction the zipper zips. The closed part binds like a seam, the open part does not. Reports both side lengths and the mismatch.",
-            keys: &[],
+            keys: &["Shift+Z"],
             hints: WRITE,
             schema: add_schema,
             run: add,

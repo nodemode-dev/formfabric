@@ -6,6 +6,8 @@ use super::build::ensure;
 use super::runtime::lock;
 use crate::{Command, CommandError, Edit, Group, Session, SET, WRITE};
 
+pub(crate) const MAX_PINS: usize = 10_000;
+
 fn bad(message: impl Into<String>) -> CommandError {
     CommandError::new("bad_args", message)
 }
@@ -33,15 +35,14 @@ fn pin_json(p: &Pin) -> Value {
 }
 
 fn record(s: &mut Session, label: &str, edit: impl FnOnce(&mut Vec<Pin>) -> Result<(), CommandError>) -> Result<bool, CommandError> {
-    let before = s.garment.clone();
-    let mut after = before.clone();
-    edit(&mut after.pins)?;
-    let changed = after != before;
-    if changed {
-        s.garment = after.clone();
-        s.record(Edit::Garment { label: label.into(), before: Box::new(before), after: Box::new(after) });
+    let mut pins = s.garment.pins.clone();
+    edit(&mut pins)?;
+    if pins == s.garment.pins {
+        return Ok(false);
     }
-    Ok(changed)
+    let before = std::mem::replace(&mut s.garment.pins, pins.clone());
+    s.record(Edit::Pins { label: label.into(), before, after: pins });
+    Ok(true)
 }
 
 fn add_schema() -> Value {
@@ -81,6 +82,12 @@ fn add(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             }
         }
     };
+    if let Some(existing) = s.garment.pins.iter().find(|p| p.panel == panel_id && nearest_vertex(&mesh.mesh, p.point) == Some(local)) {
+        return Ok(json!({"pin": pin_json(existing), "vertex": local, "count": s.garment.pins.len(), "changed": false}));
+    }
+    if s.garment.pins.len() >= MAX_PINS {
+        return Err(bad(format!("a garment holds at most {MAX_PINS} pins")));
+    }
     let mut created = 0;
     record(s, "Add pin", |pins| {
         created = pins.iter().map(|p| p.id).max().unwrap_or(0) + 1;

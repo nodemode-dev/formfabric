@@ -1,5 +1,5 @@
 use ffb_core::Units;
-use ffb_pattern::{Garment, Panel};
+use ffb_pattern::{Garment, Panel, Pin};
 
 pub const DEFAULT_STEPS: usize = 200;
 pub const MAX_STEPS: usize = 10_000;
@@ -11,13 +11,14 @@ pub enum Edit {
     Bodies { label: String, changes: Vec<ffb_body::BodyChange> },
     Panel { label: String, index: usize, before: Option<Box<Panel>>, after: Option<Box<Panel>> },
     Many { label: String, edits: Vec<Edit> },
+    Pins { label: String, before: Vec<Pin>, after: Vec<Pin> },
 }
 
 impl Edit {
     pub fn label(&self) -> String {
         match self {
             Edit::Units { .. } => "Units".into(),
-            Edit::Garment { label, .. } | Edit::Panel { label, .. } | Edit::Many { label, .. } | Edit::Bodies { label, .. } => label.clone(),
+            Edit::Garment { label, .. } | Edit::Panel { label, .. } | Edit::Many { label, .. } | Edit::Bodies { label, .. } | Edit::Pins { label, .. } => label.clone(),
         }
     }
 
@@ -25,6 +26,7 @@ impl Edit {
         match self {
             Edit::Units { from, to } => garment.units = if forward { *to } else { *from },
             Edit::Bodies { .. } => {}
+            Edit::Pins { before, after, .. } => garment.pins = (if forward { after } else { before }).clone(),
             Edit::Garment { before, after, .. } => *garment = (**if forward { after } else { before }).clone(),
             Edit::Panel { index, before, after, .. } => {
                 let (from, to) = if forward { (before, after) } else { (after, before) };
@@ -59,7 +61,7 @@ fn touches(edit: &Edit, at: usize) -> bool {
         Edit::Panel { index, .. } => *index == at,
         Edit::Many { edits, .. } => edits.iter().any(|e| touches(e, at)),
         Edit::Garment { .. } => true,
-        Edit::Units { .. } | Edit::Bodies { .. } => false,
+        Edit::Units { .. } | Edit::Bodies { .. } | Edit::Pins { .. } => false,
     }
 }
 
@@ -68,7 +70,7 @@ fn in_place(edit: &Edit) -> bool {
         Edit::Panel { before, after, .. } => before.is_some() && after.is_some(),
         Edit::Many { edits, .. } => edits.iter().all(in_place),
         Edit::Garment { .. } | Edit::Bodies { .. } => false,
-        Edit::Units { .. } => true,
+        Edit::Units { .. } | Edit::Pins { .. } => true,
     }
 }
 

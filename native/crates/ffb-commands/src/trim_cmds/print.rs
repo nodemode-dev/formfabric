@@ -144,7 +144,7 @@ pub(super) fn commands() -> Vec<Command> {
             group: Group::Pattern,
             label: "Add Print",
             description: "Place an image on a panel at a position (centre), rotation and size in mm, on the front, back or either face, with an optional emboss height. Render data. The image path must exist now; it is stored as given.",
-            keys: &[],
+            keys: &["Shift+I"],
             hints: WRITE,
             schema: add_schema,
             run: add,
