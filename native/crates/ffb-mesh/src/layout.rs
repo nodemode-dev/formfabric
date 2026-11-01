@@ -21,6 +21,23 @@ pub fn rotate(q: [f64; 4], v: [f64; 3]) -> [f64; 3] {
     ]
 }
 
+pub fn centre_x(mesh: &PanelMesh) -> f64 {
+    let (lo, hi) = mesh.positions.iter().fold((f64::MAX, f64::MIN), |(lo, hi), p| (lo.min(p[0]), hi.max(p[0])));
+    if lo > hi {
+        0.0
+    } else {
+        (lo + hi) * 0.5
+    }
+}
+
+pub fn bent(x: f64, cx: f64, radius: f64) -> (f64, f64) {
+    if radius.abs() < 1e-6 {
+        return (x, 0.0);
+    }
+    let angle = (x - cx) / radius;
+    (cx + radius * angle.sin(), radius * (angle.cos() - 1.0))
+}
+
 pub fn mirrored_flat(panel: &Panel) -> bool {
     panel.place3d.is_none() && panel.mirror
 }
@@ -28,10 +45,12 @@ pub fn mirrored_flat(panel: &Panel) -> bool {
 pub fn positions_3d(mesh: &PanelMesh, panel: &Panel) -> Vec<f32> {
     let mut out = Vec::with_capacity(mesh.positions.len() * 3);
     match &panel.place3d {
-        Some(Place3D { origin, rotation, .. }) => {
+        Some(Place3D { origin, rotation, bend }) => {
             let q = quaternion(*rotation);
+            let cx = centre_x(mesh);
             for p in &mesh.positions {
-                let r = rotate(q, [p[0], p[1], 0.0]);
+                let (bx, bz) = bent(p[0], cx, *bend);
+                let r = rotate(q, [bx, p[1], bz]);
                 out.extend_from_slice(&[(origin[0] + r[0]) as f32, (origin[1] + r[1]) as f32, (origin[2] + r[2]) as f32]);
             }
         }

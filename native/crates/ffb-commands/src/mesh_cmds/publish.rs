@@ -14,7 +14,7 @@ fn placement_signature(panel: &Panel) -> u64 {
     match &panel.place3d {
         Some(p) => {
             h.u64(1);
-            for v in p.origin.iter().chain(p.rotation.iter()) {
+            for v in p.origin.iter().chain(p.rotation.iter()).chain(std::iter::once(&p.bend)) {
                 h.f64(*v);
             }
         }
