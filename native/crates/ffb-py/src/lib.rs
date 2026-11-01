@@ -25,6 +25,10 @@ impl FrameSink for PublisherSink {
     fn positions(&self, object: u32, positions: &[f32]) {
         self.0.publish_positions(object, positions);
     }
+
+    fn scalars(&self, object: u32, map: u32, component: u32, min: f32, max: f32, values: &[f32]) {
+        self.0.publish_scalars(object, map, component, min, max, values);
+    }
 }
 
 #[pyclass]

@@ -3,6 +3,11 @@ pub const VERSION: u16 = 1;
 pub const HEADER_LEN: usize = 44;
 pub const KIND_TOPOLOGY: u16 = 1;
 pub const KIND_POSITIONS: u16 = 2;
+pub const KIND_SCALARS: u16 = 3;
+pub const SCALAR_NONE: u16 = 65535;
+pub const SCALAR_STEPS: f32 = 65534.0;
+pub const MAX_SCALAR_MAP: u32 = 7;
+pub const MAX_SCALAR_COMPONENT: u32 = 7;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Header {
@@ -19,6 +24,7 @@ pub struct Header {
 pub enum Body {
     Positions(Vec<f32>),
     Topology { indices: Vec<u32>, panel_ids: Vec<u16> },
+    Scalars { map: u32, component: u32, min: f32, max: f32, values: Vec<f32> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,6 +41,8 @@ pub enum DecodeError {
     BadKind(u16),
     BadLength,
     IndexOutOfRange,
+    BadScalarRange,
+    BadScalarMap,
 }
 
 impl std::fmt::Display for DecodeError {
@@ -46,6 +54,8 @@ impl std::fmt::Display for DecodeError {
             DecodeError::BadKind(k) => write!(f, "unknown frame kind {k}"),
             DecodeError::BadLength => f.write_str("frame body length does not match its header"),
             DecodeError::IndexOutOfRange => f.write_str("triangle index is not below the vertex count"),
+            DecodeError::BadScalarRange => f.write_str("scalar range is not finite or min exceeds max"),
+            DecodeError::BadScalarMap => f.write_str("scalar map or component id is out of range"),
         }
     }
 }
@@ -106,6 +116,23 @@ pub fn encode_topology(frame: u32, object: u32, vertex_count: u32, indices: &[u3
     }
     for t in 0..tris {
         out.extend_from_slice(&panel_ids.get(t).copied().unwrap_or(0).to_le_bytes());
+    }
+    out
+}
+
+pub fn encode_scalars(frame: u32, object: u32, map: u32, component: u32, min: f32, max: f32, values: &[f32]) -> Vec<u8> {
+    let (lo, hi) = if min.is_finite() && max.is_finite() && min <= max { (min, max) } else { (0.0, 0.0) };
+    let extent = hi - lo;
+    let mut out = Vec::with_capacity(HEADER_LEN + values.len() * 2);
+    put_header(&mut out, KIND_SCALARS, frame, object, values.len() as u32, [lo, hi, 0.0], [map as f32, component as f32, 0.0]);
+    for &v in values {
+        let q = if v.is_finite() {
+            let t = if extent > 0.0 { ((v - lo) / extent).clamp(0.0, 1.0) } else { 0.0 };
+            (t * SCALAR_STEPS).round() as u16
+        } else {
+            SCALAR_NONE
+        };
+        out.extend_from_slice(&q.to_le_bytes());
     }
     out
 }
@@ -174,6 +201,33 @@ pub fn decode(bytes: &[u8]) -> Result<Frame, DecodeError> {
             let base = 4 + tris * 12;
             let panel_ids = (0..tris).map(|t| u16_at(body, base + t * 2)).collect();
             Ok(Frame { header, body: Body::Topology { indices, panel_ids } })
+        }
+        KIND_SCALARS => {
+            let n = header.vertex_count as usize;
+            if body.len() != n.checked_mul(2).ok_or(DecodeError::BadLength)? {
+                return Err(DecodeError::BadLength);
+            }
+            let (min, max) = (header.origin[0], header.origin[1]);
+            if !min.is_finite() || !max.is_finite() || min > max {
+                return Err(DecodeError::BadScalarRange);
+            }
+            let id = |v: f32, limit: u32| (v.is_finite() && v >= 0.0 && v.fract() == 0.0 && v <= limit as f32).then_some(v as u32);
+            let (Some(map), Some(component)) = (id(header.scale[0], MAX_SCALAR_MAP), id(header.scale[1], MAX_SCALAR_COMPONENT)) else {
+                return Err(DecodeError::BadScalarMap);
+            };
+            let extent = max - min;
+            let values = body
+                .chunks_exact(2)
+                .map(|c| {
+                    let q = u16::from_le_bytes([c[0], c[1]]);
+                    if q == SCALAR_NONE {
+                        f32::NAN
+                    } else {
+                        min + q as f32 / SCALAR_STEPS * extent
+                    }
+                })
+                .collect();
+            Ok(Frame { header, body: Body::Scalars { map, component, min, max, values } })
         }
         other => Err(DecodeError::BadKind(other)),
     }

@@ -1,7 +1,26 @@
+mod capture;
+mod draw;
+mod maps;
+mod measure;
+mod run;
+mod scene;
+mod schematic;
+mod stage;
+mod store;
+
 use crate::{Command, Session};
 
-pub(crate) fn after_change(_session: &mut Session, _command: &str) {}
+pub use run::VizState;
+
+pub(crate) fn after_change(session: &mut Session, command: &str) {
+    run::after_change(session, command);
+}
 
 pub(crate) fn commands() -> Vec<Command> {
-    Vec::new()
+    let mut all = run::commands();
+    all.extend(measure::commands());
+    all.extend(stage::commands());
+    all.extend(schematic::commands());
+    all.extend(capture::commands());
+    all
 }

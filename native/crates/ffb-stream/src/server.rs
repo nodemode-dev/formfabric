@@ -24,6 +24,7 @@ type Bytes = Arc<Vec<u8>>;
 struct Slot {
     topology: Vec<(u32, Bytes)>,
     positions: BTreeMap<u32, Bytes>,
+    scalars: BTreeMap<u32, Bytes>,
 }
 
 #[derive(Default)]
@@ -31,6 +32,7 @@ struct Hub {
     clients: Vec<Arc<Mutex<Slot>>>,
     topology: BTreeMap<u32, Bytes>,
     positions: BTreeMap<u32, Bytes>,
+    scalars: BTreeMap<u32, Bytes>,
     frames: HashMap<u32, u32>,
 }
 
@@ -56,6 +58,22 @@ impl Publisher {
         }
     }
 
+    pub fn publish_scalars(&self, object: u32, map: u32, component: u32, min: f32, max: f32, values: &[f32]) {
+        let mut hub = lock(&self.hub);
+        let n = hub.frames.entry(object).or_insert(0);
+        *n = n.wrapping_add(1);
+        let bytes = Arc::new(frame::encode_scalars(*n, object, map, component, min, max, values));
+        if values.is_empty() {
+            hub.scalars.remove(&object);
+        } else {
+            hub.scalars.insert(object, bytes.clone());
+        }
+        hub.clients.retain(|c| Arc::strong_count(c) > 1);
+        for c in &hub.clients {
+            lock(c).scalars.insert(object, bytes.clone());
+        }
+    }
+
     pub fn publish_topology(&self, object: u32, indices: &[u32], panel_ids: &[u16]) {
         let vertices = indices.iter().max().map_or(0, |m| m + 1);
         let mut hub = lock(&self.hub);
@@ -64,10 +82,12 @@ impl Publisher {
         let bytes = Arc::new(frame::encode_topology(*n, object, vertices, indices, panel_ids));
         hub.topology.insert(object, bytes.clone());
         hub.positions.remove(&object);
+        hub.scalars.remove(&object);
         hub.clients.retain(|c| Arc::strong_count(c) > 1);
         for c in &hub.clients {
             let mut slot = lock(c);
             slot.positions.remove(&object);
+            slot.scalars.remove(&object);
             slot.topology.retain(|(o, _)| *o != object);
             slot.topology.push((object, bytes.clone()));
         }
@@ -78,6 +98,7 @@ impl Publisher {
         let slot = Slot {
             topology: hub.topology.iter().map(|(o, b)| (*o, b.clone())).collect(),
             positions: hub.positions.clone(),
+            scalars: hub.scalars.clone(),
         };
         let slot = Arc::new(Mutex::new(slot));
         hub.clients.push(slot.clone());
@@ -259,6 +280,7 @@ fn serve(stream: TcpStream, publisher: Publisher, token: &str, mut seat: Seat) {
             let mut s = lock(&slot);
             let mut out: Vec<Bytes> = s.topology.drain(..).map(|(_, b)| b).collect();
             out.extend(std::mem::take(&mut s.positions).into_values());
+            out.extend(std::mem::take(&mut s.scalars).into_values());
             out
         };
         for bytes in batch {
