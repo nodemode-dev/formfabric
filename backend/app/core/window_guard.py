@@ -1,8 +1,9 @@
+import asyncio
 import logging
 import re
 import secrets
 
-from fastapi import HTTPException, Request, WebSocket
+from fastapi import HTTPException, Request, WebSocket, WebSocketDisconnect
 
 from app.core import config
 from app.services import agents
@@ -11,9 +12,10 @@ _ORIGIN = re.compile(r"^([a-z][a-z0-9+.\-]*)://(\[[0-9a-f:]+\]|[a-z0-9._\-]+)(?:
 _DEFAULT_PORT = {"http": 80, "https": 443}
 REFUSAL = "this route answers the formfabric window only"
 WINDOW_HEADER = "x-ffb-window"
-WINDOW_QUERY = "ffb_window"
 _log = logging.getLogger("formfabric.window_guard")
 _warned = False
+_warned_short = False
+HANDSHAKE_SECONDS = 5
 
 
 def exact(value: str) -> str | None:
@@ -53,6 +55,13 @@ def _window_token(given: str, expected: str) -> bool:
     return secrets.compare_digest(given.encode("utf-8"), expected.encode("utf-8"))
 
 
+def _warn_short() -> None:
+    global _warned_short
+    if not _warned_short:
+        _warned_short = True
+        _log.error("FFB_WINDOW_TOKEN is shorter than %d characters: every window route is refused until a longer token is set", config.TOKEN_MIN)
+
+
 def _warn_open() -> None:
     global _warned
     if not _warned:
@@ -60,15 +69,17 @@ def _warn_open() -> None:
         _log.warning("FFB_WINDOW_TOKEN is not set: window routes fall back to the exact-origin rule, which a local program can forge")
 
 
-def from_window(headers, same_origin_read: bool = False, query=None) -> bool:
+def from_window(headers, same_origin_read: bool = False) -> bool:
     if not host_ok(headers):
         return False
     if _token(headers):
         return True
+    if config.window_token_rejected():
+        _warn_short()
+        return False
     expected = config.window_token()
     if expected is not None:
-        given = headers.get(WINDOW_HEADER) or (query.get(WINDOW_QUERY, "") if query is not None else "")
-        return _window_token(given, expected)
+        return _window_token(headers.get(WINDOW_HEADER, ""), expected)
     _warn_open()
     origin = headers.get("origin")
     if origin is not None:
@@ -87,5 +98,14 @@ def require_window_read(request: Request) -> None:
         raise HTTPException(status_code=403, detail=REFUSAL)
 
 
-def socket_from_window(ws: WebSocket) -> bool:
-    return from_window(ws.headers, query=ws.query_params)
+async def socket_from_window(ws: WebSocket) -> bool:
+    if from_window(ws.headers):
+        return True
+    expected = config.window_token()
+    if expected is None or not host_ok(ws.headers):
+        return False
+    try:
+        given = await asyncio.wait_for(ws.receive_text(), timeout=HANDSHAKE_SECONDS)
+    except (asyncio.TimeoutError, WebSocketDisconnect, RuntimeError):
+        return False
+    return _window_token(given, expected)

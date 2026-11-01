@@ -1,3 +1,5 @@
+import { openStream, type Stream } from '../dock/sse';
+
 export interface EngineChanged { type: 'engine.changed'; epoch: number; name: string }
 export type Link = 'connecting' | 'up' | 'down';
 
@@ -6,7 +8,7 @@ type LinkListener = (state: Link) => void;
 
 const listeners = new Set<Listener>();
 const linkListeners = new Set<LinkListener>();
-let source: EventSource | null = null;
+let source: Stream | null = null;
 let link: Link = 'connecting';
 
 function eventsUrl(): string {
@@ -22,18 +24,18 @@ function setLink(next: Link): void {
 
 function open(): void {
   if (source || !(listeners.size || linkListeners.size)) return;
-  const es = new EventSource(eventsUrl());
-  source = es;
-  es.addEventListener('open', () => setLink('up'));
-  es.addEventListener('error', () => setLink(es.readyState === EventSource.CLOSED ? 'down' : 'connecting'));
-  es.addEventListener('message', (m) => {
-    setLink('up');
-    try {
-      const data = JSON.parse(String(m.data)) as Partial<EngineChanged>;
-      if (data.type !== 'engine.changed') return;
-      const e: EngineChanged = { type: 'engine.changed', epoch: Number(data.epoch ?? 0), name: String(data.name ?? '') };
-      for (const fn of listeners) fn(e);
-    } catch { return; }
+  source = openStream(eventsUrl(), {
+    open: () => setLink('up'),
+    error: (refused) => setLink(refused ? 'down' : 'connecting'),
+    message: (text) => {
+      setLink('up');
+      try {
+        const data = JSON.parse(text) as Partial<EngineChanged>;
+        if (data.type !== 'engine.changed') return;
+        const e: EngineChanged = { type: 'engine.changed', epoch: Number(data.epoch ?? 0), name: String(data.name ?? '') };
+        for (const fn of listeners) fn(e);
+      } catch { return; }
+    },
   });
 }
 

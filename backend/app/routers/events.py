@@ -1,16 +1,17 @@
 import asyncio
 import json
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
+from app.core.window_guard import require_window_read
 from app.services import cmd_chat, events
 
 router = APIRouter(tags=["events"])
 IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp"}
 
 
-@router.get("/events")
+@router.get("/events", dependencies=[Depends(require_window_read)])
 async def stream(request: Request) -> StreamingResponse:
     queue = events.subscribe()
 
@@ -32,7 +33,7 @@ async def stream(request: Request) -> StreamingResponse:
     return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
 
 
-@router.get("/events/recent")
+@router.get("/events/recent", dependencies=[Depends(require_window_read)])
 def recent() -> dict:
     return {"events": [json.loads(m) for m in events.recent()]}
 

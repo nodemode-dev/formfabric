@@ -330,7 +330,7 @@ export class TerminalDock {
   private connect(entry: Tab): void {
     const socket = new WebSocket(this.link.socketUrl(`/api/terminal/${encodeURIComponent(entry.id)}`));
     entry.socket = socket;
-    socket.addEventListener('open', () => this.sendSize(entry));
+    socket.addEventListener('open', () => { this.link.handshake(socket); this.sendSize(entry); });
     socket.addEventListener('message', (msg) => {
       const data = String(msg.data);
       if (data === '{"type": "exit"}') {

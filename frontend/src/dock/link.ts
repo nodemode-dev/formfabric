@@ -1,3 +1,5 @@
+import { openStream, type Stream } from './sse';
+
 export interface DockDeps {
   t: (key: string) => string;
   icons: { icon: (name: string, size?: number) => string };
@@ -21,7 +23,7 @@ export class ServiceError extends Error {
 }
 
 export class Link {
-  private source: EventSource | null = null;
+  private source: Stream | null = null;
   private readonly handlers = new Map<string, Set<Handler>>();
 
   constructor(private readonly serviceUrl: (path: string) => string) {}
@@ -31,9 +33,12 @@ export class Link {
   socketUrl(path: string): string {
     const u = new URL(this.serviceUrl(path), location.href);
     u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
-    const token = this.token();
-    if (token) u.searchParams.set('ffb_window', token);
     return u.toString();
+  }
+
+  handshake(socket: WebSocket): void {
+    const token = this.token();
+    if (token) socket.send(token);
   }
 
   private token(): string {
@@ -55,13 +60,15 @@ export class Link {
 
   start(): void {
     if (this.source) return;
-    const src = new EventSource(this.serviceUrl('/api/events'));
-    this.source = src;
-    src.onmessage = (m) => {
-      let e: EngineEvent;
-      try { e = JSON.parse(m.data) as EngineEvent; } catch { return; }
-      for (const fn of this.handlers.get(e.type) ?? []) fn(e);
-    };
+    this.source = openStream(this.serviceUrl('/api/events'), {
+      open: () => undefined,
+      error: () => undefined,
+      message: (data) => {
+        let e: EngineEvent;
+        try { e = JSON.parse(data) as EngineEvent; } catch { return; }
+        for (const fn of this.handlers.get(e.type) ?? []) fn(e);
+      },
+    });
   }
 
   stop(): void {

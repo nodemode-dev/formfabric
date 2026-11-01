@@ -11,10 +11,10 @@ router = APIRouter(tags=["terminal"])
 
 @router.websocket("/api/terminal/{sid}")
 async def attach(ws: WebSocket, sid: str) -> None:
-    if not window_guard.socket_from_window(ws):
+    await ws.accept()
+    if not await window_guard.socket_from_window(ws):
         await ws.close(code=4403)
         return
-    await ws.accept()
     try:
         session = terminal.get(sid)
     except KeyError:

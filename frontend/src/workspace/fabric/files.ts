@@ -1,3 +1,4 @@
+import { serviceUrl } from '../../engine/service';
 import { Dialog } from '../../ui/dialogs';
 import { el, setText } from '../../ui/dom';
 import { t } from '../../ui/i18n';
@@ -65,8 +66,17 @@ export async function pickImage(): Promise<string | null> {
   return typeof chosen === 'string' ? chosen : null;
 }
 
-export async function previewUrl(path: string): Promise<string | null> {
-  if (!path || path.startsWith('maps/') || !nativeDialogs()) return null;
-  const core = await import('@tauri-apps/api/core');
-  return core.convertFileSrc(path);
+const previews = new Map<string, Promise<string | null>>();
+
+export function previewUrl(path: string): Promise<string | null> {
+  if (!path || path.startsWith('maps/')) return Promise.resolve(null);
+  const known = previews.get(path);
+  if (known) return known;
+  const loading = fetch(serviceUrl(`/api/files/image?path=${encodeURIComponent(path)}`), { cache: 'no-store' })
+    .then((r) => (r.ok ? r.blob() : null))
+    .then((blob) => (blob ? URL.createObjectURL(blob) : null))
+    .catch(() => null);
+  previews.set(path, loading);
+  void loading.then((url) => { if (!url && previews.get(path) === loading) previews.delete(path); });
+  return loading;
 }

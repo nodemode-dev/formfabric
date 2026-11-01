@@ -69,6 +69,8 @@ def login_shell() -> list[str]:
 
 def base_env() -> dict:
     env = dict(os.environ)
+    env.pop("FFB_WINDOW_TOKEN", None)
+    env.pop("FFB_INAPP_TOKEN", None)
     env["TERM"] = "xterm-256color"
     env["COLORTERM"] = "truecolor"
     env["FFB_TERMINAL"] = "1"

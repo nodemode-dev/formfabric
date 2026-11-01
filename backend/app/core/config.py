@@ -53,6 +53,13 @@ def window_origins() -> list[str]:
     return [*cors_origins(), f"http://localhost:{preview}", f"http://127.0.0.1:{preview}", f"http://127.0.0.1:{own}", f"http://localhost:{own}", "tauri://localhost", "http://tauri.localhost"]
 
 
+TOKEN_MIN = 32
+_TOKEN = os.environ.pop("FFB_WINDOW_TOKEN", "").strip()
+
+
 def window_token() -> str | None:
-    raw = os.environ.get("FFB_WINDOW_TOKEN", "").strip()
-    return raw if len(raw) >= 16 else None
+    return _TOKEN if len(_TOKEN) >= TOKEN_MIN else None
+
+
+def window_token_rejected() -> bool:
+    return 0 < len(_TOKEN) < TOKEN_MIN
