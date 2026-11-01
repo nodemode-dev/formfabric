@@ -23,7 +23,12 @@ use serde_json::{json, Value};
 
 pub use file_cmds::{open_data, save_data};
 pub use history::{Edit, History, DEFAULT_STEPS, MAX_STEPS};
-pub use mesh_cmds::publish_all;
+pub use body_cmds::StreamState as BodyStream;
+
+pub fn publish_all(session: &mut Session) {
+    mesh_cmds::publish_all(session);
+    body_cmds::publish_all(session);
+}
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -100,6 +105,7 @@ pub struct Session {
     pub mesh: mesh_cmds::MeshState,
     pub sim: sim_cmds::SimState,
     pub bodies: Vec<ffb_body::Body>,
+    pub body_stream: body_cmds::StreamState,
 }
 
 impl std::fmt::Debug for Session {

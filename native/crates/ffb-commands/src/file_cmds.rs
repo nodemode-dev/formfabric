@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use crate::{args, no_args, Command, CommandError, Group, Session, DESTROY, EXTERNAL};
 
 pub fn save_data(session: &Session) -> Result<Vec<u8>, CommandError> {
-    ffb_io::save(&session.garment, &session.unknown, ffb_core::ENGINE_VERSION).map_err(|e| CommandError::new("save_failed", e))
+    ffb_io::save_with_bodies(&session.garment, &session.bodies, &session.unknown, ffb_core::ENGINE_VERSION).map_err(|e| CommandError::new("save_failed", e))
 }
 
 pub fn open_data(session: &mut Session, bytes: Vec<u8>) -> Result<Value, CommandError> {
@@ -11,7 +11,9 @@ pub fn open_data(session: &mut Session, bytes: Vec<u8>) -> Result<Value, Command
     let panels = project.garment.panels.len();
     session.reset(project.garment);
     session.unknown = project.unknown;
-    Ok(json!({"panels": panels, "units": session.garment.units.name()}))
+    let bodies = project.bodies.len();
+    session.bodies = project.bodies;
+    Ok(json!({"panels": panels, "bodies": bodies, "units": session.garment.units.name()}))
 }
 
 fn path_schema() -> Value {
@@ -25,19 +27,20 @@ fn path_schema() -> Value {
 
 fn new(s: &mut Session, _: &Value) -> Result<Value, CommandError> {
     s.reset(crate::fabric_cmds::new_garment());
+    s.bodies.clear();
     Ok(json!({"panels": 0, "units": s.garment.units.name()}))
 }
 
 fn save(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
-    let path = args::string(a, "path")?.to_string();
+    let path = args::file_path(a, "path", Some(ffb_io::EXTENSION))?;
     let bytes = save_data(s)?;
-    std::fs::write(&path, &bytes).map_err(|e| CommandError::new("io", format!("could not write {path}: {e}")))?;
+    args::write_atomic(&path, &bytes)?;
     s.path = Some(path.clone());
     Ok(json!({"path": path, "bytes": bytes.len()}))
 }
 
 fn open(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
-    let path = args::string(a, "path")?.to_string();
+    let path = args::file_path(a, "path", None)?;
     let bytes = std::fs::read(&path).map_err(|e| CommandError::new(if e.kind() == std::io::ErrorKind::NotFound { "not_found" } else { "io" }, format!("could not read {path}: {e}")))?;
     let mut out = open_data(s, bytes)?;
     s.path = Some(path.clone());

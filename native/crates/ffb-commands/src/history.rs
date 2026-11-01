@@ -8,6 +8,7 @@ pub const MAX_STEPS: usize = 10_000;
 pub enum Edit {
     Units { from: Units, to: Units },
     Garment { label: String, before: Box<Garment>, after: Box<Garment> },
+    Bodies { label: String, changes: Vec<ffb_body::BodyChange> },
     Panel { label: String, index: usize, before: Option<Box<Panel>>, after: Option<Box<Panel>> },
     Many { label: String, edits: Vec<Edit> },
 }
@@ -16,13 +17,14 @@ impl Edit {
     pub fn label(&self) -> String {
         match self {
             Edit::Units { .. } => "Units".into(),
-            Edit::Garment { label, .. } | Edit::Panel { label, .. } | Edit::Many { label, .. } => label.clone(),
+            Edit::Garment { label, .. } | Edit::Panel { label, .. } | Edit::Many { label, .. } | Edit::Bodies { label, .. } => label.clone(),
         }
     }
 
     fn apply(&self, garment: &mut Garment, forward: bool) -> Result<(), String> {
         match self {
             Edit::Units { from, to } => garment.units = if forward { *to } else { *from },
+            Edit::Bodies { .. } => {}
             Edit::Garment { before, after, .. } => *garment = (**if forward { after } else { before }).clone(),
             Edit::Panel { index, before, after, .. } => {
                 let (from, to) = if forward { (before, after) } else { (after, before) };
@@ -57,7 +59,7 @@ fn touches(edit: &Edit, at: usize) -> bool {
         Edit::Panel { index, .. } => *index == at,
         Edit::Many { edits, .. } => edits.iter().any(|e| touches(e, at)),
         Edit::Garment { .. } => true,
-        Edit::Units { .. } => false,
+        Edit::Units { .. } | Edit::Bodies { .. } => false,
     }
 }
 
@@ -65,8 +67,24 @@ fn in_place(edit: &Edit) -> bool {
     match edit {
         Edit::Panel { before, after, .. } => before.is_some() && after.is_some(),
         Edit::Many { edits, .. } => edits.iter().all(in_place),
-        Edit::Garment { .. } => false,
+        Edit::Garment { .. } | Edit::Bodies { .. } => false,
         Edit::Units { .. } => true,
+    }
+}
+
+pub type BodySteps = Vec<(Vec<ffb_body::BodyChange>, bool)>;
+
+fn collect_bodies(edit: &Edit, forward: bool, out: &mut BodySteps) {
+    match edit {
+        Edit::Bodies { changes, .. } => out.push((changes.clone(), forward)),
+        Edit::Many { edits, .. } => {
+            if forward {
+                edits.iter().for_each(|e| collect_bodies(e, true, out));
+            } else {
+                edits.iter().rev().for_each(|e| collect_bodies(e, false, out));
+            }
+        }
+        _ => {}
     }
 }
 
@@ -98,11 +116,12 @@ pub struct History {
     cursor: usize,
     limit: usize,
     group: Option<(String, Vec<Edit>)>,
+    bodies_out: BodySteps,
 }
 
 impl Default for History {
     fn default() -> Self {
-        History { steps: Vec::new(), cursor: 0, limit: DEFAULT_STEPS, group: None }
+        History { steps: Vec::new(), cursor: 0, limit: DEFAULT_STEPS, group: None, bodies_out: Vec::new() }
     }
 }
 
@@ -204,6 +223,7 @@ impl History {
         }
         let edit = &self.steps[self.cursor - 1];
         edit.apply(garment, false)?;
+        collect_bodies(edit, false, &mut self.bodies_out);
         self.cursor -= 1;
         Ok(Some(edit.label()))
     }
@@ -212,7 +232,12 @@ impl History {
         self.end_group();
         let Some(edit) = self.steps.get(self.cursor) else { return Ok(None) };
         edit.apply(garment, true)?;
+        collect_bodies(edit, true, &mut self.bodies_out);
         self.cursor += 1;
         Ok(Some(edit.label()))
+    }
+
+    pub fn take_bodies(&mut self) -> BodySteps {
+        std::mem::take(&mut self.bodies_out)
     }
 }
