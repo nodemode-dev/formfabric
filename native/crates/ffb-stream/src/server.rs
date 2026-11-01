@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::io::{self, ErrorKind};
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -15,6 +15,8 @@ use crate::frame;
 const AUTH_WINDOW: Duration = Duration::from_secs(5);
 const POLL: Duration = Duration::from_millis(4);
 const SEND_TIMEOUT: Duration = Duration::from_secs(10);
+const MAX_UNAUTH: usize = 8;
+const MAX_CLIENTS: usize = 32;
 
 type Bytes = Arc<Vec<u8>>;
 
@@ -105,6 +107,49 @@ fn same(a: &str, b: &str) -> bool {
     diff == 0
 }
 
+#[derive(Clone, Default)]
+struct Seats {
+    total: Arc<AtomicUsize>,
+    unauth: Arc<AtomicUsize>,
+}
+
+struct Seat {
+    total: Arc<AtomicUsize>,
+    unauth: Arc<AtomicUsize>,
+    pending: bool,
+}
+
+impl Seats {
+    fn take(&self) -> Option<Seat> {
+        if self.total.fetch_add(1, Ordering::AcqRel) >= MAX_CLIENTS {
+            self.total.fetch_sub(1, Ordering::AcqRel);
+            return None;
+        }
+        if self.unauth.fetch_add(1, Ordering::AcqRel) >= MAX_UNAUTH {
+            self.unauth.fetch_sub(1, Ordering::AcqRel);
+            self.total.fetch_sub(1, Ordering::AcqRel);
+            return None;
+        }
+        Some(Seat { total: self.total.clone(), unauth: self.unauth.clone(), pending: true })
+    }
+}
+
+impl Seat {
+    fn authenticated(&mut self) {
+        if self.pending {
+            self.pending = false;
+            self.unauth.fetch_sub(1, Ordering::AcqRel);
+        }
+    }
+}
+
+impl Drop for Seat {
+    fn drop(&mut self) {
+        self.authenticated();
+        self.total.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
 fn query_token(query: &str) -> Option<&str> {
     query.split('&').find_map(|kv| kv.strip_prefix("token="))
 }
@@ -119,17 +164,19 @@ impl Server {
         let accept_pub = publisher.clone();
         let accept_token = token.clone();
         let accept_stop = stop.clone();
+        let seats = Seats::default();
         thread::Builder::new().name("ffb-stream-accept".into()).spawn(move || {
             for conn in listener.incoming() {
                 if accept_stop.load(Ordering::Relaxed) {
                     break;
                 }
                 let Ok(stream) = conn else { continue };
+                let Some(seat) = seats.take() else { continue };
                 let publisher = accept_pub.clone();
                 let token = accept_token.clone();
                 let _ = thread::Builder::new()
                     .name("ffb-stream-client".into())
-                    .spawn(move || serve(stream, publisher, &token));
+                    .spawn(move || serve(stream, publisher, &token, seat));
             }
         })?;
         Ok(Server { port, token, publisher, stop })
@@ -156,7 +203,7 @@ impl Drop for Server {
 }
 
 #[allow(clippy::result_large_err)]
-fn serve(stream: TcpStream, publisher: Publisher, token: &str) {
+fn serve(stream: TcpStream, publisher: Publisher, token: &str, mut seat: Seat) {
     let loopback = stream.peer_addr().map(|a| a.ip().is_loopback()).unwrap_or(false);
     if !loopback {
         return;
@@ -198,6 +245,7 @@ fn serve(stream: TcpStream, publisher: Publisher, token: &str) {
         }
     }
 
+    seat.authenticated();
     let slot = publisher.join();
     let _ = ws.get_ref().set_read_timeout(Some(POLL));
     loop {

@@ -5,6 +5,16 @@ use ffb_stream::{Publisher, Server};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
+fn guarded(f: impl FnOnce() -> String) -> String {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        Ok(text) => text,
+        Err(payload) => {
+            let detail = payload.downcast_ref::<&str>().map(|s| s.to_string()).or_else(|| payload.downcast_ref::<String>().cloned()).unwrap_or_else(|| "unknown panic".into());
+            serde_json::json!({"ok": false, "error": {"code": "internal", "message": format!("the engine hit an internal error: {detail}")}}).to_string()
+        }
+    }
+}
+
 struct PublisherSink(Publisher);
 
 impl FrameSink for PublisherSink {
@@ -51,8 +61,8 @@ impl Engine {
     }
 
     fn dispatch(&self, name: &str, args_json: &str) -> PyResult<String> {
-        let mut session = self.session.lock().map_err(|_| PyValueError::new_err("engine session poisoned"))?;
-        Ok(ffb_commands::dispatch_json(&mut session, name, args_json).to_string())
+        let mut session = self.session.lock().unwrap_or_else(|e| e.into_inner());
+        Ok(guarded(|| ffb_commands::dispatch_json(&mut session, name, args_json).to_string()))
     }
 
     fn epoch(&self) -> PyResult<u64> {
@@ -62,14 +72,32 @@ impl Engine {
 
     fn stream_info(&self) -> PyResult<String> {
         let server = self.server()?;
-        let mut session = self.session.lock().map_err(|_| PyValueError::new_err("engine session poisoned"))?;
-        ffb_commands::publish_all(&mut session);
-        Ok(serde_json::json!({"port": server.port(), "token": server.token()}).to_string())
+        let mut session = self.session.lock().unwrap_or_else(|e| e.into_inner());
+        Ok(guarded(|| {
+            ffb_commands::publish_all(&mut session);
+            serde_json::json!({"port": server.port(), "token": server.token()}).to_string()
+        }))
     }
 
-    fn stream_demo(&self, n_frames: u32) -> PyResult<()> {
-        ffb_stream::demo::spawn(self.server()?.publisher(), n_frames);
-        Ok(())
+    fn stream_demo(&self, n_frames: u32) -> PyResult<String> {
+        let server = self.server()?;
+        Ok(guarded(|| {
+            ffb_stream::demo::spawn(server.publisher(), n_frames);
+            serde_json::json!({"ok": true}).to_string()
+        }))
+    }
+
+    fn crash_test(&self, mode: &str) -> PyResult<String> {
+        if std::env::var_os("FFB_CRASH_TEST").is_none() {
+            return Err(PyValueError::new_err("crash_test is off"));
+        }
+        let _hold = self.session.lock().unwrap_or_else(|e| e.into_inner());
+        Ok(guarded(|| {
+            if mode == "panic" {
+                panic!("forced panic for the hardening check");
+            }
+            serde_json::json!({"ok": true}).to_string()
+        }))
     }
 }
 

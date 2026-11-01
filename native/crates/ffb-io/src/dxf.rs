@@ -360,6 +360,7 @@ pub fn parse(text: &str) -> Result<Document, String> {
     if !found {
         return Err("no SECTION found, this is not an ASCII DXF file".into());
     }
+    doc.check(1.0, f64::MAX)?;
     Ok(doc)
 }
 
@@ -410,6 +411,83 @@ impl Document {
         self.expand(&self.entities, 0, &mut out);
         out
     }
+
+    pub fn check(&self, scale: f64, limit: f64) -> Result<(), String> {
+        if !scale.is_finite() || scale <= 0.0 {
+            return Err("the drawing scale is not a positive number".into());
+        }
+        let total = self.entities.len() + self.blocks.iter().map(|b| b.entities.len()).sum::<usize>();
+        if total > MAX_ENTITIES {
+            return Err(format!("the drawing holds {total} entities; the limit is {MAX_ENTITIES}"));
+        }
+        if self.blocks.iter().any(|b| !inside(b.base, scale, limit)) {
+            return Err(format!("a block base lies outside plus or minus {limit} mm or is not a number"));
+        }
+        check_entities(&self.entities, scale, limit)?;
+        for b in &self.blocks {
+            check_entities(&b.entities, scale, limit)?;
+        }
+        let mut memo = std::collections::HashMap::new();
+        if self.weight(&self.entities, 0, &mut memo) > MAX_ENTITIES as u64 {
+            return Err(format!("the drawing expands to more than {MAX_ENTITIES} entities through block inserts"));
+        }
+        Ok(())
+    }
+
+    fn weight(&self, entities: &[Entity], depth: u32, memo: &mut std::collections::HashMap<(String, u32), u64>) -> u64 {
+        let mut sum = 0u64;
+        for e in entities {
+            match &e.shape {
+                Shape::Insert { block, .. } if depth < 8 => {
+                    let key = (block.to_ascii_lowercase(), depth);
+                    let w = match memo.get(&key) {
+                        Some(w) => *w,
+                        None => {
+                            let w = self.block(block).map_or(0, |b| self.weight(&b.entities, depth + 1, memo));
+                            memo.insert(key, w);
+                            w
+                        }
+                    };
+                    sum = sum.saturating_add(w);
+                }
+                Shape::Insert { .. } => {}
+                _ => sum = sum.saturating_add(1),
+            }
+        }
+        sum
+    }
+}
+
+pub const MAX_COORD_MM: f64 = 100_000.0;
+pub const MAX_VERTS: usize = 200_000;
+pub const MAX_ENTITIES: usize = 500_000;
+
+fn inside(p: V2, scale: f64, limit: f64) -> bool {
+    p.iter().all(|c| {
+        let v = c * scale;
+        v.is_finite() && v.abs() <= limit
+    })
+}
+
+pub fn check_entities(entities: &[Entity], scale: f64, limit: f64) -> Result<(), String> {
+    let finite = |values: &[f64]| values.iter().all(|v| v.is_finite());
+    for e in entities {
+        let ok = match &e.shape {
+            Shape::Poly(p) => {
+                if p.verts.len() > MAX_VERTS {
+                    return Err(format!("an entity on layer {} has {} vertices; the limit is {MAX_VERTS}", e.layer, p.verts.len()));
+                }
+                p.verts.iter().all(|v| inside(v.p, scale, limit) && v.bulge.is_finite())
+            }
+            Shape::Point { p, z, angle, thickness } => inside(*p, scale, limit) && finite(&[*z, angle.unwrap_or(0.0), thickness.unwrap_or(0.0)]),
+            Shape::Text { p, height, .. } => inside(*p, scale, limit) && height.is_finite(),
+            Shape::Insert { p, scale: s, rotation, .. } => inside(*p, scale, limit) && finite(&[s[0], s[1], *rotation]),
+        };
+        if !ok {
+            return Err(format!("an entity on layer {} has a coordinate outside plus or minus {limit} mm or is not a number", e.layer));
+        }
+    }
+    Ok(())
 }
 
 pub struct Sink {

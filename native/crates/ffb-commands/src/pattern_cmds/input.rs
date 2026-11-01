@@ -198,6 +198,7 @@ pub fn vec_to_local(panel: &Panel, space: Space, v: V2) -> V2 {
 
 pub fn name(a: &Value, key: &str) -> Result<Option<String>, CommandError> {
     let Some(raw) = text(a, key) else { return Ok(None) };
+    crate::args::clean_name(key, raw)?;
     let t = raw.trim();
     if t.is_empty() || t.chars().count() > 64 {
         return Err(bad(format!("{key} must be 1 to 64 characters")));

@@ -6,6 +6,51 @@ pub(crate) fn string<'a>(args: &'a Value, key: &str) -> Result<&'a str, CommandE
     args.get(key).and_then(Value::as_str).ok_or_else(|| CommandError::new("bad_args", format!("{key} must be a string")))
 }
 
+pub(crate) fn file_path(args: &Value, key: &str, extension: Option<&str>) -> Result<String, CommandError> {
+    let bad = |m: String| CommandError::new("bad_args", m);
+    let path = string(args, key)?;
+    if path.is_empty() || path.contains('\0') {
+        return Err(bad(format!("{key} must be a file path")));
+    }
+    let location = std::path::Path::new(path);
+    if !location.is_absolute() {
+        return Err(bad(format!("{key} must be an absolute path, got {path}")));
+    }
+    if let Some(wanted) = extension {
+        let found = location.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if !found.eq_ignore_ascii_case(wanted) {
+            return Err(bad(format!("{key} must end in .{wanted}, got {path}")));
+        }
+    }
+    Ok(path.to_string())
+}
+
+pub(crate) fn write_atomic(path: &str, bytes: &[u8]) -> Result<(), CommandError> {
+    use std::io::Write;
+    let io = |e: std::io::Error| CommandError::new("io", format!("could not write {path}: {e}"));
+    let target = std::path::Path::new(path);
+    let folder = target.parent().filter(|p| !p.as_os_str().is_empty()).ok_or_else(|| CommandError::new("bad_args", format!("{path} has no folder")))?;
+    let name = target.file_name().and_then(|n| n.to_str()).ok_or_else(|| CommandError::new("bad_args", format!("{path} has no file name")))?;
+    let temp = folder.join(format!(".{name}.{}.tmp", std::process::id()));
+    let written = std::fs::File::create(&temp).and_then(|mut f| f.write_all(bytes).and_then(|_| f.sync_all()));
+    if let Err(e) = written.and_then(|_| std::fs::rename(&temp, target)) {
+        let _ = std::fs::remove_file(&temp);
+        return Err(io(e));
+    }
+    Ok(())
+}
+
+pub(crate) fn has_control(text: &str) -> bool {
+    text.chars().any(|c| c.is_control())
+}
+
+pub(crate) fn clean_name(key: &str, text: &str) -> Result<(), CommandError> {
+    if has_control(text) {
+        return Err(CommandError::new("bad_args", format!("{key} must not contain control characters")));
+    }
+    Ok(())
+}
+
 fn types_of(spec: &Value) -> Vec<&str> {
     match spec.get("type") {
         Some(Value::String(t)) => vec![t.as_str()],

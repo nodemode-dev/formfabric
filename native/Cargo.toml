@@ -27,7 +27,7 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 codegen-units = 1
 lto = "thin"
 opt-level = 3
-panic = "abort"
+panic = "unwind"
 
 [profile.dev]
 opt-level = 1

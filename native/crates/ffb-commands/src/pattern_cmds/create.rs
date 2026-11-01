@@ -51,7 +51,7 @@ fn add_panel(s: &mut Session, label: &str, a: &Value, mut pts: Vec<Point>) -> Re
 fn panel_props(extra: Value) -> Value {
     let mut props = json!({
         "name": sc::name("Panel name. Defaults to Panel and the new id."),
-        "particle_distance": sc::mm("Simulation particle spacing for this panel.", 1.0, 200.0, Some(20.0))
+        "particle_distance": sc::mm("Simulation particle spacing for this panel.", 0.8, 700.0, Some(20.0))
     });
     for (k, v) in extra.as_object().into_iter().flatten() {
         props[k] = v.clone();

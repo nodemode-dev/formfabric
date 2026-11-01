@@ -11,6 +11,7 @@ pub mod offset;
 pub mod path;
 pub mod place;
 pub mod polygon;
+pub mod sew;
 pub mod shapes;
 pub mod slash;
 pub mod snap;
@@ -238,6 +239,7 @@ pub struct Panel {
     pub link: Option<PanelLink>,
     pub fabric: Option<u32>,
     pub place3d: Option<Place3D>,
+    pub pressure: f64,
 }
 
 impl Default for Panel {
@@ -259,6 +261,7 @@ impl Default for Panel {
             link: None,
             fabric: None,
             place3d: None,
+            pressure: 0.0,
         }
     }
 }

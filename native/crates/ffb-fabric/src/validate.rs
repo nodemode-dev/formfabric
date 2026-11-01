@@ -36,6 +36,9 @@ fn only_keys(map: &Map<String, Value>, allowed: &[&str], path: &str) -> Result<(
 }
 
 pub fn name(value: &str) -> Result<String, String> {
+    if value.chars().any(|c| c.is_control()) {
+        return Err("name must not contain control characters".into());
+    }
     let trimmed = value.trim();
     if trimmed.is_empty() || trimmed.chars().count() > NAME_MAX {
         return Err(format!("name must be 1 to {NAME_MAX} characters"));

@@ -11,6 +11,7 @@ fn new_name(a: &Value, fallback: String) -> Result<String, CommandError> {
     match text(a, "name") {
         None => Ok(fallback),
         Some(raw) => {
+            crate::args::clean_name("name", raw)?;
             let t = raw.trim();
             if t.is_empty() || t.chars().count() > 64 {
                 return Err(bad("name must be 1 to 64 characters"));

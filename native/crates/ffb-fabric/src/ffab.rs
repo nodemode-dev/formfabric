@@ -13,6 +13,8 @@ pub const ENTRY: &str = "fabric.json";
 pub const MAP_DIR: &str = "maps/";
 pub const MAX_IMAGE: u64 = 64 * 1024 * 1024;
 pub const MAX_TOTAL: u64 = 256 * 1024 * 1024;
+pub const MAX_ENTRIES: usize = 4096;
+pub const MAX_JSON: u64 = 16 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Ffab {
@@ -62,8 +64,18 @@ pub fn pack(fabric: &Fabric, images: &[(String, Vec<u8>)], app_version: &str) ->
 
 pub fn unpack(bytes: Vec<u8>) -> Result<Ffab, String> {
     let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|e| format!("not a fabric file (not a zip): {e}"))?;
+    if zip.len() > MAX_ENTRIES {
+        return Err(format!("the fabric file holds {} entries; the limit is {MAX_ENTRIES}", zip.len()));
+    }
     let mut body = Vec::new();
-    zip.by_name(ENTRY).map_err(|_| format!("the fabric file is missing {ENTRY}"))?.read_to_end(&mut body).map_err(|e| e.to_string())?;
+    let entry = zip.by_name(ENTRY).map_err(|_| format!("the fabric file is missing {ENTRY}"))?;
+    if entry.size() > MAX_JSON {
+        return Err(format!("{ENTRY} is larger than {} MiB", MAX_JSON / 1024 / 1024));
+    }
+    entry.take(MAX_JSON + 1).read_to_end(&mut body).map_err(|e| e.to_string())?;
+    if body.len() as u64 > MAX_JSON {
+        return Err(format!("{ENTRY} is larger than {} MiB", MAX_JSON / 1024 / 1024));
+    }
     let body: Value = serde_json::from_slice(&body).map_err(|e| format!("{ENTRY} is not JSON: {e}"))?;
     if body.get("format").and_then(Value::as_str) != Some(FORMAT) {
         return Err("not a formfabric fabric file".into());
@@ -88,7 +100,8 @@ pub fn unpack(bytes: Vec<u8>) -> Result<Ffab, String> {
         if entry.size() > MAX_IMAGE {
             return Err(format!("{name} is larger than {} MiB", MAX_IMAGE / 1024 / 1024));
         }
-        total += entry.size();
+        let entry_size = entry.size();
+        total += entry_size;
         if total > MAX_TOTAL {
             return Err(format!("the maps are larger than {} MiB together", MAX_TOTAL / 1024 / 1024));
         }
@@ -96,6 +109,10 @@ pub fn unpack(bytes: Vec<u8>) -> Result<Ffab, String> {
         entry.take(MAX_IMAGE + 1).read_to_end(&mut data).map_err(|e| e.to_string())?;
         if data.len() as u64 > MAX_IMAGE {
             return Err(format!("{name} is larger than {} MiB", MAX_IMAGE / 1024 / 1024));
+        }
+        total += data.len() as u64 - entry_size.min(data.len() as u64);
+        if total > MAX_TOTAL {
+            return Err(format!("the maps are larger than {} MiB together", MAX_TOTAL / 1024 / 1024));
         }
         images.push((name, data));
     }

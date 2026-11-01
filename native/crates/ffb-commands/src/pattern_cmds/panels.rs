@@ -138,7 +138,8 @@ fn rename(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
 fn props_schema() -> Value {
     let mut props = json!({
         "panels": sc::ids("Panel ids to change."),
-        "particle_distance": sc::mm("Simulation particle spacing.", 1.0, 200.0, None),
+        "particle_distance": sc::mm("Simulation particle spacing.", 0.8, 700.0, None),
+        "pressure": sc::ratio("Inflation pressure of the panel in the solver's units, along the panel normal; 0 is none.", -1_000_000.0, 1_000_000.0, None),
         "layer": sc::int("Layer order for overlapping panels; higher lies on top.", -100.0, 100.0, None),
         "grain": sc::deg("Grain line direction inside the panel.", -360.0, 360.0, None),
         "position": sc::xy("Absolute panel position on the pattern plane."),
@@ -177,6 +178,7 @@ fn set_props(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             target.fold_strength = number_or(a, "fold_strength", target.fold_strength);
         }
         p.particle_distance = number_or(a, "particle_distance", p.particle_distance);
+        p.pressure = number_or(a, "pressure", p.pressure);
         p.layer = number(a, "layer").map_or(p.layer, |x| x as i32);
         p.grain = number_or(a, "grain", p.grain);
         p.rotation = number_or(a, "rotation", p.rotation);

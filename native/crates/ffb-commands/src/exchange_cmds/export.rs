@@ -29,7 +29,7 @@ fn flag(a: &Value, key: &str) -> bool {
 }
 
 fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
-    let path = args::string(a, "path")?.to_string();
+    let path = args::file_path(a, "path", Some("dxf"))?;
     let mut opts = ExportOptions {
         flavour: if a.get("flavour").and_then(Value::as_str) == Some("plain") { Flavour::Plain } else { Flavour::Aama },
         seam_allowance: flag(a, "seam_allowance"),
@@ -76,7 +76,7 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         })
         .collect();
     let done = aama::export(&items, &opts).map_err(|m| CommandError::new("invalid_geometry", m))?;
-    std::fs::write(&path, done.text.as_bytes()).map_err(|e| CommandError::new("io", format!("could not write {path}: {e}")))?;
+    args::write_atomic(&path, done.text.as_bytes())?;
     Ok(json!({
         "path": path, "flavour": opts.flavour.name(), "panels": done.panels, "notches": done.notches,
         "inner_lines": done.inner_lines, "grain_lines": done.grain_lines, "vertices": done.vertices, "bytes": done.text.len()

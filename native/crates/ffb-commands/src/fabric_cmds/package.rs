@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 
 use super::common::*;
 use super::schema as sc;
-use crate::{Command, CommandError, Group, Session, EXTERNAL};
+use crate::{args, Command, CommandError, Group, Session, EXTERNAL};
 
 fn export_schema() -> Value {
     sc::obj(json!({"fabric": sc::fabric_id("Fabric to export."), "path": sc::path("File path of the .ffab file to write.")}), &["fabric", "path"])
@@ -19,7 +19,7 @@ fn read_map(s: &Session, reference: &str) -> Result<Vec<u8>, CommandError> {
 
 fn export_run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let id = id_arg(a, "fabric")?;
-    let path = a.get("path").and_then(Value::as_str).ok_or_else(|| bad("path must be a string"))?.to_string();
+    let path = args::file_path(a, "path", Some(ffab::EXTENSION))?;
     let mut fabric = fabric_of(&s.garment, id)?.clone();
     let mut images: Vec<(String, Vec<u8>)> = Vec::new();
     let mut failure: Option<CommandError> = None;
@@ -49,7 +49,7 @@ fn export_run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     }
     fabric.id = 1;
     let bytes = ffab::pack(&fabric, &images, ffb_core::ENGINE_VERSION).map_err(|e| CommandError::new("save_failed", e))?;
-    std::fs::write(&path, &bytes).map_err(|e| CommandError::new("io", format!("could not write {path}: {e}")))?;
+    args::write_atomic(&path, &bytes)?;
     Ok(json!({"path": path, "bytes": bytes.len(), "maps": images.len(), "fabric": id}))
 }
 
@@ -58,7 +58,7 @@ fn import_schema() -> Value {
 }
 
 fn import_run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
-    let path = a.get("path").and_then(Value::as_str).ok_or_else(|| bad("path must be a string"))?.to_string();
+    let path = args::file_path(a, "path", None)?;
     let name = text(a, "name")?;
     let bytes = std::fs::read(&path).map_err(|e| CommandError::new(if e.kind() == std::io::ErrorKind::NotFound { "not_found" } else { "io" }, format!("could not read {path}: {e}")))?;
     let parsed = ffab::unpack(bytes).map_err(|e| CommandError::new("open_failed", e))?;

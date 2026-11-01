@@ -63,7 +63,7 @@ fn lay_out(imp: &mut Imported, existing: Option<Bounds>) {
 }
 
 fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
-    let path = args::string(a, "path")?.to_string();
+    let path = args::file_path(a, "path", None)?;
     let bytes = std::fs::read(&path).map_err(|e| CommandError::new(if e.kind() == std::io::ErrorKind::NotFound { "not_found" } else { "io" }, format!("could not read {path}: {e}")))?;
     let text = String::from_utf8_lossy(&bytes);
     let flavour = match a.get("flavour").and_then(Value::as_str) {

@@ -147,7 +147,7 @@ fn finish(piece: Piece, name: String, mut points: Vec<Point>, cut_flat: Option<V
     let origin = bounds[0];
     translate(&mut points, origin);
 
-    let mut panel = Panel { name: name.clone(), position: origin, ..Panel::default() };
+    let mut panel = Panel { name: name.chars().filter(|c| !c.is_control()).take(64).collect(), position: origin, ..Panel::default() };
 
     if let Some(flat) = cut_flat {
         let cut: Vec<V2> = flat.iter().map(|p| shift(*p, origin)).collect();

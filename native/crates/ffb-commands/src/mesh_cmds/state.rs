@@ -17,6 +17,18 @@ pub(crate) fn now_ms() -> f64 {
     0.0
 }
 
+pub(crate) const MAX_TRIANGLES: f64 = 2_000_000.0;
+
+fn too_many_triangles(panel: &Panel) -> Option<String> {
+    let d = panel.particle_distance;
+    if !d.is_finite() || d <= 0.0 || panel.outline.len() < 3 {
+        return None;
+    }
+    let flat = ffb_pattern::path::flatten(&panel.outline, true, (d * 0.05).clamp(0.05, 2.0));
+    let estimate = ffb_pattern::polygon::signed_area(&flat).abs() / (0.433_012_701_892_219_3 * d * d);
+    (estimate.is_nan() || estimate > MAX_TRIANGLES).then(|| format!("panel {} would need about {:.0} triangles at a particle distance of {d} mm; the limit is {MAX_TRIANGLES:.0}, so raise the particle distance", panel.name, estimate))
+}
+
 #[derive(Debug)]
 pub(crate) struct Built {
     pub mesh: PanelMesh,
@@ -74,11 +86,15 @@ impl MeshState {
             }
         }
         let start = now_ms();
-        let built = build_panel(panel, &options).map(|mesh| {
-            let quality = measure(&mesh);
-            Arc::new(Built { mesh, quality, ms: now_ms() - start })
-        });
-        let built = built.map_err(|e| e.to_string());
+        let built = match too_many_triangles(panel) {
+            Some(message) => Err(message),
+            None => build_panel(panel, &options)
+                .map(|mesh| {
+                    let quality = measure(&mesh);
+                    Arc::new(Built { mesh, quality, ms: now_ms() - start })
+                })
+                .map_err(|e| e.to_string()),
+        };
         self.builds += 1;
         self.cache.insert(panel.id, Entry { key, built: built.clone() });
         Ensured { key, built, rebuilt: true }

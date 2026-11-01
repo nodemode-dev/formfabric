@@ -22,9 +22,17 @@ fn prepare<'a>(p: &'a Panel, opts: &ExportOptions) -> Result<Prep<'a>, String> {
     if p.outline.len() < 3 {
         return Err(format!("panel {} has no outline to export", p.name));
     }
+    let limit = crate::dxf::MAX_COORD_MM;
+    let within = |v: f64| v.is_finite() && v.abs() <= limit;
+    if !p.position.iter().all(|v| within(*v)) || !p.outline.iter().all(|pt| pt.p.iter().all(|v| within(*v))) {
+        return Err(format!("panel {} has a coordinate outside plus or minus {limit} mm or not a number", p.name));
+    }
     let net = offset::trace(&p.outline, true, opts.tolerance);
     if net.pts.len() < 3 {
         return Err(format!("panel {} has a degenerate outline", p.name));
+    }
+    if net.pts.len() > crate::dxf::MAX_VERTS {
+        return Err(format!("panel {} would write {} vertices; the limit is {}", p.name, net.pts.len(), crate::dxf::MAX_VERTS));
     }
     let mut widths = Vec::new();
     let mut cut = None;

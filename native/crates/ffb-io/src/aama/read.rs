@@ -484,6 +484,8 @@ pub fn import(text: &str, opts: &ImportOptions) -> Result<Imported, String> {
     let doc = dxf::parse(text)?;
     let flavour = opts.flavour.unwrap_or_else(|| detect(&doc));
     let scale = opts.scale.or_else(|| if flavour == Flavour::Aama { style_scale(&doc).or_else(|| insunits_scale(&doc)) } else { insunits_scale(&doc) }).unwrap_or(1.0);
+    doc.check(scale, dxf::MAX_COORD_MM)?;
+    dxf::check_entities(&doc.flattened(), scale, dxf::MAX_COORD_MM)?;
     let out = match flavour {
         Flavour::Aama => aama(&doc, opts, scale),
         Flavour::Plain => plain(&doc, opts, scale),

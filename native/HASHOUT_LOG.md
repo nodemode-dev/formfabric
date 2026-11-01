@@ -2,6 +2,51 @@
 
 Living context for the Rust engine. What would be comments in the crates lives here, newest first. Read before editing anything under `native/`.
 
+## v0.7.0 to v0.9.0 · 2026-11-01
+
+### Solver (ffb-sim)
+
+- Units inside the solver: millimetres, seconds, grams; `Material::from_physical` converts the SI fabric values. `SeamPair` and `SeamBind` stiffness at or below 0 defaults to the cloth's largest stretch stiffness.
+- `triangle_grain` is radians counter-clockwise from +y of the rest shape to the warp: weft axis (cos g, sin g), warp axis (-sin g, cos g). Winding normals must face outward for pressure and fold angles.
+- Membrane per triangle: F = Ds Dm^-1 in the grain frame, energy 0.5 ku (|f_u| - 1)^2 + 0.5 kv (|f_v| - 1)^2 + 0.5 ks (f_u . f_v)^2 times rest area; compression at 5 percent of tension. Bending: dihedral hinge 0.5 B 3 l^2 / (A1 + A2) (theta - theta0)^2 with B blended between weft, warp and bias by the hinge direction; buckling softens it under compression.
+- Contacts are penalties inside the sweeps (stiffness 1000 m / h^2) with smoothed Coulomb friction from the lagged normal force, then a hard projection. Friction lives inside the solve because friction applied to positions afterwards locked stiff cloth.
+- Shrink scales the rest shape in the grain frame; mass uses the unshrunk area. Pressure is in pascals along the outward normal.
+- `reference_step` is implicit Euler with conjugate gradient on the same energies, used by `sim.compare`.
+- Examples (not tests): `drape_sphere`, `tube_capsule`, `gradcheck`, run with `cargo run --release -p ffb-sim --example ...`.
+- Known: VBD under-converges on stiff woven cotton at 10 iterations and is far slower than its target (see BUILD_NOTES for the numbers).
+
+### Simulation runner (sim_cmds)
+
+- `adapter.rs` is the only file naming solver, material, collider and reference APIs. `SimState` holds `Arc<Mutex<Core>>`; the run thread locks Core, steps once, copies positions per panel, unlocks, publishes through the sink and sleeps to the time step. It never touches the Session lock.
+- Only positions are published; vertex order per panel equals the mesh order, so the mesh module's topology stays valid. Flat mirrored panels negate x in the rest shape with flipped winding so rest matches the streamed orientation.
+- Presets: normal 5 substeps and 10 iterations, fast 3 and 6, fine 10 and 20 with self collision.
+- Pins are document data (one `Edit::Garment` each); grab is transient, never an undo step. `sim.apply` keeps the draped shape in an in-memory cache, because `Place3D` holds only a rigid transform and a bend; saving the drape needs a pose field (planned).
+- The drape cache's placement signature does not yet include `bend`; mesh publishing does.
+
+### Sewing (ffb-pattern sew, sew_cmds)
+
+- `seam_bindings` returns `Pair{a, b}` (to `SeamPair`) or `Edge{a, b0, b1, w}` (to `SeamBind`: a bound to b0 (1 - w) + b1 w), with rest length 0 and stiffness from the seam's tension. Tacks are read by the runner from `garment.tacks`.
+- Full-segment seams with ratio 1 force equal vertex counts on both segments (the larger natural count) through `MeshState::set_segment_counts`; deleting the seam releases them.
+- Seam spans follow outline edits through a thread-local queue (`sew/pending.rs`: split, reproject, reverse) drained in `sew_cmds::after_change` and folded into the step with `History::amend_last`. Dart, slash, offset and inner-line edits do not re-map spans yet.
+- A turned seam locks fold angle 180 and strength 0. Side `auto` is derived from the panel normal and placement; per PATENT_NOTES there is no guideline-plus-symbol relation, and the layer rank is not built.
+
+### Bodies and placement (ffb-body, body_cmds, place_cmds)
+
+- Body space: millimetres, y up, +z front, left is +x. `Joint.rest` is the local offset in the parent frame; positions and normals are the bind mesh; poses use linear blend skinning.
+- The Basic Form is formfabric's own parametric body (ellipse sections along a 20-joint skeleton, smooth union, surface nets, about 21k triangles). The library scans `assets/bodies/*/body.glb` (`FF_BODIES_DIR` overrides).
+- Bodies stream as object 1_000_000 + id, resent only on a signature change; a hidden or removed body sends empty topology. Undo uses `Edit::Bodies` (light snapshots for pose, show and set, full ones for add, remove and resize).
+- Bodies persist in `.ffbrc` as `bodies/[id].json` plus `bodies/[id].bin`.
+- Placement follows PATENT_NOTES: volumes come from joint transforms and a fixed radius profile, never from the mesh surface; points are stored as volume, around, along, offset and are never recomputed when a volume changes. `place.panel` anchors at the point the caller chose; there is no arrange-all.
+- `place3d.bend` is a signed radius applied in `ffb-mesh/src/layout.rs`: the panel wraps a cylinder about the volume axis.
+- Auto Seam proposes seams from notches with one global max-weight matching, optional per-call tags and a small 3D tie-break; it stores nothing until `apply`, and never resizes panels.
+
+### Hardening
+
+- Release builds unwind (`panic = "unwind"`) and `ffb-py` wraps dispatch, `stream_info` and `stream_demo` in `catch_unwind`, returning `internal` errors; `FFB_CRASH_TEST` enables a forced panic for checking this.
+- Writes need absolute paths and the right extension (`.ffbrc`, `.dxf`, `.ffab`) and go through a temp file and rename. Zip reads cap entries (4096), per-entry and total sizes; DXF reads and writes cap coordinates to 100,000 mm and vertex counts.
+- Names refuse control characters. Particle distance accepts 0.8 to 700 mm; a panel whose mesh would exceed 2 million triangles is refused. Panels carry `pressure`, passed to the cloth material.
+- The stream caps 8 unauthenticated and 32 total connections.
+
 ## v0.4.0 to v0.6.0 · 2026-11-01
 
 ### Shared plumbing

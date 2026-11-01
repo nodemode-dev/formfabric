@@ -155,6 +155,7 @@ fn panel_name(a: &Value, fallback: String) -> Result<String, CommandError> {
     match text(a, "name") {
         None => Ok(fallback),
         Some(raw) => {
+            crate::args::clean_name("name", raw)?;
             let t = raw.trim();
             if t.is_empty() || t.chars().count() > 64 {
                 return Err(bad("name must be 1 to 64 characters"));
@@ -198,7 +199,7 @@ fn spiral_schema() -> Value {
             "direction": choice("Winding direction outwards.", &["ccw", "cw"], Some("ccw")),
             "start_angle": deg("Angle of the start of the strip.", -360.0, 360.0, Some(0.0)),
             "name": json!({"type": "string", "minLength": 1, "maxLength": 64, "description": "Panel name. Defaults to Spiral and the new id."}),
-            "particle_distance": mm("Simulation particle spacing for this panel.", 1.0, 200.0, Some(20.0))
+            "particle_distance": mm("Simulation particle spacing for this panel.", 0.8, 700.0, Some(20.0))
         }),
         &["inner_radius", "outer_radius", "width"],
     )
@@ -230,7 +231,7 @@ fn trace_schema() -> Value {
             "points": json!({"type": "array", "minItems": 3, "items": xy("Region vertex in world mm."), "unit": "mm", "description": "A closed region given by its vertices in world mm, in any winding. The panel is then optional and only supplies fabric, layer and grain."}),
             "remove": switch("Remove the traced inner shape from the source panel.", false),
             "name": json!({"type": "string", "minLength": 1, "maxLength": 64, "description": "Panel name. Defaults to Traced and the new id."}),
-            "particle_distance": mm("Simulation particle spacing for the new panel. Defaults to the source panel's.", 1.0, 200.0, None)
+            "particle_distance": mm("Simulation particle spacing for the new panel. Defaults to the source panel's.", 0.8, 700.0, None)
         }),
         &[],
     )
