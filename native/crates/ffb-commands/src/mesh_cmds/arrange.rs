@@ -48,7 +48,7 @@ fn place(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let bend = a.get("bend").and_then(Value::as_f64).filter(|x| x.is_finite()).unwrap_or(0.0);
     let before = s.garment.panels[index].clone();
     let mut after = before.clone();
-    after.place3d = Some(Place3D { origin, rotation, bend });
+    after.place3d = Some(Place3D { origin, rotation, bend, pose: None });
     let changed = after != before;
     let place3d = after.place3d.clone();
     if changed {

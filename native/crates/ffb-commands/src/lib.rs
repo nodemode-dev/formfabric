@@ -10,6 +10,8 @@ mod mesh_cmds;
 mod place_cmds;
 mod sew_cmds;
 mod sim_cmds;
+mod edit3d_cmds;
+mod trim_cmds;
 mod pattern_cmds;
 mod pattern_tools_cmds;
 mod system_cmds;
@@ -165,6 +167,8 @@ static COMMANDS: LazyLock<Vec<Command>> = LazyLock::new(|| {
     all.extend(sim_cmds::commands());
     all.extend(body_cmds::commands());
     all.extend(place_cmds::commands());
+    all.extend(edit3d_cmds::commands());
+    all.extend(trim_cmds::commands());
     all
 });
 

@@ -43,7 +43,7 @@ fn apply(s: &mut Session, _a: &Value) -> Result<Value, CommandError> {
         let before = s.garment.panels[index].clone();
         let mut after = before.clone();
         let bend = before.place3d.as_ref().map_or(0.0, |p| p.bend);
-        after.place3d = Some(Place3D { origin, rotation, bend });
+        after.place3d = Some(Place3D { origin, rotation, bend, pose: None });
         let sig = placement_signature(&after);
         s.sim.drape.put(id, sig, positions);
         if after != before {

@@ -17,6 +17,7 @@ ffb-fabric = { path = "crates/ffb-fabric" }
 ffb-mesh = { path = "crates/ffb-mesh" }
 ffb-sim = { path = "crates/ffb-sim" }
 ffb-body = { path = "crates/ffb-body" }
+ffb-gpu = { path = "crates/ffb-gpu" }
 ffb-io = { path = "crates/ffb-io" }
 ffb-commands = { path = "crates/ffb-commands" }
 glam = "0.34"

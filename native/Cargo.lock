@@ -226,6 +226,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ffb-gpu"
+version = "0.9.0"
+dependencies = [
+ "ffb-sim",
+]
+
+[[package]]
 name = "ffb-io"
 version = "0.9.0"
 dependencies = [

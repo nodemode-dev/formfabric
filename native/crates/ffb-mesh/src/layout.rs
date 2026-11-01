@@ -45,7 +45,7 @@ pub fn mirrored_flat(panel: &Panel) -> bool {
 pub fn positions_3d(mesh: &PanelMesh, panel: &Panel) -> Vec<f32> {
     let mut out = Vec::with_capacity(mesh.positions.len() * 3);
     match &panel.place3d {
-        Some(Place3D { origin, rotation, bend }) => {
+        Some(Place3D { origin, rotation, bend, .. }) => {
             let q = quaternion(*rotation);
             let cx = centre_x(mesh);
             for p in &mesh.positions {

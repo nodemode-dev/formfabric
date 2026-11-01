@@ -37,6 +37,13 @@ pub struct Garment {
     pub seams: Vec<Seam>,
     pub tacks: Vec<Tack>,
     pub pins: Vec<Pin>,
+    pub styles: Vec<Style>,
+    pub hardware: Vec<Hardware>,
+    pub zippers: Vec<Zipper>,
+    pub stitches: Vec<Stitch>,
+    pub finishes: Vec<EdgeFinish>,
+    pub wind: Wind,
+    pub ripped: Vec<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -138,6 +145,13 @@ impl Default for Garment {
             seams: Vec::new(),
             tacks: Vec::new(),
             pins: Vec::new(),
+            styles: Vec::new(),
+            hardware: Vec::new(),
+            zippers: Vec::new(),
+            stitches: Vec::new(),
+            finishes: Vec::new(),
+            wind: Wind::default(),
+            ripped: Vec::new(),
         }
     }
 }
@@ -218,6 +232,131 @@ pub struct Place3D {
     pub origin: [f64; 3],
     pub rotation: [f64; 4],
     pub bend: f64,
+    pub pose: Option<Vec<[f32; 3]>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PanelState {
+    pub frozen: bool,
+    pub disabled: bool,
+    pub stiffen: f64,
+    pub hold_shape: bool,
+    pub shrink_weft: f64,
+    pub shrink_warp: f64,
+}
+
+impl Default for PanelState {
+    fn default() -> Self {
+        PanelState { frozen: false, disabled: false, stiffen: 1.0, hold_shape: false, shrink_weft: 1.0, shrink_warp: 1.0 }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Print {
+    pub id: u32,
+    pub name: String,
+    pub image: String,
+    pub position: [f64; 2],
+    pub rotation: f64,
+    pub size: [f64; 2],
+    pub side: SeamSide,
+    pub emboss: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum StyleKind {
+    #[default]
+    Button,
+    Buttonhole,
+    Zipper,
+    Topstitch,
+    Puckering,
+    Trim,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Style {
+    pub id: u32,
+    pub kind: StyleKind,
+    pub name: String,
+    pub params: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Anchor {
+    pub panel: u32,
+    pub point: [f64; 2],
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Hardware {
+    pub id: u32,
+    pub style: u32,
+    pub anchor: Anchor,
+    pub rotation: f64,
+    pub fastened_to: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Zipper {
+    pub id: u32,
+    pub style: u32,
+    pub a: Vec<SeamEnd>,
+    pub b: Vec<SeamEnd>,
+    pub closed: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Stitch {
+    pub id: u32,
+    pub style: u32,
+    pub spans: Vec<SeamEnd>,
+    pub offset: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EdgeKind {
+    #[default]
+    Piping,
+    Binding,
+    Elastic,
+    Tape,
+    Bond,
+    Press,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EdgeFinish {
+    pub id: u32,
+    pub kind: EdgeKind,
+    pub spans: Vec<SeamEnd>,
+    pub width: f64,
+    pub ratio: f64,
+    pub strength: f64,
+    pub fabric: Option<u32>,
+    pub generated: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Wind {
+    pub enabled: bool,
+    pub kind: String,
+    pub origin: [f64; 3],
+    pub direction: [f64; 3],
+    pub strength: f64,
+    pub decay: f64,
+    pub turbulence: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -240,6 +379,9 @@ pub struct Panel {
     pub fabric: Option<u32>,
     pub place3d: Option<Place3D>,
     pub pressure: f64,
+    pub state: PanelState,
+    pub prints: Vec<Print>,
+    pub tags: Vec<String>,
 }
 
 impl Default for Panel {
@@ -262,6 +404,9 @@ impl Default for Panel {
             fabric: None,
             place3d: None,
             pressure: 0.0,
+            state: PanelState::default(),
+            prints: Vec::new(),
+            tags: Vec::new(),
         }
     }
 }

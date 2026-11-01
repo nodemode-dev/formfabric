@@ -69,7 +69,7 @@ fn place_panel(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let bend = if flip { -radius } else { radius };
     let anchor_world = rotate(q, anchor);
     let origin = sub(frame.position, anchor_world);
-    let place = Place3D { origin, rotation: q, bend };
+    let place = Place3D { origin, rotation: q, bend, pose: None };
     let wrapped_degrees = if radius > 0.0 { (width / radius).to_degrees() } else { 0.0 };
     let before = s.garment.panels[index].clone();
     let mut after = before.clone();
