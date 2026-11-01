@@ -3,10 +3,18 @@ import { textFieldFocused } from '../../ui/native-menu';
 import { Drape } from '../drape';
 import type { Tool } from '../drape/types';
 import { Selection, fmtLen } from '../state';
+import { hasCommand, quiet } from '../viz/api';
+import { VizUi } from '../viz';
+import type { WorldHit } from '../viz/host';
+import { vizOf, type VizJson } from '../viz/types';
 import { drawTapes, drawWind } from './annot';
 import { OrbitCamera } from './camera';
 import { Extras } from './extras';
+import { newFx } from './fx';
+import { FurGL } from './furgl';
 import { Frame } from './frame';
+import { StageGL, parseBackground } from './stagegl';
+import { StyleGL, parseStyleLines } from './stylegl';
 import { Gizmo, type Handle } from './gizmo';
 import { Hud, type Preset } from './hud';
 import { VIEW_STYLES, type GarmentFull, type PanelFull, type ViewStyle } from './model';
@@ -151,6 +159,16 @@ export class View3D {
   private holdTimer = 0;
   private fence: WebGLSync | null = null;
   private fenceAt = 0;
+  readonly fx = newFx();
+  private stageGL: StageGL | null = null;
+  private fur: FurGL | null = null;
+  private styleGL: StyleGL | null = null;
+  private viz: VizUi | null = null;
+  private vizJson: VizJson = vizOf(null);
+  private vizSource: unknown = null;
+  private styleAt = 0;
+  private styleBusy = false;
+  private styleTimer = 0;
   lastPaintMs = 0;
   gpuMs = 0;
 
@@ -188,6 +206,24 @@ export class View3D {
     sw.height = 1;
     this.swatch = sw.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
     if (this.gl) this.setup(this.gl);
+    this.feedIn.onScalars = (_id, f) => this.viz?.onScalars(f);
+    this.viz = new VizUi({
+      pane,
+      bar: this.hud.bar,
+      canvas,
+      camera: this.camera,
+      scene: this.scene,
+      fx: this.fx,
+      gl: () => this.gl,
+      viz: () => this.vizJson,
+      units: () => this.doc.garment.units,
+      redraw: () => this.redraw(),
+      paintNow: () => this.paint(),
+      snapshot: (w, h, transparent) => this.renderSnapshot(w, h, transparent),
+      maxSize: () => (this.gl ? (this.gl.getParameter(this.gl.MAX_RENDERBUFFER_SIZE) as number) : 0),
+      clearScalars: () => { for (const b of this.scene.list) this.scene.setScalars(b, null); this.redraw(); },
+      setAutoFrame: (on) => { this.autoFrame = on; },
+    });
     new ResizeObserver(() => this.resize()).observe(pane);
     const dirty = (): void => { this.colors = null; this.redraw(); };
     new MutationObserver(dirty).observe(document.documentElement, { attributes: true });
@@ -206,16 +242,75 @@ export class View3D {
     document.addEventListener('keydown', (e) => this.onKey(e), true);
     this.doc.onChange(() => {
       this.feedIn.sync(this.doc.garment as GarmentFull);
+      this.applyViz();
       this.applyStates();
       this.drape.docChanged();
       this.redraw();
     });
     this.feedIn.sync(this.doc.garment as GarmentFull);
+    this.applyViz();
     void this.feedIn.refreshCaps();
     this.resize();
   }
 
   get available(): boolean { return this.gl !== null; }
+
+  private applyViz(): void {
+    if (this.vizSource !== this.doc.garment) {
+      this.vizSource = this.doc.garment;
+      this.vizJson = vizOf(this.doc.garment);
+      this.stageGL?.setStage(this.vizJson.stage);
+      this.fur?.setFur(this.vizJson.fur);
+    }
+    this.viz?.docChanged();
+    this.scheduleStyle();
+    this.redraw();
+  }
+
+  private scheduleStyle(): void {
+    if (this.styleTimer) return;
+    const wait = Math.max(120, 700 - (performance.now() - this.styleAt));
+    this.styleTimer = window.setTimeout(() => { this.styleTimer = 0; void this.pullStyle(); }, wait);
+  }
+
+  private async pullStyle(): Promise<void> {
+    const gl = this.styleGL;
+    if (!gl || this.styleBusy) return;
+    const g = this.doc.garment as unknown as { style_lines?: unknown[] };
+    if (!g.style_lines || g.style_lines.length === 0) {
+      if (gl.count > 0) { gl.set([]); this.redraw(); }
+      return;
+    }
+    if (!hasCommand('styleline.list3d')) return;
+    this.styleBusy = true;
+    this.styleAt = performance.now();
+    const r = await quiet<unknown>('styleline.list3d', {});
+    this.styleBusy = false;
+    if (r === undefined) return;
+    gl.set(parseStyleLines(r));
+    this.redraw();
+  }
+
+  private hitOf(id: number): WorldHit | null {
+    const b = id >= 0 ? this.scene.get(id) : undefined;
+    const tri = this.picker.hitTri;
+    if (!b || tri < 0) return null;
+    const i0 = b.idx[tri * 3] * 3;
+    const i1 = b.idx[tri * 3 + 1] * 3;
+    const i2 = b.idx[tri * 3 + 2] * 3;
+    const u = this.picker.hitU;
+    const v = this.picker.hitV;
+    const w = 1 - u - v;
+    const m = b.model;
+    const x = w * b.pos[i0] + u * b.pos[i1] + v * b.pos[i2];
+    const y = w * b.pos[i0 + 1] + u * b.pos[i1 + 1] + v * b.pos[i2 + 1];
+    const z = w * b.pos[i0 + 2] + u * b.pos[i1 + 2] + v * b.pos[i2 + 2];
+    return {
+      panel: id,
+      vertex: this.picker.vertex,
+      point: [m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]],
+    };
+  }
 
   private applyStates(): void {
     let changed = false;
@@ -291,6 +386,7 @@ export class View3D {
   }
 
   private onData(): void {
+    this.scheduleStyle();
     const count = this.scene.list.length;
     if (count === 0) {
       this.autoFrame = true;
@@ -350,6 +446,10 @@ export class View3D {
     gl.bindVertexArray(null);
     this.meshes = new MeshRenderer(gl, () => this.redraw());
     this.extras = new Extras(gl);
+    this.stageGL = new StageGL(gl);
+    this.stageGL.onLoaded = () => { this.viz?.hdriStatus(this.stageGL?.hdriState ?? 'none'); this.redraw(); };
+    this.fur = new FurGL(gl, () => this.redraw());
+    this.styleGL = new StyleGL(gl);
   }
 
   private rgb(name: string): [number, number, number] {
@@ -623,7 +723,7 @@ export class View3D {
     const hotChanged = (hot?.kind ?? '') !== (before?.kind ?? '') || (hot?.axis ?? -1) !== (before?.axis ?? -1);
     this.gizmo.hot = hot;
     const id = hot ? -1 : this.picker.pick(this.frame, this.scene, this.hoverX, this.hoverY);
-    const aim = this.drape.pinTool || (this.drape.tools.active !== 'none' && this.drape.tools.active !== 'pinch');
+    const aim = this.drape.pinTool || (this.drape.tools.active !== 'none' && this.drape.tools.active !== 'pinch') || !!this.viz?.measure.active;
     this.setCursor(hot ? 'grab' : aim ? 'crosshair' : id >= 0 ? (this.drape.draping ? 'grab' : 'pointer') : '');
     if (id !== this.hover || hotChanged) {
       this.hover = id;
@@ -634,6 +734,7 @@ export class View3D {
   private click(x: number, y: number, shift: boolean): void {
     this.ensureFrame();
     const id = this.picker.pick(this.frame, this.scene, x, y);
+    if (this.viz?.click(this.hitOf(id))) return;
     if (this.drape.tools.active === 'tape') {
       if (id >= 0 && this.picker.vertex >= 0 && this.scene.get(id)?.source !== 'local') void this.drape.tape(id, this.picker.vertex);
       return;
@@ -742,34 +843,7 @@ export class View3D {
     this.scene.upload(gl, this.style === 'shaded-mesh' || this.style === 'mesh');
     this.scene.recount();
     this.ensureFrame();
-    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    gl.clearColor(p.bg[0], p.bg[1], p.bg[2], 1);
-    gl.depthMask(true);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    const vp = this.frame.vp;
-    const dist = this.camera.distance;
-    const cell = Math.pow(10, Math.floor(Math.log10(dist * 0.005)));
-    gl.useProgram(this.program);
-    gl.uniformMatrix4fv(this.u.uVP, false, vp);
-    gl.uniform2f(this.u.uCenter, this.camera.target[0], this.camera.target[2]);
-    gl.uniform1f(this.u.uSize, dist * 60);
-    gl.uniform1f(this.u.uCell, cell);
-    gl.uniform1f(this.u.uFade, dist * 8);
-    gl.uniform3f(this.u.uLine, p.line[0], p.line[1], p.line[2]);
-    gl.uniform3f(this.u.uAxisX, p.x[0], p.x[1], p.x[2]);
-    gl.uniform3f(this.u.uAxisZ, p.z[0], p.z[1], p.z[2]);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.disable(gl.DEPTH_TEST);
-    gl.bindVertexArray(this.vao);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    gl.bindVertexArray(null);
-    this.meshes.draw(this.frame, this.scene, this.style, this.sel.panels, this.hover, this.pal);
-    if (this.extras && !this.drape.draping) this.extras.drawSeams(this.frame, this.scene, this.pal.accent);
-    if (this.extras) {
-      this.extras.syncTrims(this.doc.garment, this.scene);
-      this.extras.drawTrims(this.frame, this.pal);
-    }
+    this.drawWorld(this.frame, this.canvas.width, this.canvas.height, this.sel.panels, this.hover, false, p);
     const ms = performance.now() - t0;
     this.lastPaintMs = ms;
     this.statMs = this.statMs === 0 ? ms : this.statMs * 0.7 + ms * 0.3;
@@ -781,6 +855,117 @@ export class View3D {
     }
     if (this.statsOn && t0 - this.statAt > STATS_MS) this.writeStats(t0);
     this.paintOverlay(p.text);
+  }
+
+  private drawWorld(f: Frame, pw: number, ph: number, sel: Set<number>, hover: number, still: boolean, p: NonNullable<View3D['colors']>): void {
+    const gl = this.gl as WebGL2RenderingContext;
+    const meshes = this.meshes as MeshRenderer;
+    const sg = this.stageGL;
+    const fx = this.fx;
+    sg?.sync(this.scene, fx);
+    this.fur?.sync(this.scene);
+    gl.viewport(0, 0, pw, ph);
+    const custom = sg?.active ? parseBackground(this.vizJson.stage.background) : null;
+    const bg = custom ?? p.bg;
+    gl.clearColor(bg[0], bg[1], bg[2], still ? 0 : 1);
+    gl.depthMask(true);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    const sky = !still && !!sg?.hasSky;
+    const ground = !still && !!sg?.groundOn;
+    if (sky && sg) sg.drawSky(f, fx);
+    if (ground && sg) {
+      sg.floor.set([Math.pow(p.bg[0] * 0.6 + p.line[0] * 0.25, 2.2), Math.pow(p.bg[1] * 0.6 + p.line[1] * 0.25, 2.2), Math.pow(p.bg[2] * 0.6 + p.line[2] * 0.25, 2.2)]);
+      sg.drawGround(f, fx);
+    }
+    if (!still && !sky && !ground) {
+      const dist = this.camera.distance;
+      const cell = Math.pow(10, Math.floor(Math.log10(dist * 0.005)));
+      gl.useProgram(this.program);
+      gl.uniformMatrix4fv(this.u.uVP, false, f.vp);
+      gl.uniform2f(this.u.uCenter, this.camera.target[0], this.camera.target[2]);
+      gl.uniform1f(this.u.uSize, dist * 60);
+      gl.uniform1f(this.u.uCell, cell);
+      gl.uniform1f(this.u.uFade, dist * 8);
+      gl.uniform3f(this.u.uLine, p.line[0], p.line[1], p.line[2]);
+      gl.uniform3f(this.u.uAxisX, p.x[0], p.x[1], p.x[2]);
+      gl.uniform3f(this.u.uAxisZ, p.z[0], p.z[1], p.z[2]);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.disable(gl.DEPTH_TEST);
+      gl.bindVertexArray(this.vao);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.bindVertexArray(null);
+    }
+    meshes.draw(f, this.scene, this.style, sel, hover, this.pal, fx);
+    this.fur?.draw(f);
+    if (this.extras && !this.drape.draping) this.extras.drawSeams(f, this.scene, this.pal.accent);
+    this.styleGL?.draw(f, this.pal.accent);
+    if (this.extras) {
+      this.extras.syncTrims(this.doc.garment, this.scene);
+      this.extras.drawTrims(f, this.pal);
+    }
+  }
+
+  private renderSnapshot(w: number, h: number, transparent: boolean): HTMLCanvasElement | null {
+    const gl = this.gl;
+    if (!gl || !this.program || !this.meshes) return null;
+    const p = this.palette();
+    this.scene.upload(gl, this.style === 'shaded-mesh' || this.style === 'mesh');
+    const samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES) as number);
+    const fbo = gl.createFramebuffer();
+    const resolve = gl.createFramebuffer();
+    const color = gl.createRenderbuffer();
+    const depth = gl.createRenderbuffer();
+    const out = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, color);
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA8, w, h);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.DEPTH_COMPONENT24, w, h);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, out);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA8, w, h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, color);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, resolve);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, out);
+    this.stageGL?.sync(this.scene, this.fx);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    let canvas: HTMLCanvasElement | null = null;
+    if (ok) {
+      const frame = new Frame();
+      const aspect = this.camera.aspect;
+      this.camera.aspect = w / h;
+      frame.update(this.camera, w, h);
+      this.drawWorld(frame, w, h, new Set<number>(), -1, transparent, p);
+      this.camera.aspect = aspect;
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, resolve);
+      gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, resolve);
+      const raw = new Uint8Array(w * h * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, raw);
+      const flipped = new Uint8ClampedArray(w * h * 4);
+      const row = w * 4;
+      for (let y = 0; y < h; y++) flipped.set(raw.subarray((h - 1 - y) * row, (h - y) * row), y * row);
+      canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      (canvas.getContext('2d') as CanvasRenderingContext2D).putImageData(new ImageData(flipped, w, h), 0, 0);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(fbo);
+    gl.deleteFramebuffer(resolve);
+    gl.deleteRenderbuffer(color);
+    gl.deleteRenderbuffer(depth);
+    gl.deleteRenderbuffer(out);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.redraw();
+    return canvas;
+  }
+
+  paintNow(): void {
+    this.paint();
   }
 
   private writeStats(now: number): void {
@@ -813,6 +998,7 @@ export class View3D {
     const wind = this.drape.wind;
     if (wind?.enabled) drawWind(ctx, this.frame, this.dpr, wind, this.camera.worldPerPixel(this.h), this.accentCss);
     drawTapes(ctx, this.frame, this.scene, this.drape.tapes, this.dpr, this.accentCss, this.ringCss, (mm) => fmtLen(mm, this.doc.garment.units));
+    this.viz?.draw(ctx, this.frame, this.scene, this.dpr, this.accentCss, this.ringCss);
     const target = this.gizmoTarget();
     if (target) {
       if (!this.gizmo.drag) this.placeGizmo(target);

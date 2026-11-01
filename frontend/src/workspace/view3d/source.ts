@@ -1,6 +1,7 @@
 import { call, catalogue, onEngineChanged, onEngineLink } from '../../engine/service';
-import { connectStream, subscribe, type StreamFrame } from '../../engine/stream';
+import { connectStream, subscribe, type ScalarsFrame, type StreamFrame } from '../../engine/stream';
 import { linear, lookOf } from './look';
+import { installScalarDecoder } from './scalars';
 import type { GarmentFull, MeshData, PanelFull } from './model';
 import { placeLocal } from './place';
 import type { PanelBuf, Scene } from './scene';
@@ -77,8 +78,10 @@ export class MeshFeed {
   private dirty = false;
   private bodyTimer = 0;
   private bodiesWatched = false;
+  onScalars: ((id: number, f: ScalarsFrame) => void) | null = null;
 
   constructor(private readonly scene: Scene, private readonly changed: () => void, private readonly capsChanged: () => void) {
+    installScalarDecoder();
     onEngineChanged((e) => {
       if (e.name === 'view.units') return;
       if (/^(body|file|history)\./.test(e.name)) this.scheduleBodies();
@@ -194,7 +197,19 @@ export class MeshFeed {
     }
   }
 
+  private scalarFrame(id: number, f: ScalarsFrame): void {
+    const b = this.scene.get(id);
+    if (!b || f.vertexCount !== b.vcount) return;
+    this.scene.setScalars(b, f.values);
+    this.onScalars?.(id, f);
+    this.changed();
+  }
+
   private bodyFrame(id: number, f: StreamFrame): void {
+    if (f.kind === 'scalars') {
+      this.scalarFrame(id, f);
+      return;
+    }
     let b = this.scene.get(id);
     if (!b) {
       if (f.kind !== 'topology' || f.indices.length === 0) return;
@@ -233,6 +248,10 @@ export class MeshFeed {
   }
 
   private frame(id: number, f: StreamFrame): void {
+    if (f.kind === 'scalars') {
+      this.scalarFrame(id, f);
+      return;
+    }
     const b = this.scene.get(id);
     if (!b || b.source === 'feed') return;
     if (f.kind === 'topology') {

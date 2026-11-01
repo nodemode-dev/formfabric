@@ -21,7 +21,26 @@ export interface PositionsFrame {
   positions: Float32Array;
 }
 
-export type StreamFrame = TopologyFrame | PositionsFrame;
+export interface ScalarsFrame {
+  kind: 'scalars';
+  frame: number;
+  object: number;
+  vertexCount: number;
+  values: Float32Array;
+  min: number;
+  max: number;
+  map: number;
+}
+
+export type StreamFrame = TopologyFrame | PositionsFrame | ScalarsFrame;
+
+export type KindDecoder = (buffer: ArrayBuffer, view: DataView, head: { frame: number; object: number; vertexCount: number }) => StreamFrame;
+
+const decoders = new Map<number, KindDecoder>();
+
+export function registerKind(kind: number, decoder: KindDecoder): void {
+  decoders.set(kind, decoder);
+}
 export type StreamCallback = (frame: StreamFrame) => void;
 export type StreamState = 'idle' | 'connecting' | 'open' | 'closed';
 
@@ -74,6 +93,8 @@ export function decodeFrame(buffer: ArrayBuffer): StreamFrame {
     }
     return { kind: 'topology', frame, object, vertexCount, indices, panelIds };
   }
+  const extra = decoders.get(kind);
+  if (extra) return extra(buffer, view, { frame, object, vertexCount });
   throw new Error(`unknown stream frame kind ${kind}`);
 }
 

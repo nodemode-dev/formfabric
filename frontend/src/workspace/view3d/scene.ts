@@ -48,6 +48,10 @@ export class PanelBuf {
   bEdge: WebGLBuffer | null = null;
   gpuV = -1;
   gpuE = -1;
+  scal = new Float32Array(0);
+  scalDirty = false;
+  scalOn = false;
+  bScal: WebGLBuffer | null = null;
 
   constructor(readonly id: number) {
     const h = hueColor(id);
@@ -129,6 +133,21 @@ export class Scene {
     b.edgesDirty = true;
     b.ready = false;
     this.statsDirty = true;
+  }
+
+  setScalars(b: PanelBuf, values: Float32Array | null): void {
+    if (!values || values.length !== b.vcount) {
+      if (b.scalOn) {
+        b.scalOn = false;
+        b.scalDirty = true;
+      }
+      return;
+    }
+    if (b.scal.length !== values.length) b.scal = new Float32Array(values.length);
+    b.scal.set(values);
+    b.scalOn = true;
+    b.scalDirty = true;
+    this.version++;
   }
 
   setUv(b: PanelBuf, local: Float32Array | null): void {
@@ -233,6 +252,22 @@ export class Scene {
         gl.bufferData(gl.ARRAY_BUFFER, b.uv, gl.STATIC_DRAW);
         b.uvDirty = false;
       }
+      if (b.scalDirty || (b.scalOn && b.scal.length !== b.vcount)) {
+        if (b.scalOn && b.scal.length === b.vcount) {
+          gl.bindVertexArray(b.vao);
+          gl.bindBuffer(gl.ARRAY_BUFFER, b.bScal);
+          gl.bufferData(gl.ARRAY_BUFFER, b.scal, gl.DYNAMIC_DRAW);
+          gl.enableVertexAttribArray(3);
+          gl.vertexAttribPointer(3, 1, gl.FLOAT, false, 0, 0);
+        } else {
+          b.scalOn = false;
+          gl.bindVertexArray(b.vao);
+          gl.disableVertexAttribArray(3);
+          gl.vertexAttrib1f(3, 0);
+        }
+        gl.bindVertexArray(null);
+        b.scalDirty = false;
+      }
       if (wire && b.edgesDirty && b.kind === 'panel') {
         buildEdges(b);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b.bEdge);
@@ -251,6 +286,7 @@ export class Scene {
     gl.deleteBuffer(b.bUv);
     gl.deleteBuffer(b.bIdx);
     gl.deleteBuffer(b.bEdge);
+    gl.deleteBuffer(b.bScal);
   }
 }
 
@@ -260,6 +296,7 @@ function create(gl: WebGL2RenderingContext, b: PanelBuf): void {
   b.bUv = gl.createBuffer();
   b.bIdx = gl.createBuffer();
   b.bEdge = gl.createBuffer();
+  b.bScal = gl.createBuffer();
   b.vao = gl.createVertexArray();
   gl.bindVertexArray(b.vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, b.bPos);
