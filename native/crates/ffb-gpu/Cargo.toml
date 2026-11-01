@@ -9,3 +9,10 @@ publish.workspace = true
 
 [dependencies]
 ffb-sim.workspace = true
+glam.workspace = true
+wgpu = "30"
+pollster = "1"
+bytemuck = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+ffb-fabric.workspace = true
