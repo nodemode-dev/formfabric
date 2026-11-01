@@ -33,6 +33,11 @@ impl Engine {
         Ok(ffb_commands::dispatch_json(&mut session, name, args_json).to_string())
     }
 
+    fn epoch(&self) -> PyResult<u64> {
+        let session = self.session.lock().map_err(|_| PyValueError::new_err("engine session poisoned"))?;
+        Ok(session.epoch)
+    }
+
     fn stream_info(&self) -> PyResult<String> {
         let server = self.server()?;
         Ok(serde_json::json!({"port": server.port(), "token": server.token()}).to_string())

@@ -63,10 +63,12 @@ def read_only(name: str) -> bool:
 def dispatch(name: str, args: dict | None, notify: bool = True) -> dict:
     _require()
     with _lock:
+        before = _engine.epoch()
         reply = json.loads(_engine.dispatch(name, json.dumps(args or {})))
+        changed = _engine.epoch() != before
     if reply.get("ok") and name in _RECENT_NAMES and isinstance((args or {}).get("path"), str):
         recent.note(args["path"])
-    if reply.get("ok") and not read_only(name):
+    if reply.get("ok") and changed and not read_only(name):
         _bump()
         if notify:
             events.publish("engine.changed", epoch=_epoch, name=name)
