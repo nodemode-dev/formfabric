@@ -1,10 +1,22 @@
+mod arrange;
+mod ops;
+mod publish;
+mod state;
+
+pub use state::MeshState;
+
 use crate::{Command, Session};
 
-#[derive(Debug, Default)]
-pub struct MeshState {}
+pub(crate) fn after_change(session: &mut Session, _command: &str) {
+    publish::on_change(session);
+}
 
-pub(crate) fn after_change(_session: &mut Session, _command: &str) {}
+pub fn publish_all(session: &mut Session) {
+    publish::full(session);
+}
 
 pub(crate) fn commands() -> Vec<Command> {
-    Vec::new()
+    let mut all = ops::commands();
+    all.extend(arrange::commands());
+    all
 }

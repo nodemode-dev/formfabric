@@ -1,9 +1,21 @@
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
-use ffb_commands::Session;
-use ffb_stream::Server;
+use ffb_commands::{FrameSink, Session};
+use ffb_stream::{Publisher, Server};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+
+struct PublisherSink(Publisher);
+
+impl FrameSink for PublisherSink {
+    fn topology(&self, object: u32, indices: &[u32], panel_ids: &[u16]) {
+        self.0.publish_topology(object, indices, panel_ids);
+    }
+
+    fn positions(&self, object: u32, positions: &[f32]) {
+        self.0.publish_positions(object, positions);
+    }
+}
 
 #[pyclass]
 struct Engine {
@@ -17,7 +29,17 @@ impl Engine {
             return Ok(s);
         }
         let started = Server::start().map_err(|e| PyValueError::new_err(format!("stream server failed to start: {e}")))?;
-        Ok(self.stream.get_or_init(|| started))
+        let mut fresh = false;
+        let server = self.stream.get_or_init(|| {
+            fresh = true;
+            started
+        });
+        if fresh {
+            if let Ok(mut session) = self.session.lock() {
+                session.sink = Some(Arc::new(PublisherSink(server.publisher())));
+            }
+        }
+        Ok(server)
     }
 }
 
@@ -40,6 +62,8 @@ impl Engine {
 
     fn stream_info(&self) -> PyResult<String> {
         let server = self.server()?;
+        let mut session = self.session.lock().map_err(|_| PyValueError::new_err("engine session poisoned"))?;
+        ffb_commands::publish_all(&mut session);
         Ok(serde_json::json!({"port": server.port(), "token": server.token()}).to_string())
     }
 

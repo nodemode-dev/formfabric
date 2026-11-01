@@ -19,6 +19,7 @@ use serde_json::{json, Value};
 
 pub use file_cmds::{open_data, save_data};
 pub use history::{Edit, History, DEFAULT_STEPS, MAX_STEPS};
+pub use mesh_cmds::publish_all;
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
