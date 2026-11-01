@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -e
+cd "$(dirname "$0")"
+usage() {
+  printf 'formfabric %s · pattern making and cloth simulation\n' "$(sed -n "s/^export const VERSION = '\(.*\)';$/\1/p" frontend/src/version.ts 2>/dev/null)"
+  cat << 'EOT'
+
+usage: ./formfabric [command] [options]
+
+  (none) | boot       boot backend (8280) and frontend (5280) together
+  install             install the backend, the engine and the frontend
+  install-desktop     install PyInstaller and check the Rust and Tauri toolchain
+  backend             boot the backend only
+  frontend            boot the frontend only
+  engine build        build the Rust engine workspace and the Python module ffb_engine
+  engine check        cargo check and clippy over the engine workspace
+  engine wasm         build the browser engine to frontend/public/engine/ffb_wasm.wasm
+  build               production build of the frontend into frontend/dist
+  serve               serve the built frontend from the backend on 127.0.0.1:8280
+  freeze              freeze the backend into the Tauri sidecar (one-folder src-tauri/engine on macOS)
+  desktop dev|build   run or bundle the desktop app; extra arguments such as --config FILE go to tauri
+  app [flags]         build the installable desktop app start to finish (same as ./build_app)
+  mcp                 formfabric over MCP's stdio transport (backend/venv python, app.mcp_stdio)
+  i18n extract|check  collect the English interface strings, or check each language table against strings.json
+  agents sync|install refresh the agent skills' tool reference (sync), or register formfabric with Claude Code, Codex and Cursor (install)
+  doctor              check the toolchain, installs and ports
+  clean [--all]       remove build output (--all also venv and node_modules)
+  help                this text
+EOT
+}
+cmd="${1:-boot}"
+[ $# -gt 0 ] && shift
+case "$cmd" in
+  boot|dev) exec setup/boot_all "$@" ;;
+  install) exec setup/install_all "$@" ;;
+  install-desktop) exec setup/install_desktop "$@" ;;
+  backend) exec setup/boot_backend "$@" ;;
+  frontend) exec setup/boot_frontend "$@" ;;
+  engine)
+    sub="${1:-build}"
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      build) exec setup/engine_build "$@" ;;
+      check) exec setup/engine_check "$@" ;;
+      wasm) exec setup/engine_wasm "$@" ;;
+      *) usage; exit 2 ;;
+    esac ;;
+  build) exec setup/build_frontend "$@" ;;
+  serve) exec setup/serve "$@" ;;
+  freeze) exec setup/freeze_backend "$@" ;;
+  desktop)
+    sub="${1:-dev}"
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      dev) exec setup/desktop_dev "$@" ;;
+      build) exec setup/desktop_build "$@" ;;
+      *) usage; exit 2 ;;
+    esac ;;
+  app) exec ./build_app "$@" ;;
+  mcp)
+    py=venv/bin/python
+    [ -x "backend/$py" ] || py=venv/Scripts/python.exe
+    [ -e "backend/$py" ] || { printf '[formfabric] backend venv missing, run ./formfabric install\n' >&2; exit 1; }
+    cd backend
+    exec "$py" -m app.mcp_stdio "$@" ;;
+  agents) exec python3 -I setup/agents.py "$@" ;;
+  i18n) exec python3 -I setup/i18n.py "$@" ;;
+  doctor) exec setup/doctor "$@" ;;
+  clean) exec setup/clean "$@" ;;
+  help|-h|--help) usage ;;
+  *) printf '[formfabric] unknown command: %s\n\n' "$cmd"; usage; exit 2 ;;
+esac

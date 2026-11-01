@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+source "$(dirname "$0")/lib.sh"
+ffb_rust_env
+command -v cargo >/dev/null 2>&1 || ffb_say "Rust is not installed; the engine needs it. Install from https://rustup.rs"
+ffb_say "installing backend"
+( cd "$FFB_ROOT/backend" && ./oc_install )
+if command -v cargo >/dev/null 2>&1; then
+  ffb_say "building the engine"
+  "$FFB_ROOT/setup/engine_build"
+fi
+ffb_say "installing frontend"
+( cd "$FFB_ROOT/frontend" && ./oc_install )
+ffb_say "done. Boot with ./formfabric"

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -e
+source "$(dirname "$0")/lib.sh"
+ffb_rust_env
+command -v cargo >/dev/null 2>&1 || ffb_die "cargo not found; install Rust from https://rustup.rs"
+cd "$FFB_ROOT/native"
+cargo build --workspace --release --exclude ffb-py --exclude ffb-wasm "$@"
+ffb_say "engine built in native/target/release"
+if [ -f "$FFB_ROOT/backend/venv/bin/activate" ] || [ -f "$FFB_ROOT/backend/venv/Scripts/activate" ]; then
+  ffb_venv
+  command -v maturin >/dev/null 2>&1 || pip install maturin
+  ( cd "$FFB_ROOT/native/crates/ffb-py" && CARGO_TARGET_DIR="$FFB_ROOT/native/target" maturin develop --release )
+  python -c "import ffb_engine; print('[formfabric] python engine module', ffb_engine.version())"
+else
+  ffb_say "backend venv missing; the python engine module was not built (run ./formfabric install)"
+fi

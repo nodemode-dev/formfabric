@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -e
+cd "$(dirname "$0")"
+# shellcheck disable=SC1091
+source ../setup/lib.sh
+ffb_venv
+exec uvicorn app.main:app --reload --host 127.0.0.1 --port "${FFB_PORT:-8280}"

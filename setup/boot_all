@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -e
+source "$(dirname "$0")/lib.sh"
+cd "$FFB_ROOT"
+pids=()
+( cd backend && ./boot_backend ) &
+pids+=($!)
+( cd frontend && ./boot_frontend ) &
+pids+=($!)
+trap 'kill "${pids[@]}" 2>/dev/null' EXIT INT TERM
+ffb_say "frontend http://localhost:${FFB_FRONTEND_PORT:-5280} · backend http://127.0.0.1:${FFB_PORT:-8280}"
+wait

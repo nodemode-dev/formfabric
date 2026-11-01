@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Builds native/crates/ffb-wasm to frontend/public/engine/ffb_wasm.wasm.
+# With the wasm32-unknown-unknown target installed this is a plain cargo build. Without it the standard library is
+# built from source (cargo -Zbuild-std through RUSTC_BOOTSTRAP), which needs the rust-src component.
+set -e
+source "$(dirname "$0")/lib.sh"
+ffb_rust_env
+command -v cargo >/dev/null 2>&1 || ffb_die "cargo not found; install Rust from https://rustup.rs"
+cd "$FFB_ROOT/native"
+target=wasm32-unknown-unknown
+sysroot="$(rustc --print sysroot)"
+out="$FFB_ROOT/native/target"
+if [ -d "$sysroot/lib/rustlib/$target/lib" ]; then
+  cargo build -p ffb-wasm --lib --release --target "$target"
+elif [ -d "$sysroot/lib/rustlib/src/rust/library/std" ]; then
+  ffb_say "no prebuilt $target standard library; building it from source"
+  RUSTC_BOOTSTRAP=1 cargo build -p ffb-wasm --lib --release --target "$target" -Zbuild-std=std,panic_abort
+else
+  ffb_die "the $target target is missing: run rustup target add $target (or rustup component add rust-src)"
+fi
+mkdir -p "$FFB_ROOT/frontend/public/engine"
+cp "$out/$target/release/ffb_wasm.wasm" "$FFB_ROOT/frontend/public/engine/ffb_wasm.wasm"
+ffb_say "browser engine $(du -h "$FFB_ROOT/frontend/public/engine/ffb_wasm.wasm" | cut -f1) at frontend/public/engine/ffb_wasm.wasm"

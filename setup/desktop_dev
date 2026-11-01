@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -e
+source "$(dirname "$0")/lib.sh"
+ffb_rust_env
+triple="$(ffb_target_triple)" || ffb_die "rustc not found; run ./formfabric install-desktop"
+[ -x "$FFB_ROOT/src-tauri/binaries/formfabric-engine-${triple}$(ffb_exe)" ] || [ -x "$FFB_ROOT/src-tauri/engine/formfabric-engine" ] || "$FFB_ROOT/setup/freeze_backend"
+cd "$FFB_ROOT"
+exec frontend/node_modules/.bin/tauri dev "$@"

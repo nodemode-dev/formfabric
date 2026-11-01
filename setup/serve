@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+source "$(dirname "$0")/lib.sh"
+[ -f "$FFB_ROOT/frontend/dist/index.html" ] || "$FFB_ROOT/setup/build_frontend"
+ffb_venv
+cd "$FFB_ROOT/backend"
+export FFB_DIST="$FFB_ROOT/frontend/dist"
+ffb_say "serving http://127.0.0.1:${FFB_PORT:-8280}"
+exec uvicorn app.main:app --host 127.0.0.1 --port "${FFB_PORT:-8280}"

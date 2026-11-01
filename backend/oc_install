@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+cd "$(dirname "$0")"
+# shellcheck disable=SC1091
+source ../setup/lib.sh
+PY="$(ffb_python)" || { echo "[formfabric] Python 3.12 or newer is required" >&2; exit 1; }
+[ -d venv ] || "$PY" -m venv venv
+ffb_venv
+python -m pip install --upgrade pip
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  pip install -r requirements_macos.txt
+else
+  pip install -r requirements.txt
+fi
