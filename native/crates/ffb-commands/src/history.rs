@@ -52,6 +52,46 @@ impl Edit {
     }
 }
 
+fn touches(edit: &Edit, at: usize) -> bool {
+    match edit {
+        Edit::Panel { index, .. } => *index == at,
+        Edit::Many { edits, .. } => edits.iter().any(|e| touches(e, at)),
+        Edit::Garment { .. } => true,
+        Edit::Units { .. } => false,
+    }
+}
+
+fn in_place(edit: &Edit) -> bool {
+    match edit {
+        Edit::Panel { before, after, .. } => before.is_some() && after.is_some(),
+        Edit::Many { edits, .. } => edits.iter().all(in_place),
+        Edit::Garment { .. } => false,
+        Edit::Units { .. } => true,
+    }
+}
+
+fn absorb(edits: &mut Vec<Edit>, edit: Edit, front: bool) {
+    if !edits.iter().all(in_place) {
+        edits.push(edit);
+        return;
+    }
+    if let Edit::Panel { index, before: Some(_), after: Some(after), .. } = &edit {
+        for e in edits.iter_mut() {
+            if let Edit::Panel { index: i, after: last, .. } = e {
+                if i == index && last.is_some() {
+                    *last = Some(after.clone());
+                    return;
+                }
+            }
+        }
+        if front && !edits.iter().any(|e| touches(e, *index)) {
+            edits.insert(0, edit);
+            return;
+        }
+    }
+    edits.push(edit);
+}
+
 #[derive(Debug)]
 pub struct History {
     steps: Vec<Edit>,
@@ -81,6 +121,27 @@ impl History {
             self.steps.remove(0);
         }
         self.cursor = self.steps.len();
+    }
+
+    pub fn amend_last(&mut self, edit: Edit) {
+        if let Some((_, edits)) = &mut self.group {
+            absorb(edits, edit, true);
+            return;
+        }
+        if self.cursor == 0 {
+            self.record(edit);
+            return;
+        }
+        let slot = &mut self.steps[self.cursor - 1];
+        if let Edit::Many { edits, .. } = slot {
+            absorb(edits, edit, false);
+            return;
+        }
+        let first = std::mem::replace(slot, Edit::Many { label: String::new(), edits: Vec::new() });
+        let label = first.label();
+        let mut edits = vec![first];
+        absorb(&mut edits, edit, false);
+        *slot = Edit::Many { label, edits };
     }
 
     pub fn begin_group(&mut self, label: &str) {

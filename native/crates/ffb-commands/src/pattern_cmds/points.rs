@@ -1,6 +1,6 @@
 use ffb_pattern::edit::{self, Which};
 use ffb_pattern::geom::{add, len};
-use ffb_pattern::path;
+use ffb_pattern::{notch, path};
 use serde_json::{json, Value};
 
 use super::input::*;
@@ -120,7 +120,11 @@ fn add_point(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         };
         check_index(path::seg_count(pts.len(), closed), segment, "segment")?;
         let index = path::split_at(pts, segment, t);
-        Ok(json!({"index": index, "segment": segment, "t": t, "point": pts[index].p}))
+        let point = pts[index].p;
+        if optional_id(a, "inner").is_none() {
+            notch::on_split(panel, segment, &[t]);
+        }
+        Ok(json!({"index": index, "segment": segment, "t": t, "point": point}))
     })
 }
 
@@ -159,6 +163,9 @@ fn split_line(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             vec![number_or(a, "t", 0.5)]
         };
         let indices = path::split_many(pts, segment, &ts);
+        if optional_id(a, "inner").is_none() {
+            notch::on_split(panel, segment, &ts);
+        }
         Ok(json!({"indices": indices, "segment": segment, "pieces": indices.len() + 1, "length": total}))
     })
 }
@@ -171,6 +178,7 @@ fn delete_point(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     check(delete_schema, a)?;
     let index = required_count(a, "index")?;
     edit_panel(s, required_id(a, "panel")?, "Delete Point", |panel| {
+        let old = panel.outline.clone();
         let (pts, closed) = path_of(panel, optional_id(a, "inner"))?;
         check_index(pts.len(), index, "point")?;
         if pts.len() <= min_points(closed) {
@@ -178,7 +186,11 @@ fn delete_point(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         }
         pts.remove(index);
         path::auto_handles(pts, closed);
-        Ok(json!({"removed": index, "points": pts.len()}))
+        let remaining = pts.len();
+        if optional_id(a, "inner").is_none() {
+            notch::on_delete(panel, &old, index);
+        }
+        Ok(json!({"removed": index, "points": remaining}))
     })
 }
 
@@ -242,12 +254,17 @@ fn smooth(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     check(smooth_schema, a)?;
     let indices = index_list(a, "points")?;
     edit_panel(s, required_id(a, "panel")?, "Smooth Corners", |panel| {
+        let old = panel.outline.clone();
         let (pts, closed) = path_of(panel, optional_id(a, "inner"))?;
         if let Some(&i) = indices.iter().find(|&&i| i >= pts.len()) {
             return Err(bad(format!("point {i} is out of range, there are {}", pts.len())));
         }
         let rounded = edit::round_corners(pts, closed, &indices, number_or(a, "length", 20.0), number_or(a, "curvature", 1.0));
-        Ok(json!({"rounded": rounded, "skipped": indices.len() - rounded, "points": pts.len()}))
+        let remaining = pts.len();
+        if rounded > 0 && optional_id(a, "inner").is_none() {
+            notch::reproject(panel, &old);
+        }
+        Ok(json!({"rounded": rounded, "skipped": indices.len() - rounded, "points": remaining}))
     })
 }
 

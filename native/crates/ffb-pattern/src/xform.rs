@@ -47,6 +47,10 @@ fn bake(panel: &mut Panel, l: V2, pivot: V2) {
             reverse(pts);
         }
     }
+    panel.grain_line = panel.grain_line.map(|[a, b]| [point(a), point(b)]);
+    if flips {
+        crate::notch::on_reverse(panel);
+    }
     panel.position = new_pos;
     panel.rotation = 0.0;
     panel.mirror = false;
@@ -63,6 +67,7 @@ fn uniform(panel: &mut Panel, s: f64, pivot: V2) {
             p.h_out = p.h_out.map(|h| mul(h, s));
         }
     }
+    panel.grain_line = panel.grain_line.map(|[a, b]| [mul(a, s), mul(b, s)]);
 }
 
 pub fn apply(panel: &mut Panel, x: &Xform) {

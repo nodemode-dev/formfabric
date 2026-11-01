@@ -21,6 +21,7 @@ fn get(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         let index = index_of(s, id)?;
         out["panels"] = json!([s.garment.panels[index]]);
     }
+    super::derived::annotate(&mut out, &s.garment);
     Ok(out)
 }
 

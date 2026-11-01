@@ -1,12 +1,22 @@
 pub mod bezier;
+pub mod dart;
 pub mod edit;
 pub mod garment;
 pub mod geom;
+pub mod grain;
+pub mod link;
+pub mod measure2;
+pub mod notch;
+pub mod offset;
 pub mod path;
 pub mod place;
 pub mod polygon;
 pub mod shapes;
+pub mod slash;
 pub mod snap;
+pub mod spiral;
+pub mod trace;
+pub mod unfold;
 pub mod xform;
 
 use ffb_core::Units;
