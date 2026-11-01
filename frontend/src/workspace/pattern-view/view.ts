@@ -4,13 +4,16 @@ import type { ShellDeps } from '../../shell/deps';
 import type { DocStore } from '../doc';
 import { unionBounds, type Bounds, type Hit } from '../geom';
 import type { Selection } from '../state';
-import type { Vec } from '../types';
+import type { Garment, Vec } from '../types';
+import type { SewSnapshot } from './sew-types';
 import type { Cam, Colors, Ptr, SnapResult, Tool, ViewCtx } from './ctx';
 import { drawScene, gridStep } from './render';
 import { DrawPanelTool, EllipseTool, InnerLineTool, InnerShapeTool, RectangleTool } from './tools-create';
 import { CurvatureTool, EditTool, MeasureTool, SelectTool, SplitTool } from './tools-edit';
 import { GrainTool, MatchTool, NotchTool, SeamTool } from './tools-garment';
 import { DartTool, InstanceTool, MirrorTool, SlashTool, SpiralTool, TraceTool, UnfoldTool } from './tools-derive';
+import { buildSewScene, type SewScene } from './sew-geom';
+import { EditSeamTool, FreeSeamTool, GatherTool, PleatTool, SewTool, TackTool } from './tools-sew';
 
 export interface ViewHooks {
   selected(): void;
@@ -39,6 +42,7 @@ export class PatternView implements ViewCtx {
   private space = false;
   private rulersOn: boolean;
   private rect: DOMRect | null = null;
+  private sewMemo: { g: Garment; s: SewSnapshot; scene: SewScene } | null = null;
 
   constructor(
     private readonly pane: HTMLElement,
@@ -55,6 +59,7 @@ export class PatternView implements ViewCtx {
       new InnerShapeTool(this), new InnerLineTool(this), new SplitTool(this), new CurvatureTool(this), new MeasureTool(this),
       new SeamTool(this), new NotchTool(this), new GrainTool(this), new DartTool(this), new SlashTool(this), new MirrorTool(this),
       new InstanceTool(this), new UnfoldTool(this), new SpiralTool(this), new TraceTool(this), new MatchTool(this),
+      new SewTool(this), new FreeSeamTool(this), new EditSeamTool(this), new TackTool(this), new PleatTool(this), new GatherTool(this),
     ];
     this.active = this.tools[0];
     this.probe = document.createElement('span');
@@ -152,6 +157,13 @@ export class PatternView implements ViewCtx {
 
   selected(): void { this.hooks.selected(); }
 
+  sew(): SewScene {
+    const g = this.doc.garment;
+    const s = this.doc.sew;
+    if (!this.sewMemo || this.sewMemo.g !== g || this.sewMemo.s !== s) this.sewMemo = { g, s, scene: buildSewScene(this.doc.geos(), s) };
+    return this.sewMemo.scene;
+  }
+
   async exact(commandId: string, initial: Record<string, unknown>): Promise<Record<string, unknown> | null> {
     const cat = await this.deps.engine.catalogue();
     const c = cat.commands.find((x) => x.id === commandId);
@@ -244,8 +256,9 @@ export class PatternView implements ViewCtx {
     if (mod || e.altKey) return false;
     const k = e.key.toUpperCase();
     if (k === 'F' && !e.shiftKey) { this.frame(); return true; }
-    const tool = this.tools.find((x) => x.key === k);
-    if (tool && !e.shiftKey) { this.setTool(tool.id); return true; }
+    const combo = e.shiftKey ? `SHIFT+${k}` : k;
+    const tool = this.tools.find((x) => x.key.toUpperCase() === combo);
+    if (tool) { this.setTool(tool.id); return true; }
     if ((e.key === 'Delete' || e.key === 'Backspace') && this.sel.panels.size) {
       void this.doc.run('pattern.delete', { panels: this.sel.list() });
       return true;
@@ -266,7 +279,7 @@ export class PatternView implements ViewCtx {
       muted: this.resolve('--text-muted'),
       accent: this.resolve('--accent-color'),
       line: this.resolve('--text-secondary'),
-      warn: this.resolve('--accent-color'),
+      warn: this.resolve('--warn'),
     };
     return this.colorSet;
   }
@@ -303,7 +316,7 @@ export class PatternView implements ViewCtx {
     const colors = this.colors();
     drawScene(g, {
       w: this.w, h: this.h, cam: this.cam, geos: this.doc.geos(), sel: this.sel, hover: this.hover,
-      showPoints: this.active.id === 'edit', rulers: this.rulersOn, unit: this.unit(), colors,
+      showPoints: this.active.id === 'edit', rulers: this.rulersOn, unit: this.unit(), colors, sew: this.sew(),
     }, this.active);
     const m = this.mark;
     if (m && m.kind) {

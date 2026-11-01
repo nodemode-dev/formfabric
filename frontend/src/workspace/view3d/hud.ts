@@ -38,6 +38,7 @@ export interface HudHandlers {
 
 export class Hud {
   readonly overlay: HTMLCanvasElement;
+  readonly bar: HTMLDivElement;
   readonly ctx: CanvasRenderingContext2D;
   private readonly styleButtons = new Map<ViewStyle, HTMLButtonElement>();
   private readonly presetButtons: Array<[Preset, HTMLButtonElement]> = [];
@@ -55,6 +56,7 @@ export class Hud {
     this.ctx = this.overlay.getContext('2d') as CanvasRenderingContext2D;
     const bar = document.createElement('div');
     bar.className = 'ff3-bar';
+    this.bar = bar;
     const styles = document.createElement('div');
     styles.className = 'ff3-seg';
     for (const [id, label] of STYLES) {
@@ -91,10 +93,11 @@ export class Hud {
   }
 
   private labels(): void {
-    for (const [id, label, title] of STYLES) {
+    for (const [i, [id, label, title]] of STYLES.entries()) {
       const b = this.styleButtons.get(id) as HTMLButtonElement;
+      const text = `${t(title)} (Alt+${i + 1})`;
       setText(b, t(label));
-      if (b.title !== t(title)) b.title = t(title);
+      if (b.title !== text) b.title = text;
     }
     for (const [id, key, name] of PRESETS) {
       const b = this.presetButtons.find((p) => p[0] === id)?.[1] as HTMLButtonElement;
@@ -102,7 +105,7 @@ export class Hud {
       if (b.title !== title) b.title = title;
     }
     setText(this.statsButton, t('Stats'));
-    const title = t('Statistics');
+    const title = `${t('Statistics')} (Alt+0)`;
     if (this.statsButton.title !== title) this.statsButton.title = title;
   }
 

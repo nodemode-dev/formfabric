@@ -6,8 +6,8 @@ import type { Commands } from '../ui/commands';
 
 export const WORKSPACES = [
   { id: 'pattern', label: 'Pattern', ready: true },
-  { id: 'sew', label: 'Sew', ready: false },
-  { id: 'drape', label: 'Drape', ready: false },
+  { id: 'sew', label: 'Sew', ready: true },
+  { id: 'drape', label: 'Drape', ready: true },
   { id: 'animate', label: 'Animate', ready: false },
   { id: 'render', label: 'Render', ready: false },
 ] as const;

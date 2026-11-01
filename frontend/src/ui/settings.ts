@@ -3,7 +3,7 @@ import { el, q, setClass, setHidden, setText, setValue } from './dom';
 import { icon } from './icons';
 import { language, languages, onLanguage, setLanguage, t, type Lang } from './i18n';
 import { DEFAULT_PREFS, FONT_SIZES, LAYOUTS, UNITS, loadPrefs, resetPrefs, updatePrefs, type Prefs } from './prefs';
-import { THEMES, readChoice, setAccent, setIntensity, setTheme, themeSwatchesHtml } from './themes';
+import { THEMES, readChoice, setAccent, setIntensity, setTheme } from './themes';
 import { checkOf, numberRow, selectRow, sliderRow, toggleRow, type Row } from './controls';
 
 export const PREF_SECTIONS = ['General', 'Interface', 'Workspace', 'Performance', 'History & Cache', 'Pattern', 'Drape', 'Viewport', 'Plugins'] as const;
@@ -101,9 +101,16 @@ export class SettingsDialog extends Dialog {
       grp('Recent Files', slider('recentFileCount', 'Recent files listed', 0, 40, 1).el),
       grp('Reset', reset));
 
-    const swatches = document.createElement('template');
-    swatches.innerHTML = themeSwatchesHtml();
-    this.grid.append(swatches.content);
+    for (const [id, th] of Object.entries(THEMES)) {
+      const sw = document.createElement('button');
+      sw.className = 'nm-theme-swatch';
+      sw.type = 'button';
+      sw.dataset.themeId = id;
+      sw.title = th.label;
+      sw.style.background = th.vars['--bg-secondary'];
+      sw.style.borderColor = th.vars['--border-color'];
+      this.grid.append(sw);
+    }
     const accentRow = el('<label class="cv-field"><span>Accent</span></label>');
     accentRow.appendChild(this.accent);
     const intensity = sliderRow('Accent intensity (%)', 0, 150, 5, (v) => setIntensity(v / 100), 100);
@@ -141,8 +148,8 @@ export class SettingsDialog extends Dialog {
       num('simThickness', 'Collision thickness (mm)', 0.1, 20, 0.1),
       pickRow('simDevice', 'Solver device', [['auto', 'Automatic'], ['cpu', 'Processor'], ['gpu', 'Graphics processor']]),
     ];
-    for (const r of drape) r.disable(true);
-    add('Drape', grp('Simulation', ...drape.map((r) => r.el), note('These settings are used once the simulator is available.')));
+    drape[3].disable(true);
+    add('Drape', grp('Simulation', ...drape.map((r) => r.el), note('Changes apply to the simulation as you make them.')));
 
     add('Viewport',
       grp('Renderer', pickRow('renderer', 'Renderer', [['auto', 'Automatic'], ['webgpu', 'WebGPU'], ['webgl', 'WebGL']]).el,

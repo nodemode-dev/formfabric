@@ -1,6 +1,6 @@
 import { call, catalogue, onEngineChanged, onEngineLink } from '../../engine/service';
 import { connectStream, subscribe, type StreamFrame } from '../../engine/stream';
-import { lookOf } from './look';
+import { linear, lookOf } from './look';
 import type { GarmentFull, MeshData, PanelFull } from './model';
 import { placeLocal } from './place';
 import type { PanelBuf, Scene } from './scene';
@@ -9,6 +9,9 @@ import { outlineMesh } from './triangulate';
 const FETCH_DELAY_MS = 200;
 const FETCH_PARALLEL = 4;
 const STREAM_RETRY_MS = [1500, 3000, 6000, 12000, 24000];
+const BODY_BASE = 1_000_000;
+const BODY_SLOTS = 16;
+const SKIN: [number, number, number] = [0.87, 0.7, 0.6];
 
 function flip(indices: Uint32Array): Uint32Array {
   const out = new Uint32Array(indices.length);
@@ -72,15 +75,19 @@ export class MeshFeed {
   private streamTimer = 0;
   private streaming = false;
   private dirty = false;
+  private bodyTimer = 0;
+  private bodiesWatched = false;
 
   constructor(private readonly scene: Scene, private readonly changed: () => void, private readonly capsChanged: () => void) {
     onEngineChanged((e) => {
       if (e.name === 'view.units') return;
+      if (/^(body|file|history)\./.test(e.name)) this.scheduleBodies();
       this.markAll();
       this.schedule();
     });
     onEngineLink((state) => {
       if (state !== 'up') return;
+      this.scheduleBodies();
       void this.refreshCaps();
       this.openStream();
     });
@@ -104,6 +111,7 @@ export class MeshFeed {
   }
 
   private openStream(): void {
+    this.watchBodies();
     if (this.streaming) return;
     this.streaming = true;
     connectStream().then(() => { this.streamTries = 0; }, () => { this.streaming = false; this.retryStream(); });
@@ -146,7 +154,7 @@ export class MeshFeed {
       }
     }
     for (const b of [...this.scene.list]) {
-      if (ids.has(b.id) || b.source === 'feed') continue;
+      if (ids.has(b.id) || b.source === 'feed' || b.kind === 'body') continue;
       this.subs.get(b.id)?.();
       this.subs.delete(b.id);
       this.want.delete(b.id);
@@ -154,6 +162,68 @@ export class MeshFeed {
     }
     this.scene.touch();
     if (this.meshGet && this.want.size) this.schedule();
+    this.changed();
+  }
+
+  private scheduleBodies(): void {
+    window.clearTimeout(this.bodyTimer);
+    this.bodyTimer = window.setTimeout(() => void this.syncBodies(), FETCH_DELAY_MS);
+  }
+
+  private async syncBodies(): Promise<void> {
+    let list: Array<{ object?: number; id?: number }> = [];
+    try {
+      list = ((await call<{ bodies?: Array<{ object?: number; id?: number }> }>('body.list')).bodies) ?? [];
+    } catch { return; }
+    const objects = new Set<number>();
+    for (const item of list) objects.add(item.object ?? (item.id !== undefined ? BODY_BASE + item.id : -1));
+    for (const b of [...this.scene.list]) {
+      if (b.kind !== 'body' || objects.has(b.id)) continue;
+      this.scene.remove(b.id);
+    }
+    this.scene.touch();
+    this.changed();
+  }
+
+  private watchBodies(): void {
+    if (this.bodiesWatched) return;
+    this.bodiesWatched = true;
+    for (let i = 1; i <= BODY_SLOTS; i++) {
+      const object = BODY_BASE + i;
+      this.subs.set(object, subscribe(object, (f) => this.bodyFrame(object, f)));
+    }
+  }
+
+  private bodyFrame(id: number, f: StreamFrame): void {
+    let b = this.scene.get(id);
+    if (!b) {
+      if (f.kind !== 'topology' || f.indices.length === 0) return;
+      b = this.scene.ensure(id);
+      b.kind = 'body';
+      b.source = 'stream';
+      b.front.set(linear(SKIN));
+      b.back.set(linear(SKIN));
+      b.rough = 0.62;
+      b.sheen = 0.3;
+    }
+    if (f.kind === 'topology') {
+      if (f.indices.length === 0) {
+        b.pending = null;
+        b.ready = false;
+        this.scene.touch();
+        this.changed();
+        return;
+      }
+      b.pending = { indices: f.indices, vcount: f.vertexCount };
+      return;
+    }
+    if (b.pending && b.pending.vcount === f.vertexCount) {
+      this.scene.setTopology(b, b.pending.indices, b.pending.vcount);
+      this.scene.setUv(b, null);
+      b.pending = null;
+    } else if (f.vertexCount !== b.vcount) return;
+    this.scene.setPositions(b, f.positions);
+    this.scene.touch();
     this.changed();
   }
 

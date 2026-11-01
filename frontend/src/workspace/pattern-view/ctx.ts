@@ -2,6 +2,7 @@ import type { DocStore } from '../doc';
 import type { Hit } from '../geom';
 import type { Selection } from '../state';
 import type { Vec } from '../types';
+import type { SewScene } from './sew-geom';
 
 export interface Cam { x: number; y: number; s: number }
 
@@ -28,6 +29,7 @@ export interface ViewCtx {
   setHover(h: Hit | null): void;
   frame(ids?: number[]): void;
   selected(): void;
+  sew(): SewScene;
 }
 
 export interface Tool {

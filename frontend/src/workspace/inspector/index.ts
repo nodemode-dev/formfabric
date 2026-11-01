@@ -2,6 +2,7 @@ import { onLanguage, t } from '../../ui/i18n';
 import { icon } from '../../ui/icons';
 import { q, setDisabled, setText, setValue } from '../../ui/dom';
 import type { DocStore } from '../doc';
+import { mmText } from '../pattern-view/render-sew';
 import { decimals, fmtArea, fmtLen, fromUnit, toUnit, type Selection } from '../state';
 import type { Panel } from '../types';
 
@@ -13,7 +14,11 @@ const LABELS: Array<[string, string]> = [
   ['seam', 'Seam Allowance'], ['swidth', 'Width'], ['corners', 'Corners'], ['clear', 'Clear'], ['link', 'Link'], ['unlink', 'Unlink'],
   ['notches', 'Notches'], ['notch', 'Notch'], ['kind', 'Kind'], ['depth', 'Depth'], ['ndel', 'Delete'],
   ['inner', 'Inner Shape'], ['ishape', 'Shape'], ['role', 'Role'], ['fangle', 'Fold angle'], ['fstrength', 'Fold strength'],
+  ['smh', 'Seam'], ['smfold', 'Fold'], ['smratio', 'Ratio'], ['smtension', 'Tension'], ['smsa', 'Side A'], ['smsb', 'Side B'],
+  ['smla', 'Length A'], ['smlb', 'Length B'], ['smmis', 'Mismatch'], ['smflip', 'Flip'], ['smgather', 'Gather'], ['tkh', 'Tack'], ['tklen', 'Length'],
 ];
+
+const FOLDS: Array<[string, string]> = [['turned', 'Turned'], ['flat', 'Flat'], ['custom', 'Custom']];
 
 const CORNERS: Array<[string, string]> = [['miter', 'Miter'], ['square', 'Square'], ['round', 'Round'], ['mirror', 'Mirror']];
 const KINDS: Array<[string, string]> = [['slit', 'Slit'], ['v', 'V'], ['t', 'T'], ['u', 'U']];
@@ -48,7 +53,17 @@ const HTML =
   sub('notches') +
   '<div class="ff-ins-grid">' + row('notch', pick('nt_sel')) + row('kind', pick('nt_k')) + row('depth', num('nt_d', 'min="0.5"')) + row('swidth', num('nt_w', 'min="0.1"')) + btn('nt_del', 'ndel') + '</div>' +
   sub('inner') +
-  '<div class="ff-ins-grid">' + row('ishape', pick('in_sel')) + row('role', pick('in_r')) + row('fangle', num('in_a', 'min="0" max="360"')) + row('fstrength', num('in_s', 'min="0" max="20"')) + '</div>';
+  '<div class="ff-ins-grid">' + row('ishape', pick('in_sel')) + row('role', pick('in_r')) + row('fangle', num('in_a', 'min="0" max="360"')) + row('fstrength', num('in_s', 'min="0" max="20"')) + '</div>' +
+  sub('smh') +
+  '<div class="ff-ins-grid">' + row('smh', pick('sm_sel')) + row('smfold', pick('sm_f')) + row('fangle', num('sm_a', 'min="0" max="360"')) + row('fstrength', num('sm_s', 'min="0" max="20"')) +
+  row('smratio', num('sm_r', 'min="0.05" max="20" step="0.05"')) + row('smtension', num('sm_t', 'min="0" max="20" step="0.1"')) +
+  row('smsa', pick('sm_sa')) + '<span class="ff-ins-label" data-l="smsb"></span><output class="ff-ins-out" data-k="sm_sb">-</output>' +
+  '<span class="ff-ins-label" data-l="smla"></span><output class="ff-ins-out" data-k="sm_la">-</output>' +
+  '<span class="ff-ins-label" data-l="smlb"></span><output class="ff-ins-out" data-k="sm_lb">-</output>' +
+  '<span class="ff-ins-label" data-l="smmis"></span><output class="ff-ins-out" data-k="sm_mis">-</output></div>' +
+  '<div class="ff-ins-actions ff-ins-actions3"><button class="ff-btn" type="button" data-k="sm_flip" disabled><span data-l="smflip"></span></button><button class="ff-btn" type="button" data-k="sm_gather" disabled><span data-l="smgather"></span></button><button class="ff-btn" type="button" data-k="sm_del" disabled><span data-l="ndel"></span></button></div>' +
+  sub('tkh') +
+  '<div class="ff-ins-grid">' + row('tkh', pick('tk_sel')) + '<span class="ff-ins-label" data-l="tklen"></span><output class="ff-ins-out" data-k="tk_len">-</output>' + btn('tk_del', 'ndel') + '</div>';
 
 export class Inspector {
   private readonly input = new Map<string, HTMLInputElement>();
@@ -67,13 +82,95 @@ export class Inspector {
     onLanguage(paint);
     for (const [k, el] of this.input) el.addEventListener('change', () => this.commit(k as FieldKey));
     for (const [k, el] of this.choice) el.addEventListener('change', () => this.extra(k));
-    for (const k of ['sa_clear', 'unlink', 'nt_del']) q(root, `[data-k="${k}"]`).addEventListener('click', () => this.extra(k));
+    for (const k of ['sa_clear', 'unlink', 'nt_del', 'sm_flip', 'sm_gather', 'sm_del', 'tk_del']) q(root, `[data-k="${k}"]`).addEventListener('click', () => this.extra(k));
     this.input.get('name')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') (e.target as HTMLElement).blur(); });
     q(root, '[data-k="mirx"]').addEventListener('click', () => this.mirror('x'));
     q(root, '[data-k="miry"]').addEventListener('click', () => this.mirror('y'));
   }
 
+  private sewAct(k: string): boolean {
+    const text = (key: string): string => this.choice.get(key)?.value ?? '';
+    const num = (key: string): number => Number(this.input.get(key)?.value);
+    if (k === 'sm_sel') {
+      const v = Number(text('sm_sel'));
+      this.sel.seam = v > 0 ? v : null;
+      if (v > 0) this.sel.tack = null;
+      this.update();
+      this.onInner();
+      return true;
+    }
+    if (k === 'tk_sel') {
+      const v = Number(text('tk_sel'));
+      this.sel.tack = v > 0 ? v : null;
+      if (v > 0) this.sel.seam = null;
+      this.update();
+      this.onInner();
+      return true;
+    }
+    if (k === 'tk_del') {
+      if (this.sel.tack !== null) void this.doc.run('tack.delete', { tack: this.sel.tack });
+      return true;
+    }
+    const seam = this.sel.seam;
+    if (seam === null) return true;
+    if (k === 'sm_flip') void this.doc.run('sew.flip', { seam });
+    else if (k === 'sm_del') void this.doc.run('sew.delete', { seam });
+    else if (k === 'sm_gather') void this.doc.run('sew.gather', { seam, ratio: Math.min(20, Math.max(1, num('sm_r') || 1.5)) });
+    else if (k === 'sm_f') void this.doc.run('sew.edit', { seam, fold: text('sm_f') });
+    else if (k === 'sm_sa') void this.doc.run('sew.edit', { seam, side: text('sm_sa') });
+    else {
+      const v = num(k);
+      if (!Number.isFinite(v)) return true;
+      if (k === 'sm_a') void this.doc.run('sew.edit', { seam, fold: 'custom', fold_angle: Math.min(360, Math.max(0, v)) });
+      else if (k === 'sm_s') void this.doc.run('sew.edit', { seam, fold: 'custom', fold_strength: Math.min(20, Math.max(0, v)) });
+      else if (k === 'sm_r') void this.doc.run('sew.edit', { seam, ratio: Math.min(20, Math.max(0.05, v)) });
+      else if (k === 'sm_t') void this.doc.run('sew.edit', { seam, tension: Math.min(20, Math.max(0, v)) });
+    }
+    return true;
+  }
+
+  private refreshSew(): void {
+    const u = this.unit();
+    const { seams, tacks, info } = this.doc.sew;
+    const nm = (id: number | undefined): string => (id === undefined ? '-' : this.doc.panel(id)?.name ?? String(id));
+    const cur = seams.find((s) => s.id === this.sel.seam);
+    const inf = cur ? info.get(cur.id) : undefined;
+    const set = (k: string, v: string): void => { const el = this.input.get(k); if (el) setValue(el, v); };
+    const off = (k: string, on: boolean): void => {
+      const a = this.input.get(k);
+      const b = this.choice.get(k);
+      if (a) setDisabled(a, on);
+      if (b) setDisabled(b, on);
+    };
+    const out = (k: string, v: string): void => setText(q(this.root, `output[data-k="${k}"]`), v);
+    const list: Array<[string, string]> = [['', '-']];
+    for (const s of seams) list.push([String(s.id), `#${s.id} ${nm(s.a[0]?.panel)} / ${nm(s.b[0]?.panel)}`]);
+    this.fill('sm_sel', list, cur ? String(cur.id) : '');
+    off('sm_sel', seams.length === 0);
+    this.fill('sm_f', FOLDS.map(([v, l]) => [v, t(l)]), cur?.fold ?? 'turned');
+    const auto = cur && inf ? `${t('Auto')} · ${t(inf.side_resolved === 'back' ? 'Back' : 'Front')}` : t('Auto');
+    this.fill('sm_sa', [['auto', auto], ['front', t('Front face of this panel')], ['back', t('Back face of this panel')]], cur?.side ?? 'auto');
+    const custom = cur?.fold === 'custom';
+    set('sm_a', cur ? String(Math.round(cur.fold_angle * 100) / 100) : '');
+    set('sm_s', cur ? String(Math.round(cur.fold_strength * 100) / 100) : '');
+    set('sm_r', cur ? String(Math.round(cur.ratio * 1000) / 1000) : '');
+    set('sm_t', cur ? String(Math.round(cur.tension * 1000) / 1000) : '');
+    for (const k of ['sm_f', 'sm_r', 'sm_t', 'sm_sa']) off(k, !cur);
+    for (const k of ['sm_a', 'sm_s']) off(k, !custom);
+    out('sm_sb', cur ? t('Derived from placement') : '-');
+    out('sm_la', inf ? fmtLen(inf.length_a, u) : '-');
+    out('sm_lb', inf ? fmtLen(inf.length_b, u) : '-');
+    out('sm_mis', inf ? mmText(inf.mismatch) : '-');
+    for (const k of ['sm_flip', 'sm_gather', 'sm_del']) setDisabled(q(this.root, `[data-k="${k}"]`), !cur);
+    const tack = tacks.find((k) => k.id === this.sel.tack);
+    this.fill('tk_sel', [['', '-'], ...tacks.map((k): [string, string] => [String(k.id), `#${k.id} ${nm(k.a.panel ?? undefined)} / ${nm(k.b.panel ?? undefined)}`])], tack ? String(tack.id) : '');
+    off('tk_sel', tacks.length === 0);
+    out('tk_len', tack ? fmtLen(tack.length, u) : '-');
+    setDisabled(q(this.root, '[data-k="tk_del"]'), !tack);
+  }
+
   private extra(k: string): boolean {
+    if (k.startsWith('sm_') || k.startsWith('tk_')) return this.sewAct(k);
     if (!['sa_w', 'sa_c', 'sa_clear', 'unlink', 'nt_sel', 'nt_k', 'nt_d', 'nt_w', 'nt_del', 'in_sel', 'in_r', 'in_a', 'in_s'].includes(k)) return false;
     const ids = this.ids();
     const panel = ids.length === 1 ? this.doc.panel(ids[0]) : undefined;
@@ -230,6 +327,7 @@ export class Inspector {
     for (const k of ['pd', 'layer']) off(k, !first);
     for (const k of ['mirx', 'miry']) setDisabled(q(this.root, `[data-k="${k}"]`), !first || locked);
     this.refreshExtra(first, single);
+    this.refreshSew();
     const out = (k: string, v: string): void => setText(q(this.root, `output[data-k="${k}"]`), v);
     if (!first) {
       for (const k of ['name', 'px', 'py', 'rot', 'grain', 'pd', 'layer']) set(k, '');

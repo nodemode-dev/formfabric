@@ -10,6 +10,7 @@ import { textFieldFocused } from '../ui/native-menu';
 import { PREFS_EVENT, updatePrefs } from '../ui/prefs';
 import { DocStore } from './doc';
 import { Inspector } from './inspector';
+import { SeamCheck } from './pattern-view/seam-check';
 import { PatternView } from './pattern-view/view';
 import { Selection, decimals, toUnit } from './state';
 import type { Vec } from './types';
@@ -58,6 +59,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
     requestAnimationFrame(() => { inspectorQueued = false; inspector.update(); });
   };
   void import('./fabric').then((m) => m.mountFabric(root, deps, doc, sel));
+  void import('./body').then((m) => m.mountBody(root, deps, doc, sel));
   const zoomEl = q(root, '[data-k="zoom"]');
 
   const toolsEl = q(root, '[data-k="tools"]');
@@ -73,13 +75,14 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
     tool: (id) => { for (const [k, b] of toolButtons) setClass(b, 'is-on', k === id); },
   });
   setText(zoomEl, `${Math.round(view.cam.s * 100)}%`);
+  const check = new SeamCheck(q(root, '[data-k="pane2d"]'), doc, sel, () => { inspector.update(); view.redraw(); check.update(); }, (on) => setClass(checkBtn, 'is-on', on));
 
   const addButton = (id: string, iconName: string, key: string, label: string, onClick: () => void): HTMLButtonElement => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'ff-tool';
     b.dataset.id = id;
-    b.innerHTML = `${icon(iconName, 18)}<kbd>${key}</kbd>`;
+    b.innerHTML = `${icon(iconName, 18)}<kbd>${key.replace('Shift+', '⇧')}</kbd>`;
     b.addEventListener('click', () => { onClick(); b.blur(); });
     b.dataset.label = label;
     toolsEl.appendChild(b);
@@ -91,7 +94,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
     toolsEl.appendChild(r);
   };
   for (const tool of view.tools) {
-    if (tool.id === 'seam') addRule();
+    if (tool.id === 'seam' || tool.id === 'sew') addRule();
     const b = addButton(tool.id, tool.icon, tool.key, tool.label, () => view.setTool(tool.id));
     toolButtons.set(tool.id, b);
   }
@@ -103,10 +106,12 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   });
   const rulerBtn = addButton('rulers', 'rulers', 'U', 'Rulers', () => { view.setRulers(!view.rulers); setClass(rulerBtn, 'is-on', view.rulers); });
   addButton('frame', 'frameAll', 'F', 'Frame', () => view.frame());
+  const checkBtn = addButton('seamcheck', 'seamCheck', '', 'Seam Check', () => check.toggle());
+  setClass(checkBtn, 'is-on', check.open);
   const titles = (): void => {
     for (const b of toolsEl.querySelectorAll<HTMLButtonElement>('.ff-tool')) {
       const key = b.querySelector('kbd')?.textContent ?? '';
-      const text = `${t(b.dataset.label ?? '')} (${key})`;
+      const text = key ? `${t(b.dataset.label ?? '')} (${key})` : t(b.dataset.label ?? '');
       if (b.title !== text) b.title = text;
     }
   };
@@ -180,7 +185,8 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   }
 
   doc.onChange(() => {
-    sel.prune(new Set(doc.garment.panels.map((p) => p.id)));
+    sel.prune(new Set(doc.garment.panels.map((p) => p.id)), new Set(doc.sew.seams.map((s) => s.id)), new Set(doc.sew.tacks.map((k) => k.id)));
+    check.update();
     scheduleInspector();
     view.redraw();
   });
@@ -203,6 +209,16 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   };
   syncPrefs();
   document.addEventListener(PREFS_EVENT, syncPrefs);
+
+  const SEW_TOOLS = ['sew', 'freeseam', 'editseam', 'tack', 'pleat', 'gather'];
+  const tabs = document.querySelector('.cv-ws');
+  const followTab = (): void => {
+    const id = tabs?.querySelector<HTMLElement>('.cv-ws-tab.is-active')?.dataset.ws;
+    if (id === 'sew' && !SEW_TOOLS.includes(view.tool.id)) view.setTool('sew');
+    else if (id === 'pattern' && SEW_TOOLS.includes(view.tool.id)) view.setTool('select');
+  };
+  if (tabs) new MutationObserver(followTab).observe(tabs, { attributes: true, attributeFilter: ['class'], subtree: true });
+  followTab();
 
   const locked = (e: KeyboardEvent): boolean => {
     if (anyDialogOpen() || textFieldFocused()) return true;

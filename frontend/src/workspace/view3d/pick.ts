@@ -5,10 +5,16 @@ export class Picker {
   private readonly o = new Float64Array(3);
   private readonly d = new Float64Array(3);
   panel = -1;
+  vertex = -1;
   distance = 0;
+  private hitTri = -1;
+  private hitU = 0;
+  private hitV = 0;
 
   pick(f: Frame, scene: Scene, px: number, py: number): number {
     this.panel = -1;
+    this.vertex = -1;
+    this.hitTri = -1;
     if (!f.ray(px, py, this.o, this.d)) return -1;
     const ox = this.o[0], oy = this.o[1], oz = this.o[2];
     const dx = this.d[0], dy = this.d[1], dz = this.d[2];
@@ -16,7 +22,7 @@ export class Picker {
     const list = scene.list;
     for (let i = 0; i < list.length; i++) {
       const b = list[i];
-      if (!b.ready || !this.box(b, ox, oy, oz, dx, dy, dz, best)) continue;
+      if (!b.ready || b.kind === 'body' || !this.box(b, ox, oy, oz, dx, dy, dz, best)) continue;
       const t = this.mesh(b, ox, oy, oz, dx, dy, dz, best);
       if (t < best) {
         best = t;
@@ -24,6 +30,14 @@ export class Picker {
       }
     }
     this.distance = best;
+    if (this.panel >= 0 && this.hitTri >= 0) {
+      const b = scene.get(this.panel);
+      if (b) {
+        const w = 1 - this.hitU - this.hitV;
+        const k = this.hitTri * 3;
+        this.vertex = this.hitU > w && this.hitU >= this.hitV ? b.idx[k + 1] : this.hitV > w && this.hitV > this.hitU ? b.idx[k + 2] : b.idx[k];
+      }
+    }
     return this.panel;
   }
 
@@ -75,7 +89,12 @@ export class Picker {
       const v = (dx * qx + dy * qy + dz * qz) * inv;
       if (v < 0 || u + v > 1) continue;
       const tt = (e2x * qx + e2y * qy + e2z * qz) * inv;
-      if (tt > 1e-6 && tt < best) best = tt;
+      if (tt > 1e-6 && tt < best) {
+        best = tt;
+        this.hitTri = t / 3;
+        this.hitU = u;
+        this.hitV = v;
+      }
     }
     return best;
   }

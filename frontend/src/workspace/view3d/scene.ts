@@ -15,6 +15,7 @@ export class PanelBuf {
   ecount = 0;
   local: Float32Array | null = null;
   source: MeshSource = 'local';
+  kind: 'panel' | 'body' = 'panel';
   shapeKey = '';
   placeKey = '';
   seq = 0;
@@ -80,6 +81,7 @@ export class Scene {
   private readonly dead: PanelBuf[] = [];
   triangles = 0;
   vertices = 0;
+  panels = 0;
   version = 0;
   private statsDirty = true;
 
@@ -166,13 +168,16 @@ export class Scene {
     if (!this.statsDirty) return;
     let t = 0;
     let v = 0;
+    let n = 0;
     for (const b of this.list) {
+      if (b.kind === 'panel') n++;
       if (!b.ready) continue;
       t += b.tcount;
       v += b.vcount;
     }
     this.triangles = t;
     this.vertices = v;
+    this.panels = n;
     this.statsDirty = false;
   }
 
@@ -227,7 +232,7 @@ export class Scene {
         gl.bufferData(gl.ARRAY_BUFFER, b.uv, gl.STATIC_DRAW);
         b.uvDirty = false;
       }
-      if (wire && b.edgesDirty) {
+      if (wire && b.edgesDirty && b.kind === 'panel') {
         buildEdges(b);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b.bEdge);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, b.edges.subarray(0, b.ecount * 2), gl.STATIC_DRAW);

@@ -3,12 +3,16 @@ export class Selection {
   pts: { panel: number; idx: number[] } | null = null;
   seg: { panel: number; i: number } | null = null;
   inner: { panel: number; id: number } | null = null;
+  seam: number | null = null;
+  tack: number | null = null;
 
   clear(): void {
     this.panels.clear();
     this.pts = null;
     this.seg = null;
     this.inner = null;
+    this.seam = null;
+    this.tack = null;
   }
 
   only(id: number): void {
@@ -16,6 +20,8 @@ export class Selection {
     this.panels.add(id);
     this.pts = null;
     this.seg = null;
+    this.seam = null;
+    this.tack = null;
     if (this.inner && this.inner.panel !== id) this.inner = null;
   }
 
@@ -23,7 +29,9 @@ export class Selection {
     return [...this.panels];
   }
 
-  prune(ids: Set<number>): void {
+  prune(ids: Set<number>, seams?: Set<number>, tacks?: Set<number>): void {
+    if (seams && this.seam !== null && !seams.has(this.seam)) this.seam = null;
+    if (tacks && this.tack !== null && !tacks.has(this.tack)) this.tack = null;
     for (const id of [...this.panels]) if (!ids.has(id)) this.panels.delete(id);
     if (this.pts && !ids.has(this.pts.panel)) this.pts = null;
     if (this.seg && !ids.has(this.seg.panel)) this.seg = null;

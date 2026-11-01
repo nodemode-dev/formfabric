@@ -2,6 +2,8 @@ import { pointInPoly, type Hit, type NotchGeo, type PanelGeo, type Seg } from '.
 import type { Selection } from '../state';
 import { toUnit } from '../state';
 import type { Cam, Colors, Tool } from './ctx';
+import { drawSew } from './render-sew';
+import type { SewScene } from './sew-geom';
 
 export interface Scene {
   w: number;
@@ -14,6 +16,7 @@ export interface Scene {
   rulers: boolean;
   unit: string;
   colors: Colors;
+  sew: SewScene;
 }
 
 const NICE = [1, 2, 5];
@@ -320,6 +323,8 @@ export function drawScene(g: CanvasRenderingContext2D, sc: Scene, tool: Tool): v
       if (geo.linked) linkBadge(g, geo, map, colors);
     }
   }
+
+  drawSew(g, sc.sew, map, cam.s, sc.sel.seam, sc.sel.tack, colors);
 
   const hov = sc.hover;
   if (hov) {

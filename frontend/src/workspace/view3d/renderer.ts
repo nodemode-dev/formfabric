@@ -195,12 +195,14 @@ export class MeshRenderer {
     gl.uniform1f(um.ortho, f.ortho ? 1 : 0);
     gl.uniform1i(um.map, 0);
     gl.activeTexture(gl.TEXTURE0);
-    if (!faces) gl.colorMask(false, false, false, false);
     for (let i = 0; i < list.length; i++) {
       const b = list[i];
       if (!b.ready) continue;
+      const body = b.kind === 'body';
+      const show = faces || body;
+      gl.colorMask(show, show, show, show);
       gl.uniformMatrix4fv(um.model, false, b.model);
-      const painted = style === 'panels';
+      const painted = style === 'panels' && !body;
       const fr = painted ? b.hue : b.front;
       const bk = painted ? b.hue : b.back;
       gl.uniform3f(um.front, fr[0], fr[1], fr[2]);

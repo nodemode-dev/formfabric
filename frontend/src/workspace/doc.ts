@@ -1,6 +1,8 @@
 import type { WasmEngine } from '../engine/wasm';
 import type { EngineApi } from '../shell/deps';
 import { geoOf, type PanelGeo } from './geom';
+import type { Seam, SeamInfo, SewSnapshot, Tack } from './pattern-view/sew-types';
+import { EMPTY_SEW } from './pattern-view/sew-types';
 import type { Garment, Panel, PanelMeasure } from './types';
 
 export type Step = [string, Record<string, unknown>];
@@ -9,6 +11,7 @@ const EMPTY: Garment = { units: 'mm', panels: [] };
 
 export class DocStore {
   garment: Garment = EMPTY;
+  sew: SewSnapshot = EMPTY_SEW;
   wasm: WasmEngine | null = null;
   ready = false;
   private readonly listeners = new Set<() => void>();
@@ -53,13 +56,34 @@ export class DocStore {
     return this.inflight;
   }
 
+  private async pullSew(g: Garment): Promise<SewSnapshot> {
+    const raw = g as Garment & { seams?: Seam[]; tacks?: Tack[] };
+    const seams = raw.seams ?? [];
+    const tacks = raw.tacks ?? [];
+    const info = new Map<number, SeamInfo>();
+    const bad = new Map<number, number>();
+    if (seams.length) {
+      try {
+        const [list, check] = await Promise.all([
+          this.engine.call<{ seams: SeamInfo[] }>('sew.list', {}),
+          this.engine.call<{ mismatched: Array<{ id: number; mismatch: number }> }>('sew.check', {}),
+        ]);
+        for (const s of list.seams) info.set(s.id, s);
+        for (const m of check.mismatched) bad.set(m.id, m.mismatch);
+      } catch { /* lengths stay unknown until the next refresh */ }
+    }
+    return { seams, tacks, info, bad };
+  }
+
   private async pull(): Promise<void> {
     do {
       this.again = false;
       let next: Garment;
       try { next = await this.engine.call<Garment>('pattern.get', {}); } catch { return; }
+      const sew = await this.pullSew(next);
       if (this.holding > 0) { this.held = true; return; }
       this.garment = next;
+      this.sew = sew;
       this.ready = true;
       this.wasm?.load(next);
       this.emit();

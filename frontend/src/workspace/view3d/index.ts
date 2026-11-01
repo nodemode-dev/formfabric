@@ -1,7 +1,9 @@
 import { anyDialogOpen } from '../../ui/dialogs';
 import { textFieldFocused } from '../../ui/native-menu';
+import { Drape } from '../drape';
 import { Selection } from '../state';
 import { OrbitCamera } from './camera';
+import { Extras } from './extras';
 import { Frame } from './frame';
 import { Gizmo, type Handle } from './gizmo';
 import { Hud, type Preset } from './hud';
@@ -94,7 +96,14 @@ export class View3D {
   private h = 0;
   private dpr = 1;
   private queued = false;
-  private drag: { x: number; y: number; sx: number; sy: number; left: number; top: number; mode: 'orbit' | 'pan' | 'gizmo'; moved: boolean; shift: boolean; button: number } | null = null;
+  private drag: { x: number; y: number; sx: number; sy: number; left: number; top: number; mode: 'orbit' | 'pan' | 'gizmo' | 'grab'; moved: boolean; shift: boolean; button: number } | null = null;
+  private grabPlane: { panel: number; p: Float64Array } | null = null;
+  private extras: Extras | null = null;
+  private readonly drape: Drape;
+  private accentCss = '';
+  private ringCss = '';
+  private readonly ro = new Float64Array(3);
+  private readonly rd = new Float64Array(3);
   private colors: { bg: [number, number, number]; line: [number, number, number]; x: [number, number, number]; z: [number, number, number]; text: string; bgCss: string } | null = null;
   private readonly pal: DrawPalette = { accent: new Float32Array(3), accentLin: new Float32Array(3), line: new Float32Array(3) };
   private readonly probe: HTMLElement;
@@ -145,6 +154,13 @@ export class View3D {
     this.gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
     this.hud = new Hud(pane, { style: (s) => this.setStyle(s), preset: (p) => this.preset(p), stats: (on) => this.setStats(on) }, this.style, this.statsOn);
     this.feedIn = new MeshFeed(this.scene, () => this.onData(), () => this.redraw());
+    this.drape = new Drape(this.hud.bar, {
+      redraw: () => this.redraw(),
+      setSeams: (lines) => { if (this.extras) this.extras.seams = lines; },
+      setPins: (pins) => { if (this.extras) this.extras.pins = pins; },
+      pinAt: (panel, vertex) => this.extras?.pinAt(panel, vertex) ?? 0,
+      garment: () => this.doc.garment,
+    });
     current = this;
     this.probe = document.createElement('span');
     this.probe.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none';
@@ -170,7 +186,10 @@ export class View3D {
     pane.addEventListener('pointerenter', () => { this.pointerIn = true; });
     pane.addEventListener('pointerleave', () => { this.pointerIn = false; });
     document.addEventListener('keydown', (e) => this.onKey(e), true);
-    this.doc.onChange(() => this.feedIn.sync(this.doc.garment as GarmentFull));
+    this.doc.onChange(() => {
+      this.feedIn.sync(this.doc.garment as GarmentFull);
+      this.drape.docChanged();
+    });
     this.feedIn.sync(this.doc.garment as GarmentFull);
     void this.feedIn.refreshCaps();
     this.resize();
@@ -256,13 +275,25 @@ export class View3D {
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || !this.active()) return;
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.shiftKey || !this.active()) return;
     if (anyDialogOpen() || textFieldFocused() || document.querySelector('.cv-home:not([hidden])')) return;
+    if (e.altKey) {
+      const n = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(e.code);
+      if (n >= 0) this.setStyle(VIEW_STYLES[n]);
+      else if (e.code === 'Digit0') this.setStats(!this.statsOn);
+      else return;
+      e.preventDefault();
+      return;
+    }
     const k = e.key.toLowerCase();
     const presets: Record<string, Preset> = { '1': 'front', '2': 'back', '3': 'left', '4': 'right', '5': 'top', '0': 'all' };
     if (presets[k]) this.preset(presets[k]);
     else if (k === 'f') this.frameSelection();
-    else return;
+    else if (k === 'p') this.drape.setPinTool(!this.drape.pinTool);
+    else if (k === 'escape' && this.drape.pinTool) this.drape.setPinTool(false);
+    else if (e.code === 'Space' && !(e.target instanceof HTMLButtonElement)) {
+      if (!e.repeat) void this.drape.toggle();
+    } else return;
     e.preventDefault();
   }
 
@@ -284,6 +315,7 @@ export class View3D {
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
     this.meshes = new MeshRenderer(gl, () => this.redraw());
+    this.extras = new Extras(gl);
   }
 
   private rgb(name: string): [number, number, number] {
@@ -307,6 +339,8 @@ export class View3D {
     this.colors = { bg, line, x: [0.86, 0.32, 0.32], z: [0.32, 0.55, 0.9], text, bgCss };
     this.pal.line.set(line);
     this.pal.accent.set(accent);
+    this.accentCss = `rgb(${Math.round(accent[0] * 255)} ${Math.round(accent[1] * 255)} ${Math.round(accent[2] * 255)})`;
+    this.ringCss = bgCss;
     this.pal.accentLin.set([Math.pow(accent[0], 2.2), Math.pow(accent[1], 2.2), Math.pow(accent[2], 2.2)]);
     return this.colors;
   }
@@ -317,7 +351,7 @@ export class View3D {
   }
 
   private gizmoTarget(): PanelBuf | null {
-    if (!this.feedIn.arrangePlace || this.sel.panels.size !== 1) return null;
+    if (!this.feedIn.arrangePlace || this.sel.panels.size !== 1 || this.drape.draping) return null;
     const list = this.scene.list;
     for (let i = 0; i < list.length; i++) {
       const b = list[i];
@@ -345,6 +379,10 @@ export class View3D {
     const pan = e.button === 1 || e.button === 2 || (e.button === 0 && e.shiftKey);
     let mode: 'orbit' | 'pan' | 'gizmo' = pan ? 'pan' : 'orbit';
     this.drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, left: r.left, top: r.top, mode, moved: false, shift: e.shiftKey, button: e.button };
+    if (e.button === 0 && !e.shiftKey && this.drape.draping && !this.drape.pinTool && this.startGrab(e.clientX - r.left, e.clientY - r.top)) {
+      this.drag.mode = 'grab';
+      return;
+    }
     const target = e.button === 0 && !e.shiftKey ? this.gizmoTarget() : null;
     if (!target) return;
     this.ensureFrame();
@@ -356,6 +394,31 @@ export class View3D {
     this.gizmoId = target.id;
     target.resetModel();
     this.gizmo.begin(handle, e.clientX - r.left, e.clientY - r.top);
+  }
+
+  private startGrab(x: number, y: number): boolean {
+    this.ensureFrame();
+    const id = this.picker.pick(this.frame, this.scene, x, y);
+    const b = id >= 0 ? this.scene.get(id) : undefined;
+    const v = this.picker.vertex;
+    if (!b || b.source !== 'stream' || v < 0 || v * 3 + 2 >= b.pos.length) return false;
+    const p = new Float64Array([b.pos[v * 3], b.pos[v * 3 + 1], b.pos[v * 3 + 2]]);
+    this.grabPlane = { panel: id, p };
+    this.drape.grabStart(id, v, [p[0], p[1], p[2]]);
+    this.canvas.style.cursor = 'grabbing';
+    return true;
+  }
+
+  private moveGrab(x: number, y: number): void {
+    const g = this.grabPlane;
+    if (!g) return;
+    this.ensureFrame();
+    if (!this.frame.ray(x, y, this.ro, this.rd)) return;
+    const n = this.frame.fwd;
+    const den = this.rd[0] * n[0] + this.rd[1] * n[1] + this.rd[2] * n[2];
+    if (Math.abs(den) < 1e-9) return;
+    const t = ((g.p[0] - this.ro[0]) * n[0] + (g.p[1] - this.ro[1]) * n[1] + (g.p[2] - this.ro[2]) * n[2]) / den;
+    this.drape.grabMove([this.ro[0] + this.rd[0] * t, this.ro[1] + this.rd[1] * t, this.ro[2] + this.rd[2] * t]);
   }
 
   private onMove(e: PointerEvent): void {
@@ -371,6 +434,10 @@ export class View3D {
       return;
     }
     if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > CLICK_SLOP) d.moved = true;
+    if (d.mode === 'grab') {
+      this.moveGrab(e.clientX - d.left, e.clientY - d.top);
+      return;
+    }
     if (d.mode === 'gizmo') {
       const b = this.scene.get(this.gizmoId);
       if (!b) return;
@@ -397,6 +464,13 @@ export class View3D {
     const d = this.drag;
     this.drag = null;
     if (!d) return;
+    if (d.mode === 'grab') {
+      this.grabPlane = null;
+      this.drape.grabEnd();
+      this.cursor = '';
+      this.canvas.style.cursor = '';
+      return;
+    }
     if (d.mode === 'gizmo') {
       void this.finishGizmo();
       return;
@@ -431,7 +505,7 @@ export class View3D {
     const hotChanged = (hot?.kind ?? '') !== (before?.kind ?? '') || (hot?.axis ?? -1) !== (before?.axis ?? -1);
     this.gizmo.hot = hot;
     const id = hot ? -1 : this.picker.pick(this.frame, this.scene, this.hoverX, this.hoverY);
-    this.setCursor(hot ? 'grab' : id >= 0 ? 'pointer' : '');
+    this.setCursor(hot ? 'grab' : this.drape.pinTool ? 'crosshair' : id >= 0 ? (this.drape.draping ? 'grab' : 'pointer') : '');
     if (id !== this.hover || hotChanged) {
       this.hover = id;
       this.redraw();
@@ -441,6 +515,10 @@ export class View3D {
   private click(x: number, y: number, shift: boolean): void {
     this.ensureFrame();
     const id = this.picker.pick(this.frame, this.scene, x, y);
+    if (this.drape.pinTool) {
+      if (id >= 0 && this.picker.vertex >= 0 && this.scene.get(id)?.source !== 'local') this.drape.togglePin(id, this.picker.vertex);
+      return;
+    }
     const sel = this.sel;
     let changed = false;
     if (id >= 0) {
@@ -562,6 +640,7 @@ export class View3D {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
     this.meshes.draw(this.frame, this.scene, this.style, this.sel.panels, this.hover, this.pal);
+    if (this.extras && !this.drape.draping) this.extras.drawSeams(this.frame, this.scene, this.pal.accent);
     const ms = performance.now() - t0;
     this.lastPaintMs = ms;
     this.statMs = this.statMs === 0 ? ms : this.statMs * 0.7 + ms * 0.3;
@@ -577,7 +656,7 @@ export class View3D {
 
   private writeStats(now: number): void {
     this.statAt = now;
-    this.statText = `${this.statMs.toFixed(1)} ms cpu   ${this.gpuMs.toFixed(0)} ms done   ${this.scene.triangles} tris   ${this.scene.vertices} verts   ${this.scene.list.length} panels`;
+    this.statText = `${this.statMs.toFixed(1)} ms cpu   ${this.gpuMs.toFixed(0)} ms done   ${this.scene.triangles} tris   ${this.scene.vertices} verts   ${this.scene.panels} panels`;
   }
 
   private readonly pollCb = (): void => {
@@ -601,6 +680,7 @@ export class View3D {
     const W = this.hud.overlay.width;
     const H = this.hud.overlay.height;
     ctx.clearRect(0, 0, W, H);
+    this.extras?.drawPins(ctx, this.frame, this.scene, this.dpr, this.accentCss, this.ringCss);
     const target = this.gizmoTarget();
     if (target) {
       if (!this.gizmo.drag) this.placeGizmo(target);

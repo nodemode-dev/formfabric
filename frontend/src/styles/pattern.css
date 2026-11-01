@@ -49,3 +49,17 @@
 .ff-btn span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ff-btn:hover:not(:disabled) { border-color: var(--accent-color); }
 .ff-btn:disabled { opacity: 0.5; cursor: default; }
+.ff-ins-actions3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ff-ins-grid output { font-variant-numeric: tabular-nums; }
+
+.ff-sewcheck { position: absolute; left: 26px; top: 26px; z-index: var(--z-raised); display: grid; grid-template-rows: 28px minmax(0, 1fr); width: 280px; height: 176px; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); font-size: var(--fs-12); visibility: hidden; pointer-events: none; }
+.ff-sewcheck.is-open { visibility: visible; pointer-events: auto; }
+.ff-sewcheck-head { display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-3); border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: var(--fs-11); font-weight: 600; }
+.ff-sewcheck-head output { min-width: 16px; text-align: right; font-variant-numeric: tabular-nums; }
+.ff-sewcheck-list { grid-row: 2; grid-column: 1; min-height: 0; overflow-y: auto; }
+.ff-sewcheck-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); width: 100%; height: 26px; padding: 0 var(--space-3); border: 0; background: transparent; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
+.ff-sewcheck-row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-sewcheck-row output { flex: none; color: var(--warn); font-variant-numeric: tabular-nums; }
+.ff-sewcheck-row:hover { background: var(--bg-hover); }
+.ff-sewcheck-row.is-on { background: var(--accent-color-dim); }
+.ff-sewcheck-note { grid-row: 2; grid-column: 1; align-self: start; margin: 0; padding: var(--space-3); color: var(--text-muted); pointer-events: none; }
