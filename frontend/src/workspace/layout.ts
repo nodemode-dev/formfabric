@@ -13,6 +13,8 @@ import { Inspector } from './inspector';
 import { SeamCheck } from './pattern-view/seam-check';
 import { PatternView } from './pattern-view/view';
 import { Selection, decimals, toUnit } from './state';
+import { trimHooks, trimState } from './trims/state';
+import { addPrint } from './trims/tools';
 import type { Vec } from './types';
 import { View3D } from './view3d';
 
@@ -60,6 +62,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   };
   void import('./fabric').then((m) => m.mountFabric(root, deps, doc, sel));
   void import('./body').then((m) => m.mountBody(root, deps, doc, sel));
+  void import('./trims').then((m) => m.mountTrims(root, deps, doc, sel));
   const zoomEl = q(root, '[data-k="zoom"]');
 
   const toolsEl = q(root, '[data-k="tools"]');
@@ -75,6 +78,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
     tool: (id) => { for (const [k, b] of toolButtons) setClass(b, 'is-on', k === id); },
   });
   setText(zoomEl, `${Math.round(view.cam.s * 100)}%`);
+  trimHooks.addPrint = (id) => { void addPrint(view, id, null); };
   const check = new SeamCheck(q(root, '[data-k="pane2d"]'), doc, sel, () => { inspector.update(); view.redraw(); check.update(); }, (on) => setClass(checkBtn, 'is-on', on));
 
   const addButton = (id: string, iconName: string, key: string, label: string, onClick: () => void): HTMLButtonElement => {
@@ -94,7 +98,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
     toolsEl.appendChild(r);
   };
   for (const tool of view.tools) {
-    if (tool.id === 'seam' || tool.id === 'sew') addRule();
+    if (tool.id === 'seam' || tool.id === 'sew' || tool.id === 'button') addRule();
     const b = addButton(tool.id, tool.icon, tool.key, tool.label, () => view.setTool(tool.id));
     toolButtons.set(tool.id, b);
   }
@@ -186,6 +190,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
 
   doc.onChange(() => {
     sel.prune(new Set(doc.garment.panels.map((p) => p.id)), new Set(doc.sew.seams.map((s) => s.id)), new Set(doc.sew.tacks.map((k) => k.id)));
+    trimState.prune(doc.garment);
     check.update();
     scheduleInspector();
     view.redraw();
@@ -210,7 +215,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   syncPrefs();
   document.addEventListener(PREFS_EVENT, syncPrefs);
 
-  const SEW_TOOLS = ['sew', 'freeseam', 'editseam', 'tack', 'pleat', 'gather'];
+  const SEW_TOOLS = ['sew', 'freeseam', 'editseam', 'tack', 'pleat', 'gather', 'button', 'buttonhole', 'fasten', 'zipper', 'topstitch', 'finish', 'print', 'trimselect'];
   const tabs = document.querySelector('.cv-ws');
   const followTab = (): void => {
     const id = tabs?.querySelector<HTMLElement>('.cv-ws-tab.is-active')?.dataset.ws;

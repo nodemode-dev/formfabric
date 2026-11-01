@@ -2,6 +2,7 @@ import type { DocStore } from '../doc';
 import type { Hit } from '../geom';
 import type { Selection } from '../state';
 import type { Vec } from '../types';
+import type { TrimScene } from '../trims/scene';
 import type { SewScene } from './sew-geom';
 
 export interface Cam { x: number; y: number; s: number }
@@ -30,6 +31,7 @@ export interface ViewCtx {
   frame(ids?: number[]): void;
   selected(): void;
   sew(): SewScene;
+  trims(): TrimScene;
 }
 
 export interface Tool {

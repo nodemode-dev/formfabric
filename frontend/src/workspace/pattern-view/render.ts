@@ -4,6 +4,9 @@ import { toUnit } from '../state';
 import type { Cam, Colors, Tool } from './ctx';
 import { drawSew } from './render-sew';
 import type { SewScene } from './sew-geom';
+import { drawPrints, drawTrims } from '../trims/draw';
+import type { TrimScene } from '../trims/scene';
+import { trimState } from '../trims/state';
 
 export interface Scene {
   w: number;
@@ -17,6 +20,7 @@ export interface Scene {
   unit: string;
   colors: Colors;
   sew: SewScene;
+  trims: TrimScene;
 }
 
 const NICE = [1, 2, 5];
@@ -243,6 +247,13 @@ export function drawScene(g: CanvasRenderingContext2D, sc: Scene, tool: Tool): v
     g.globalAlpha = picked ? 0.2 : geo.linked ? 0.05 : 0.09;
     g.fillStyle = picked ? colors.accent : colors.text;
     g.fill();
+    const printed = sc.trims.prints.get(geo.panel.id);
+    if (printed) {
+      g.globalAlpha = dim;
+      drawPrints(g, geo, printed, map, cam.s, colors, trimState.item);
+      g.beginPath();
+      pathSegs(g, geo.outline, map, true);
+    }
     g.globalAlpha = dim;
     g.lineWidth = picked ? 2 : 1.5;
     g.strokeStyle = picked ? colors.accent : colors.line;
@@ -325,6 +336,7 @@ export function drawScene(g: CanvasRenderingContext2D, sc: Scene, tool: Tool): v
   }
 
   drawSew(g, sc.sew, map, cam.s, sc.sel.seam, sc.sel.tack, colors);
+  drawTrims(g, sc.trims, map, cam.s, colors, trimState.item);
 
   const hov = sc.hover;
   if (hov) {

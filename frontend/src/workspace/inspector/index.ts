@@ -4,6 +4,7 @@ import { q, setDisabled, setText, setValue } from '../../ui/dom';
 import type { DocStore } from '../doc';
 import { mmText } from '../pattern-view/render-sew';
 import { decimals, fmtArea, fmtLen, fromUnit, toUnit, type Selection } from '../state';
+import { TrimSection } from '../trims/section';
 import type { Panel } from '../types';
 
 type FieldKey = 'name' | 'px' | 'py' | 'rot' | 'grain' | 'pd' | 'layer';
@@ -69,9 +70,14 @@ export class Inspector {
   private readonly input = new Map<string, HTMLInputElement>();
   private readonly choice = new Map<string, HTMLSelectElement>();
   private notchId = 0;
+  private readonly trims: TrimSection;
 
   constructor(private readonly root: HTMLElement, private readonly doc: DocStore, private readonly sel: Selection, private readonly unit: () => string, private readonly onInner: () => void = () => undefined) {
     root.innerHTML = HTML;
+    const host = document.createElement('div');
+    host.className = 'ff-tr-host';
+    root.appendChild(host);
+    this.trims = new TrimSection(host, doc, sel, unit, onInner);
     for (const el of root.querySelectorAll<HTMLInputElement>('input[data-k]')) this.input.set(el.dataset.k ?? '', el);
     for (const el of root.querySelectorAll<HTMLSelectElement>('select[data-k]')) this.choice.set(el.dataset.k ?? '', el);
     const paint = (): void => {
@@ -328,6 +334,7 @@ export class Inspector {
     for (const k of ['mirx', 'miry']) setDisabled(q(this.root, `[data-k="${k}"]`), !first || locked);
     this.refreshExtra(first, single);
     this.refreshSew();
+    this.trims.update();
     const out = (k: string, v: string): void => setText(q(this.root, `output[data-k="${k}"]`), v);
     if (!first) {
       for (const k of ['name', 'px', 'py', 'rot', 'grain', 'pd', 'layer']) set(k, '');

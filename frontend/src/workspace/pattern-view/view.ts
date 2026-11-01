@@ -14,6 +14,10 @@ import { GrainTool, MatchTool, NotchTool, SeamTool } from './tools-garment';
 import { DartTool, InstanceTool, MirrorTool, SlashTool, SpiralTool, TraceTool, UnfoldTool } from './tools-derive';
 import { buildSewScene, type SewScene } from './sew-geom';
 import { EditSeamTool, FreeSeamTool, GatherTool, PleatTool, SewTool, TackTool } from './tools-sew';
+import { onImageReady } from '../trims/images';
+import { sceneOf, type TrimScene } from '../trims/scene';
+import { trimState } from '../trims/state';
+import { FastenTool, FinishTool, HardwareTool, PrintTool, TopstitchTool, TrimSelectTool, ZipperTool } from '../trims/tools';
 
 export interface ViewHooks {
   selected(): void;
@@ -43,6 +47,7 @@ export class PatternView implements ViewCtx {
   private rulersOn: boolean;
   private rect: DOMRect | null = null;
   private sewMemo: { g: Garment; s: SewSnapshot; scene: SewScene } | null = null;
+  private trimMemo: { g: Garment; scene: TrimScene } | null = null;
 
   constructor(
     private readonly pane: HTMLElement,
@@ -60,8 +65,12 @@ export class PatternView implements ViewCtx {
       new SeamTool(this), new NotchTool(this), new GrainTool(this), new DartTool(this), new SlashTool(this), new MirrorTool(this),
       new InstanceTool(this), new UnfoldTool(this), new SpiralTool(this), new TraceTool(this), new MatchTool(this),
       new SewTool(this), new FreeSeamTool(this), new EditSeamTool(this), new TackTool(this), new PleatTool(this), new GatherTool(this),
+      new HardwareTool(this, 'button'), new HardwareTool(this, 'buttonhole'), new FastenTool(this), new ZipperTool(this),
+      new TopstitchTool(this), new FinishTool(this), new PrintTool(this), new TrimSelectTool(this),
     ];
     this.active = this.tools[0];
+    onImageReady(() => this.redraw());
+    trimState.onChange(() => this.redraw());
     this.probe = document.createElement('span');
     this.probe.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none';
     pane.appendChild(this.probe);
@@ -162,6 +171,12 @@ export class PatternView implements ViewCtx {
     const s = this.doc.sew;
     if (!this.sewMemo || this.sewMemo.g !== g || this.sewMemo.s !== s) this.sewMemo = { g, s, scene: buildSewScene(this.doc.geos(), s) };
     return this.sewMemo.scene;
+  }
+
+  trims(): TrimScene {
+    const g = this.doc.garment;
+    if (!this.trimMemo || this.trimMemo.g !== g) this.trimMemo = { g, scene: sceneOf(this.doc.geos(), g) };
+    return this.trimMemo.scene;
   }
 
   async exact(commandId: string, initial: Record<string, unknown>): Promise<Record<string, unknown> | null> {
@@ -316,7 +331,7 @@ export class PatternView implements ViewCtx {
     const colors = this.colors();
     drawScene(g, {
       w: this.w, h: this.h, cam: this.cam, geos: this.doc.geos(), sel: this.sel, hover: this.hover,
-      showPoints: this.active.id === 'edit', rulers: this.rulersOn, unit: this.unit(), colors, sew: this.sew(),
+      showPoints: this.active.id === 'edit', rulers: this.rulersOn, unit: this.unit(), colors, sew: this.sew(), trims: this.trims(),
     }, this.active);
     const m = this.mark;
     if (m && m.kind) {
