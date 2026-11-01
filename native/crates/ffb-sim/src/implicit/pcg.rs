@@ -1,5 +1,6 @@
 use glam::DVec3;
 
+use super::coarse::Coarse;
 use super::matrix::{inverse3, matvec, Pattern};
 
 pub const FREE: u8 = 0;
@@ -101,9 +102,21 @@ fn apply_pre(pre: &[f64], r: &[f64], z: &mut [f64]) {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn solve(pat: &Pattern, a: &[f64], f: &Filter, rhs: &[f64], dx: &mut [f64], w: &mut Work, tol: f64, abs: f64, max_it: usize) -> usize {
+pub fn solve(pat: &Pattern, a: &[f64], f: &Filter, rhs: &[f64], dx: &mut [f64], w: &mut Work, tol: f64, abs: f64, max_it: usize, mut coarse: Option<&mut Coarse>) -> usize {
     f.apply(dx);
     build_preconditioner(pat, a, f, &mut w.pre);
+    if let Some(c) = coarse.as_deref_mut() {
+        c.factor(pat, a, f);
+    }
+    let mut pre = |pre: &[f64], r: &[f64], z: &mut [f64]| {
+        apply_pre(pre, r, z);
+        if let Some(c) = coarse.as_deref_mut() {
+            if c.ok {
+                c.apply(r, z);
+                f.apply(z);
+            }
+        }
+    };
     matvec(pat, a, dx, &mut w.q);
     f.apply(&mut w.q);
     w.r.copy_from_slice(rhs);
@@ -121,7 +134,7 @@ pub fn solve(pat: &Pattern, a: &[f64], f: &Filter, rhs: &[f64], dx: &mut [f64], 
     if dot(&w.r, &w.r).sqrt() <= target {
         return 0;
     }
-    apply_pre(&w.pre, &w.r, &mut w.z);
+    pre(&w.pre, &w.r, &mut w.z);
     w.p.copy_from_slice(&w.z);
     let mut rz = dot(&w.r, &w.z);
     let mut used = 0;
@@ -141,7 +154,7 @@ pub fn solve(pat: &Pattern, a: &[f64], f: &Filter, rhs: &[f64], dx: &mut [f64], 
         if dot(&w.r, &w.r).sqrt() <= target {
             break;
         }
-        apply_pre(&w.pre, &w.r, &mut w.z);
+        pre(&w.pre, &w.r, &mut w.z);
         let rz_new = dot(&w.r, &w.z);
         let beta = rz_new / rz;
         rz = rz_new;

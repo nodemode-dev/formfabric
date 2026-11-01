@@ -1,4 +1,5 @@
 mod assemble;
+pub mod coarse;
 pub mod matrix;
 pub mod pcg;
 
@@ -16,6 +17,9 @@ const MAX_ROUNDS: usize = 3;
 const RELEASE_FRACTION: f64 = 1.0e-2;
 const ABS_FORCE: f64 = 1.0e-3;
 const WARM_START: f64 = 0.5;
+const FIRST_LOOSE: f64 = 5.0;
+const COARSE_LEVELS: usize = 2;
+const COARSE_MAX_CONSTRAINED: usize = 12;
 
 #[derive(Debug, Clone)]
 pub struct State {
@@ -32,6 +36,7 @@ pub struct State {
     pub(crate) cons: Vec<u32>,
     mass_norm: f64,
     work: Work,
+    coarse: Option<coarse::Coarse>,
     pub prof: [f64; 4],
 }
 
@@ -67,6 +72,7 @@ impl State {
         let n = model.n;
         let pat = Pattern::build(model);
         let nnz = pat.nnz();
+        let coarse = if n >= 64 { Some(coarse::Coarse::build(&pat, COARSE_LEVELS)) } else { None };
         State {
             pat,
             a: vec![0.0; 9 * nnz],
@@ -81,6 +87,7 @@ impl State {
             cons: Vec::with_capacity(n),
             mass_norm: model.mass.iter().map(|m| m * m).sum::<f64>().sqrt(),
             work: Work::new(n),
+            coarse,
             prof: [0.0; 4],
         }
     }
@@ -186,9 +193,12 @@ impl Solver {
             }
         }
         let mut its = 0usize;
+        let newton = self.params.newton.max(1);
+        let loose = FIRST_LOOSE;
         let mut floor = abs;
         let warm = WARM_START;
         for k in 0..self.params.newton.max(1) {
+            let tk = if k + 1 < newton { tol * loose } else { tol };
             let mut clock = Clock::now();
             assemble::assemble(self, st, h, nl, true);
             st.prof[0] += clock.lap();
@@ -203,7 +213,7 @@ impl Solver {
                     }
                 }
             }
-            let first = Self::run_pcg(st, tol, floor, max_it);
+            let first = Self::run_pcg(st, tk, floor, max_it);
             its += first;
             if k == 0 {
                 floor = floor.max(tol * st.work.bnorm);
@@ -230,7 +240,7 @@ impl Solver {
                 }
                 let kind = &st.kind;
                 st.cons.retain(|&i| kind[i as usize] != FREE);
-                its += Self::run_pcg(st, tol, floor, max_it);
+                its += Self::run_pcg(st, tk, floor, max_it);
             }
             for i in 0..n {
                 self.x[i] += DVec3::new(st.dx[3 * i], st.dx[3 * i + 1], st.dx[3 * i + 2]);
@@ -247,9 +257,10 @@ impl Solver {
 
     fn run_pcg(st: &mut State, tol: f64, abs: f64, max_it: usize) -> usize {
         let mut clock = Clock::now();
-        let State { pat, a, b, dx, kind, nrm, cons, work, .. } = &mut *st;
+        let State { pat, a, b, dx, kind, nrm, cons, work, coarse, .. } = &mut *st;
         let f = Filter { kind, nrm, cons };
-        let used = pcg::solve(pat, a, &f, b, dx, work, tol, abs, max_it);
+        let use_coarse = cons.len() * COARSE_MAX_CONSTRAINED < pat.n;
+        let used = pcg::solve(pat, a, &f, b, dx, work, tol, abs, max_it, coarse.as_mut().filter(|_| use_coarse));
         st.prof[1] += clock.lap();
         used
     }
