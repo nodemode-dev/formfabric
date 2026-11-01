@@ -14,6 +14,10 @@ impl Garment {
 }
 
 impl Panel {
+    pub fn same_mesh_shape(&self, other: &Panel) -> bool {
+        self.outline == other.outline && self.inner == other.inner && self.particle_distance == other.particle_distance && self.mirror == other.mirror
+    }
+
     pub fn path(&self, inner: Option<u32>) -> Option<(&Vec<Point>, bool)> {
         match inner {
             None => Some((&self.outline, true)),

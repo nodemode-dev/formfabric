@@ -40,6 +40,9 @@ The DXF-AAMA reader and writer follow the public ASTM D6673 conventions as descr
 | tungstenite, getrandom, rand, sha1 and the RustCrypto support crates | MIT or Apache-2.0 | frame stream |
 | pyo3 | MIT or Apache-2.0 | Python engine module |
 | wgpu 30.0.1 and its dependencies (naga, wgpu-core, wgpu-hal), pollster, bytemuck | MIT or Apache-2.0 | GPU solver, desktop builds only |
+| codespan-reporting 0.13.1, gl_generator 0.14.0, glutin_wgl_sys 0.6.1, khronos_api 3.1.0, spirv 0.4.0 | Apache-2.0 only | GPU solver shader and binding support, desktop builds only |
+| libloading 0.7.4 and 0.8.9 | ISC | GPU solver dynamic loading, desktop builds only |
+| slotmap 1.1.1 | Zlib | GPU solver, desktop builds only |
 | FastAPI, Starlette, pydantic | MIT, BSD-3-Clause | engine service |
 | uvicorn, websockets, python-dotenv, click | BSD-3-Clause | engine service |
 | python-multipart | Apache-2.0 | engine service |

@@ -1,5 +1,7 @@
 use ffb_pattern::trim::{next_hardware_id, next_style_id};
-use ffb_pattern::{Anchor, Hardware, Style, StyleKind};
+use std::io::Read;
+
+use ffb_pattern::{Anchor, Hardware, SharedMesh, Style, StyleKind};
 use serde_json::{json, Value};
 
 use super::common::*;
@@ -103,11 +105,20 @@ fn schema() -> Value {
 
 fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let path = crate::args::file_path(a, "path", Some("obj"))?;
-    let size = std::fs::metadata(&path).map_err(|e| CommandError::new("io", format!("could not read {path}: {e}")))?.len();
-    if size > MAX_BYTES {
+    let io = |e: std::io::Error| CommandError::new("io", format!("could not read {path}: {e}"));
+    let file = std::fs::File::open(&path).map_err(io)?;
+    let meta = file.metadata().map_err(io)?;
+    if !meta.is_file() {
+        return Err(bad("the path is not a regular file"));
+    }
+    if meta.len() > MAX_BYTES {
         return Err(bad("the OBJ file is larger than 8 MB"));
     }
-    let bytes = std::fs::read(&path).map_err(|e| CommandError::new("io", format!("could not read {path}: {e}")))?;
+    let mut bytes = Vec::new();
+    std::io::Read::take(file, MAX_BYTES + 1).read_to_end(&mut bytes).map_err(io)?;
+    if bytes.len() as u64 > MAX_BYTES {
+        return Err(bad("the OBJ file is larger than 8 MB"));
+    }
     let panel = panel_of(&s.garment, required_id(a, "panel")?)?;
     let point = optional_vec2(a, "point")?.ok_or_else(|| bad("point is required"))?;
     let local = local_point(panel, point, text(a, "space") != Some("local"));
@@ -123,13 +134,14 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let stem = std::path::Path::new(&path).file_stem().and_then(|n| n.to_str()).unwrap_or("Trim").to_string();
     let name = clean_text(a, "name")?.unwrap_or(stem);
     let style_id = next_style_id(&s.garment);
+    let source = std::path::Path::new(&path).file_name().and_then(|n| n.to_str()).unwrap_or("trim.obj").to_string();
     let params = json!({
-        "source": path, "scale": scale, "up": if up_y { "y" } else { "z" }, "collision": flag(a, "collision").unwrap_or(true),
-        "width": width, "thickness": thickness, "weight": 2.0, "stiffness": 1.0,
-        "mesh": {"positions": positions, "triangles": triangles}
+        "source": source, "scale": scale, "up": if up_y { "y" } else { "z" }, "collision": flag(a, "collision").unwrap_or(true),
+        "width": width, "thickness": thickness, "weight": 2.0, "stiffness": 1.0
     });
+    let mesh = Some(SharedMesh(std::sync::Arc::new(json!({"positions": positions, "triangles": triangles}))));
     let before = s.garment.clone();
-    s.garment.styles.push(Style { id: style_id, kind: StyleKind::Trim, name, params });
+    s.garment.styles.push(Style { id: style_id, kind: StyleKind::Trim, name, params, mesh });
     let hardware = Hardware { id: next_hardware_id(&s.garment), style: style_id, anchor: Anchor { panel: panel_id, point: local }, rotation: number_or(a, "rotation", 0.0), fastened_to: None };
     let out = json!({"hardware": hardware.id, "style": style_id, "vertices": positions.len(), "triangles": triangles.len(), "width": width, "thickness": thickness, "anchor": {"panel": panel_id, "point": local}});
     s.garment.hardware.push(hardware);

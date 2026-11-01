@@ -7,12 +7,13 @@ import { num, str, type FinishKind, type TrimItem } from './types';
 
 type Map2 = (x: number, y: number) => [number, number];
 
+const token = (name: string): string => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
 export function finishHue(kind: FinishKind): string {
-  const h: Record<FinishKind, number> = { piping: 28, binding: 205, elastic: 330, tape: 150, bond: 52, press: 268 };
-  return `hsl(${h[kind]}, 72%, 62%)`;
+  return token(`--trim-${kind}`);
 }
 
-export const ZIPPER_HUE = 'hsl(188, 70%, 58%)';
+const zipperHue = (): string => token('--trim-zipper');
 
 const on = (picked: TrimItem | null, kind: TrimItem['kind'], id: number): boolean => picked !== null && picked.kind === kind && picked.id === id;
 
@@ -203,7 +204,7 @@ function drawZipper(g: CanvasRenderingContext2D, z: ZipGeo, map: Map2, zoom: num
       g.stroke();
     }
     g.globalAlpha = 0.9;
-    g.strokeStyle = selected ? c.accent : ZIPPER_HUE;
+    g.strokeStyle = selected ? c.accent : zipperHue();
     g.lineWidth = 3;
     g.setLineDash([]);
     g.beginPath();
@@ -238,7 +239,7 @@ function drawZipper(g: CanvasRenderingContext2D, z: ZipGeo, map: Map2, zoom: num
   }
   if (sides[0].length > 1 && sides[1].length > 1) {
     g.globalAlpha = 0.55;
-    g.strokeStyle = ZIPPER_HUE;
+    g.strokeStyle = zipperHue();
     g.lineWidth = 1;
     g.setLineDash([3, 4]);
     g.beginPath();

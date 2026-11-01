@@ -1,5 +1,5 @@
 .ff-body { position: relative; }
-.ff-trims { position: absolute; top: 0; bottom: 0; right: var(--ff-insp); width: 344px; z-index: var(--z-chrome); display: flex; flex-direction: column; min-height: 0; background: var(--bg-secondary); border-left: 1px solid var(--border-color); box-shadow: -10px 0 24px rgba(0, 0, 0, 0.32); color: var(--text-primary); font-size: var(--fs-12); }
+.ff-trims { position: absolute; top: 0; bottom: 0; right: var(--ff-insp); width: 344px; z-index: var(--z-chrome); display: flex; flex-direction: column; min-height: 0; background: var(--bg-secondary); border-left: 1px solid var(--border-color); box-shadow: var(--shadow-panel); color: var(--text-primary); font-size: var(--fs-12); }
 .ff-trims[hidden] { display: none; }
 .ff-tr-toggle { flex: none; }
 .ff-tr-head { flex: none; display: flex; align-items: center; justify-content: space-between; height: 32px; padding: 0 var(--space-2) 0 var(--space-3); border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: var(--fs-11); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }

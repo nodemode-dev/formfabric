@@ -367,7 +367,13 @@ export class Drape {
   }
 
   syncSelection(sel: Set<number>): void {
-    if (sel.size === this.selKey.size && [...sel].every((id) => this.selKey.has(id))) return;
+    if (sel.size === this.selKey.size) {
+      let same = true;
+      for (const id of sel) {
+        if (!this.selKey.has(id)) { same = false; break; }
+      }
+      if (same) return;
+    }
     this.selKey = new Set(sel);
     this.syncStrip();
   }

@@ -8,7 +8,7 @@ fn schema() -> Value {
     json!({
         "type": "object",
         "properties": {
-            "panels": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 1, "description": "Panel ids as listed by pattern.get."},
+            "panels": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 1, "maxItems": 256, "description": "Panel ids as listed by pattern.get."},
             "frozen": {"type": "boolean", "description": "Freeze: the panel is held as pins at its current positions and still collides."},
             "disabled": {"type": "boolean", "description": "Disable: the panel is left out of the simulation together with its seams."},
             "stiffen": {"type": "number", "minimum": 0.01, "maximum": 1000, "description": "Multiplier on stretch, shear and bending. 1 is none."},

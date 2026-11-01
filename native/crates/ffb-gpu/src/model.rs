@@ -245,7 +245,7 @@ impl GpuModel {
                     v.swap(2, 3);
                 }
             }
-            let tri = cloth.triangles.iter().position(|t| t.contains(&v[0]) && t.contains(&v[1])).unwrap_or(0);
+            let Some(tri) = cloth.triangles.iter().position(|t| t.contains(&v[0]) && t.contains(&v[1])) else { continue };
             let mut h = make_hinge(&pos, &rest2, &mats, cloth, v, tri, None, fold.angle as f64, &panel);
             h.coef *= boost;
             hinges.push(h);

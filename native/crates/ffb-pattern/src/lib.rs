@@ -285,6 +285,39 @@ pub struct Style {
     pub kind: StyleKind,
     pub name: String,
     pub params: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mesh: Option<SharedMesh>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SharedMesh(pub std::sync::Arc<Value>);
+
+impl PartialEq for SharedMesh {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.0, &other.0) || self.0 == other.0
+    }
+}
+
+impl Serialize for SharedMesh {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SharedMesh {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Value::deserialize(deserializer).map(|v| SharedMesh(std::sync::Arc::new(v)))
+    }
+}
+
+impl Garment {
+    pub fn approx_bytes(&self) -> usize {
+        let mut lean = self.clone();
+        for style in &mut lean.styles {
+            style.mesh = None;
+        }
+        serde_json::to_vec(&lean).map_or(0, |bytes| bytes.len())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]

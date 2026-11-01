@@ -37,6 +37,9 @@ fn check_params(kind: StyleKind, params: &Value) -> Result<(), CommandError> {
         return Err(bad("params are larger than 64 KiB"));
     }
     for (key, value) in map {
+        if range(kind, key).is_some() && !value.is_number() {
+            return Err(bad(format!("params.{key} must be a number")));
+        }
         if let Some(x) = value.as_f64() {
             if !x.is_finite() {
                 return Err(bad(format!("params.{key} must be finite")));
@@ -89,7 +92,7 @@ fn create(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let id = next_style_id(&s.garment);
     let name = clean_text(a, "name")?.unwrap_or_else(|| format!("{} {id}", kind_name(kind)));
     let before = s.garment.clone();
-    let style = Style { id, kind, name, params: merged };
+    let style = Style { id, kind, name, params: merged, mesh: None };
     s.garment.styles.push(style.clone());
     record(s, "Create Style", before);
     Ok(describe(&s.garment, &style))
@@ -119,6 +122,10 @@ fn update(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     }
     if let Some(p) = &patch {
         merge(&mut style.params, p);
+        if serde_json::to_string(&style.params).map_or(true, |t| t.len() > MAX_PARAMS) {
+            s.garment = before;
+            return Err(bad("params are larger than 64 KiB after the update"));
+        }
     }
     if s.garment == before {
         return Ok(json!({"changed": false, "style": describe(&s.garment, &s.garment.styles[index])}));

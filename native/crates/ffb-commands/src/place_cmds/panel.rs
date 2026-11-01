@@ -22,7 +22,7 @@ fn panel_schema() -> Value {
 }
 
 fn place_panel(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
-    let id = a.get("panel").and_then(Value::as_u64).ok_or_else(|| bad("panel must be a panel id"))? as u32;
+    let id = a.get("panel").and_then(Value::as_u64).and_then(|x| u32::try_from(x).ok()).ok_or_else(|| bad("panel must be a panel id"))?;
     let index = s.garment.index_of(id).ok_or_else(|| missing(format!("no panel with id {id}")))?;
     let bi = pick(s, a)?;
     let selected = a.get("point").ok_or_else(|| bad("point is required"))?;
@@ -137,7 +137,7 @@ fn reset(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             let list = v.as_array().ok_or_else(|| bad("panels must be a list of panel ids"))?;
             let mut ids = Vec::with_capacity(list.len());
             for item in list {
-                let id = item.as_u64().ok_or_else(|| bad("panels must hold whole panel ids"))? as u32;
+                let id = item.as_u64().and_then(|x| u32::try_from(x).ok()).ok_or_else(|| bad("panels must hold whole panel ids"))?;
                 if s.garment.index_of(id).is_none() {
                     return Err(missing(format!("no panel with id {id}")));
                 }

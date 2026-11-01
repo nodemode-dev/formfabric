@@ -4,7 +4,7 @@ use super::common::*;
 use crate::{Command, CommandError, Group, Session, SET};
 
 fn rip_schema() -> Value {
-    obj(json!({"seams": {"type": "array", "minItems": 1, "items": {"type": "integer", "minimum": 1}, "description": "Seam ids as listed by sew.list."}}), &["seams"])
+    obj(json!({"seams": {"type": "array", "minItems": 1, "maxItems": 10000, "items": {"type": "integer", "minimum": 1}, "description": "Seam ids as listed by sew.list."}}), &["seams"])
 }
 
 fn rip(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
@@ -28,7 +28,7 @@ fn rip(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
 fn mend_schema() -> Value {
     obj(
         json!({
-            "seams": {"type": "array", "minItems": 1, "items": {"type": "integer", "minimum": 1}, "description": "Seam ids to close again."},
+            "seams": {"type": "array", "minItems": 1, "maxItems": 10000, "items": {"type": "integer", "minimum": 1}, "description": "Seam ids to close again."},
             "all": {"type": "boolean", "default": false, "description": "Close every ripped seam."}
         }),
         &[],

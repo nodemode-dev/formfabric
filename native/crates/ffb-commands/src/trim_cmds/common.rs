@@ -32,7 +32,8 @@ pub fn count(a: &Value, key: &str) -> Option<usize> {
 }
 
 pub fn id(a: &Value, key: &str) -> Option<u32> {
-    count(a, key).map(|x| x as u32)
+    let whole = a.get(key).and_then(|v| v.as_u64().or_else(|| v.as_f64().filter(|x| x.fract() == 0.0 && *x >= 0.0).map(|x| x as u64)));
+    whole.and_then(|x| u32::try_from(x).ok())
 }
 
 pub fn required_id(a: &Value, key: &str) -> Result<u32, CommandError> {

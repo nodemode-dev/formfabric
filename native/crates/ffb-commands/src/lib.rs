@@ -130,9 +130,49 @@ impl Session {
         self.epoch += 1;
     }
 
-    pub fn record(&mut self, edit: Edit) {
+    pub fn record(&mut self, mut edit: Edit) {
+        self.drop_stale_poses(&mut edit);
         self.history.record(edit);
         self.epoch += 1;
+    }
+
+    fn drop_stale_poses(&mut self, edit: &mut Edit) {
+        match edit {
+            Edit::Panel { before: Some(before), after: Some(after), .. } => {
+                if stale_pose(before, after) {
+                    clear_pose(after);
+                    if let Some(live) = self.garment.panels.iter_mut().find(|p| p.id == after.id) {
+                        clear_pose(live);
+                    }
+                }
+            }
+            Edit::Garment { before, after, .. } => {
+                for panel in after.panels.iter_mut() {
+                    let Some(old) = before.panels.iter().find(|p| p.id == panel.id) else { continue };
+                    if stale_pose(old, panel) {
+                        clear_pose(panel);
+                        if let Some(live) = self.garment.panels.iter_mut().find(|p| p.id == panel.id) {
+                            clear_pose(live);
+                        }
+                    }
+                }
+            }
+            Edit::Many { edits, .. } => edits.iter_mut().for_each(|e| self.drop_stale_poses(e)),
+            _ => {}
+        }
+    }
+}
+
+fn stale_pose(before: &ffb_pattern::Panel, after: &ffb_pattern::Panel) -> bool {
+    fn carried(p: &ffb_pattern::Panel) -> Option<&Vec<[f32; 3]>> {
+        p.place3d.as_ref().and_then(|q| q.pose.as_ref())
+    }
+    carried(after).is_some() && carried(before) == carried(after) && !before.same_mesh_shape(after)
+}
+
+fn clear_pose(panel: &mut ffb_pattern::Panel) {
+    if let Some(place) = panel.place3d.as_mut() {
+        place.pose = None;
     }
 }
 

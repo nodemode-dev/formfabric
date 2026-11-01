@@ -3,6 +3,18 @@ use ffb_pattern::{Garment, Panel, Pin};
 
 pub const DEFAULT_STEPS: usize = 200;
 pub const MAX_STEPS: usize = 10_000;
+const MAX_BYTES: usize = 512 * 1024 * 1024;
+
+fn edit_bytes(edit: &Edit) -> usize {
+    match edit {
+        Edit::Units { .. } => 64,
+        Edit::Garment { before, after, .. } => before.approx_bytes() + after.approx_bytes(),
+        Edit::Bodies { changes, .. } => 65_536 * changes.len().max(1),
+        Edit::Panel { before, after, .. } => [before, after].iter().filter_map(|p| p.as_ref()).map(|p| serde_json::to_vec(p).map_or(0, |b| b.len())).sum(),
+        Edit::Many { edits, .. } => edits.iter().map(edit_bytes).sum(),
+        Edit::Pins { before, after, .. } => (before.len() + after.len()) * 64,
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Edit {
@@ -115,6 +127,7 @@ fn absorb(edits: &mut Vec<Edit>, edit: Edit, front: bool) {
 #[derive(Debug)]
 pub struct History {
     steps: Vec<Edit>,
+    sizes: Vec<usize>,
     cursor: usize,
     limit: usize,
     group: Option<(String, Vec<Edit>)>,
@@ -123,7 +136,7 @@ pub struct History {
 
 impl Default for History {
     fn default() -> Self {
-        History { steps: Vec::new(), cursor: 0, limit: DEFAULT_STEPS, group: None, bodies_out: Vec::new() }
+        History { steps: Vec::new(), sizes: Vec::new(), cursor: 0, limit: DEFAULT_STEPS, group: None, bodies_out: Vec::new() }
     }
 }
 
@@ -137,8 +150,12 @@ impl History {
             return;
         }
         self.steps.truncate(self.cursor);
+        self.sizes.truncate(self.cursor);
+        self.sizes.push(edit_bytes(&edit));
         self.steps.push(edit);
-        if self.steps.len() > self.limit {
+        let mut total: usize = self.sizes.iter().sum();
+        while self.steps.len() > 1 && (self.steps.len() > self.limit || total > MAX_BYTES) {
+            total = total.saturating_sub(self.sizes.remove(0));
             self.steps.remove(0);
         }
         self.cursor = self.steps.len();
@@ -156,13 +173,14 @@ impl History {
         let slot = &mut self.steps[self.cursor - 1];
         if let Edit::Many { edits, .. } = slot {
             absorb(edits, edit, false);
-            return;
+        } else {
+            let first = std::mem::replace(slot, Edit::Many { label: String::new(), edits: Vec::new() });
+            let label = first.label();
+            let mut edits = vec![first];
+            absorb(&mut edits, edit, false);
+            *slot = Edit::Many { label, edits };
         }
-        let first = std::mem::replace(slot, Edit::Many { label: String::new(), edits: Vec::new() });
-        let label = first.label();
-        let mut edits = vec![first];
-        absorb(&mut edits, edit, false);
-        *slot = Edit::Many { label, edits };
+        self.sizes[self.cursor - 1] = edit_bytes(&self.steps[self.cursor - 1]);
     }
 
     pub fn begin_group(&mut self, label: &str) {
@@ -211,6 +229,7 @@ impl History {
         self.limit = limit.clamp(1, MAX_STEPS);
         let extra = self.steps.len().saturating_sub(self.limit);
         self.steps.drain(..extra);
+        self.sizes.drain(..extra);
         self.cursor = self.cursor.saturating_sub(extra);
     }
 

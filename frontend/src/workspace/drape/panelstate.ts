@@ -82,7 +82,11 @@ export class PanelStrip {
 
   private send(args: PanelStateJson): void {
     if (this.ids.length === 0) return;
+    const previous = { ...this.state };
     Object.assign(this.state, args);
-    call('panel.state', { panels: this.ids, ...args }).catch((err: unknown) => toast(err instanceof Error ? err.message : String(err), 'error'));
+    call('panel.state', { panels: this.ids, ...args }).catch((err: unknown) => {
+      Object.assign(this.state, previous);
+      toast(err instanceof Error ? err.message : String(err), 'error');
+    });
   }
 }

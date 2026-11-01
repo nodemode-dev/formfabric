@@ -114,7 +114,8 @@ export function selRow(labelKey: string, items: ReadonlyArray<readonly [string, 
       const keep = select.value;
       next.forEach(([value, text], i) => {
         let o = select.options[i];
-        if (!o) { o = new Option('', value); select.add(o); if (tr) label(o, text); }
+        if (!o) { o = new Option('', value); select.add(o); }
+        if (tr && o.dataset.key !== text) { o.dataset.key = text; label(o, text); }
         if (o.value !== value) o.value = value;
         if (!tr && o.textContent !== text) o.textContent = text;
       });

@@ -139,7 +139,7 @@ fn fray(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         Some(found) => found.id,
         None => {
             let id = next_style_id(&s.garment);
-            s.garment.styles.push(Style { id, kind: StyleKind::Trim, name, params: json!({"fray": amount}) });
+            s.garment.styles.push(Style { id, kind: StyleKind::Trim, name, params: json!({"fray": amount}), mesh: None });
             id
         }
     };
