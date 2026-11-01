@@ -1,8 +1,9 @@
 use ffb_anim::cachefmt::Cache;
-use ffb_io::export::{self, Animation, Format, Options, Thickness};
+use ffb_io::export::uv::{self, Island};
+use ffb_io::export::{self, Animation, Format, Object, Options, Thickness};
 use serde_json::{json, Value};
 
-use super::scene::{bad, collect, effective_islands, flag, materials, number, source_objects, PanelGeo};
+use super::scene::{bad, collect, effective_islands, flag, grain_angle, materials, number, source_objects, PanelGeo};
 use crate::{args, no_args, Command, CommandError, Group, Session, EXTERNAL, READ};
 
 fn formats(_: &mut Session, _: &Value) -> Result<Value, CommandError> {
@@ -31,6 +32,7 @@ fn run_schema() -> Value {
     props.insert("format".into(), json!({"type": "string", "enum": ["obj", "gltf", "glb", "fbx", "usd", "mdd", "pc2", "abc"], "description": "Output format. abc (Alembic) is not available; the call explains what to use instead."}));
     props.insert("path".into(), json!({"type": "string", "description": "Absolute path of the file to write; the extension must match the format (.usda or .usd for usd). Companion files (mtl, bin, OBJ sequence frames) are written beside it."}));
     props.insert("panels".into(), json!({"type": "array", "items": {"type": "integer"}, "description": "Panel ids to export. Omit for every panel."}));
+    props.insert("quads".into(), json!({"type": "boolean", "description": "Write the quad mesh made by quad.remesh (OBJ, FBX and USD keep quads; glTF is triangulated by the format). Defaults to true when the project mesh kind is quad and there is no thickness or animation. Cannot be combined with thickness or animation."}));
     props.insert("binary".into(), json!({"type": "boolean", "default": false, "description": "FBX only: binary FBX 7.4 instead of ASCII."}));
     json!({"type": "object", "properties": Value::Object(props), "required": ["format", "path"], "additionalProperties": false})
 }
@@ -51,7 +53,8 @@ pub(super) struct Common {
 }
 
 pub(super) fn common(a: &Value) -> Result<Common, CommandError> {
-    let units = a.get("units").and_then(Value::as_str).unwrap_or("mm");
+    let fallback = if matches!(a.get("format").and_then(Value::as_str), Some("gltf" | "glb")) { "m" } else { "mm" };
+    let units = a.get("units").and_then(Value::as_str).unwrap_or(fallback);
     let factor = unit_factor(units).ok_or_else(|| bad(format!("unknown units {units}")))?;
     let multiplier = number(a, "scale", 1e-6, 1e6)?.unwrap_or(1.0);
     let z_up = match a.get("axis").and_then(Value::as_str).unwrap_or("y_up") {
@@ -137,6 +140,35 @@ pub(super) fn write_files(dir: &std::path::Path, files: &[export::File]) -> Resu
     Ok(written)
 }
 
+fn quad_swap(s: &mut Session, geos: &[PanelGeo], islands: &[Island], mode: &str, scene: &mut export::Scene) -> usize {
+    let meshes = crate::quad_meshes(s);
+    let mut total = 0;
+    for (i, geo) in geos.iter().enumerate() {
+        let Some(qp) = meshes.iter().find(|q| q.panel == geo.id).filter(|q| !q.quads.is_empty() && q.positions.len() == q.positions2d.len()) else { continue };
+        let Some(index) = s.garment.index_of(geo.id) else { continue };
+        let aligned = uv::aligned(&qp.positions2d, grain_angle(&s.garment.panels[index]));
+        let uvs = match mode {
+            "tiled" => uv::tiled_uvs(&aligned, geo.map_scale),
+            "none" => vec![[0.0, 0.0]; aligned.len()],
+            _ => uv::island_uvs(&aligned, &islands[i]),
+        };
+        let material = scene.objects[i].groups.first().map_or(0, |g| g.material);
+        let mut object = Object {
+            name: scene.objects[i].name.clone(),
+            positions: qp.positions.clone(),
+            normals: Vec::new(),
+            uvs,
+            indices: qp.tris.iter().flatten().copied().collect(),
+            quads: qp.quads.clone(),
+            groups: vec![export::Group { material, first: 0, count: qp.tris.len() }],
+        };
+        object.normals = export::vertex_normals(&object.positions, &object.triangulated().indices);
+        total += qp.quads.len();
+        scene.objects[i] = object;
+    }
+    total
+}
+
 fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let name = args::string(a, "format")?;
     if name == "abc" {
@@ -164,8 +196,17 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let want_materials = flag(a, "materials").unwrap_or(true);
     let mats = materials(&s.garment, &geos, thickness.is_some());
     let objects = source_objects(&geos, &islands, &mats, uv_mode);
-    let built = export::build(&objects, mats.materials.clone(), thickness.as_ref()).map_err(|e| CommandError::new("invalid_geometry", e))?;
+    let mut built = export::build(&objects, mats.materials.clone(), thickness.as_ref()).map_err(|e| CommandError::new("invalid_geometry", e))?;
     let want_animation = flag(a, "animation").unwrap_or(false) || matches!(format, Format::Mdd | Format::Pc2);
+    let quad_mode = flag(a, "quads").unwrap_or(s.garment.output.mesh == ffb_pattern::output::MeshKind::Quad && thickness.is_none() && !want_animation) && !matches!(format, Format::Mdd | Format::Pc2);
+    if quad_mode {
+        if thickness.is_some() || want_animation {
+            return Err(bad("quads cannot be combined with thickness or animation; pass quads false, or turn thickness off and export without a cache"));
+        }
+        if quad_swap(s, &geos, &islands, uv_mode, &mut built.scene) == 0 {
+            return Err(CommandError::new("not_found", "there is no quad mesh to export; run quad.remesh first or pass quads false"));
+        }
+    }
     let frames = if want_animation { Some(cache_frames(s, a, &geos, &built)?) } else { None };
     let animation = frames.as_ref().map(|f| Animation { frames: f.list.clone() });
     let options = Options {
@@ -189,6 +230,7 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         "objects": if options.merged { 1 } else { built.scene.objects.len() },
         "vertices": built.scene.vertex_count(),
         "triangles": built.scene.triangle_count(),
+        "quads": built.scene.quad_count(),
         "materials": built.scene.materials.len(),
         "frames": animation.as_ref().map_or(0, |a| a.frames.len()),
         "thickness": thickness.is_some(),

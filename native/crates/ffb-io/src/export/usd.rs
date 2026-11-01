@@ -81,8 +81,8 @@ pub fn write(scene: &Scene, animation: Option<&Animation>, o: &Options) -> Resul
         let single = obj.groups.len() == 1 && o.materials && obj.groups[0].material < scene.materials.len();
         let _ = writeln!(s, "    def Mesh \"{name}\" (\n        prepend apiSchemas = [\"MaterialBindingAPI\"]\n    )\n    {{");
         let tris = obj.indices.len() / 3;
-        let _ = writeln!(s, "        int[] faceVertexCounts = {}", ints(std::iter::repeat_n(3u32, tris)));
-        let _ = writeln!(s, "        int[] faceVertexIndices = {}", ints(obj.indices.iter().copied()));
+        let _ = writeln!(s, "        int[] faceVertexCounts = {}", ints(std::iter::repeat_n(3u32, tris).chain(std::iter::repeat_n(4u32, obj.quads.len()))));
+        let _ = writeln!(s, "        int[] faceVertexIndices = {}", ints(obj.indices.iter().copied().chain(obj.quads.iter().flatten().copied())));
         let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
         let mut grow = |p: &V3| {
             for k in 0..3 {

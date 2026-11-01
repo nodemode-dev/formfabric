@@ -59,7 +59,7 @@ fn body(scene: &Scene, positions: Option<&[V3]>, o: &Options) -> String {
         for nn in &normals {
             let _ = writeln!(s, "vn {} {} {}", nn[0], nn[1], nn[2]);
         }
-        for g in &obj.groups {
+        for (gi, g) in obj.groups.iter().enumerate() {
             if o.materials {
                 if let Some(m) = scene.materials.get(g.material) {
                     let _ = writeln!(s, "usemtl {}", clean(&m.name));
@@ -76,6 +76,19 @@ fn body(scene: &Scene, positions: Option<&[V3]>, o: &Options) -> String {
                     }
                 };
                 let _ = writeln!(s, "f {} {} {}", f(t[0]), f(t[1]), f(t[2]));
+            }
+            if gi == 0 {
+                for q in &obj.quads {
+                    let f = |i: u32| {
+                        let k = vb + i as usize;
+                        if uv {
+                            format!("{k}/{k}/{k}")
+                        } else {
+                            format!("{k}//{k}")
+                        }
+                    };
+                    let _ = writeln!(s, "f {} {} {} {}", f(q[0]), f(q[1]), f(q[2]), f(q[3]));
+                }
             }
         }
         vb += n;

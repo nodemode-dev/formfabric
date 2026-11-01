@@ -46,7 +46,23 @@ pub struct Object {
     pub normals: Vec<V3>,
     pub uvs: Vec<[f32; 2]>,
     pub indices: Vec<u32>,
+    pub quads: Vec<[u32; 4]>,
     pub groups: Vec<Group>,
+}
+
+impl Object {
+    pub fn triangulated(&self) -> Object {
+        let mut out = self.clone();
+        for q in out.quads.drain(..) {
+            out.indices.extend_from_slice(&[q[0], q[1], q[2], q[0], q[2], q[3]]);
+        }
+        let total = out.indices.len() / 3;
+        let first = out.groups.first().map_or(0, |g| g.material);
+        if !self.quads.is_empty() {
+            out.groups = vec![Group { material: first, first: 0, count: total }];
+        }
+        out
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -61,7 +77,11 @@ impl Scene {
     }
 
     pub fn triangle_count(&self) -> usize {
-        self.objects.iter().map(|o| o.indices.len() / 3).sum()
+        self.objects.iter().map(|o| o.indices.len() / 3 + 2 * o.quads.len()).sum()
+    }
+
+    pub fn quad_count(&self) -> usize {
+        self.objects.iter().map(|o| o.quads.len()).sum()
     }
 }
 
@@ -138,6 +158,7 @@ pub fn build(objects: &[SrcObject], materials: Vec<Material>, thickness: Option<
                     normals: Vec::new(),
                     uvs: o.uvs.clone(),
                     indices: o.indices.clone(),
+                    quads: Vec::new(),
                     groups: vec![Group { material: o.front, first: 0, count: o.indices.len() / 3 }],
                 };
                 object.normals = vertex_normals(&object.positions, &object.indices);
@@ -288,8 +309,12 @@ fn convert_scene(scene: &Scene, o: &Options) -> Scene {
 
 fn merge(scene: &Scene) -> Scene {
     let mut merged = Object { name: "garment".into(), ..Object::default() };
-    for obj in &scene.objects {
+    let first = scene.objects.first().and_then(|o| o.groups.first()).map(|g| g.material);
+    let same = scene.objects.iter().all(|o| o.groups.len() == 1 && Some(o.groups[0].material) == first);
+    let parts: Vec<Object> = scene.objects.iter().map(|o| if same { o.clone() } else { o.triangulated() }).collect();
+    for obj in &parts {
         let base = merged.positions.len() as u32;
+        merged.quads.extend(obj.quads.iter().map(|q| [q[0] + base, q[1] + base, q[2] + base, q[3] + base]));
         let tri_base = merged.indices.len() / 3;
         merged.positions.extend_from_slice(&obj.positions);
         merged.normals.extend_from_slice(&obj.normals);
@@ -338,8 +363,12 @@ pub fn write(format: Format, scene: &Scene, animation: Option<&Animation>, optio
     if options.merged {
         base = merge(&base);
     }
-    let base = convert_scene(&base, options);
-    let anim: Option<Animation> = animation.filter(|a| !a.frames.is_empty()).map(|a| Animation { frames: a.frames.iter().map(|f| f.iter().map(|p| convert(*p, options.scale, options.z_up)).collect()).collect() });
+    let z_up = options.z_up && !matches!(format, Format::Gltf | Format::Glb);
+    let mut base = convert_scene(&base, &Options { z_up, ..options.clone() });
+    if matches!(format, Format::Gltf | Format::Glb) {
+        base.objects = base.objects.iter().map(Object::triangulated).collect();
+    }
+    let anim: Option<Animation> = animation.filter(|a| !a.frames.is_empty()).map(|a| Animation { frames: a.frames.iter().map(|f| f.iter().map(|p| convert(*p, options.scale, z_up)).collect()).collect() });
     if let Some(a) = &anim {
         if a.frames.iter().any(|f| f.len() != base.vertex_count()) {
             return Err("an animation frame does not match the exported vertex count".into());
@@ -364,7 +393,7 @@ pub fn write(format: Format, scene: &Scene, animation: Option<&Animation>, optio
 pub fn format_options() -> Value {
     json!({
         "scale": {"type": "number", "minimum": 0.000001, "maximum": 1000000.0, "default": 1.0, "description": "Multiplier applied on top of units."},
-        "units": {"type": "string", "enum": ["mm", "cm", "m", "in"], "default": "mm", "description": "Unit of the numbers in the file. The engine works in millimetres."},
+        "units": {"type": "string", "enum": ["mm", "cm", "m", "in"], "default": "mm", "description": "Unit of the numbers in the file. The engine works in millimetres. glTF and GLB default to m (the glTF unit) and always use Y up."},
         "axis": {"type": "string", "enum": ["y_up", "z_up"], "default": "y_up", "description": "y_up keeps the engine axes. z_up rotates to Z up, Y forward (Blender, 3ds Max)."},
         "single_object": {"type": "boolean", "default": false, "description": "Merge every panel into one object."},
         "thickness": {"type": "boolean", "description": "Extrude the back face and the border strips using thickness.set. Defaults to the project setting."},

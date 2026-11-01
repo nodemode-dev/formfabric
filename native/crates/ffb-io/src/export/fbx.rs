@@ -250,7 +250,11 @@ pub fn write(scene: &Scene, animation: Option<&Animation>, o: &Options) -> Resul
             poly.push(t[1] as i32);
             poly.push(!(t[2] as i32));
         }
-        let corner_normals: Vec<f64> = obj.indices.iter().flat_map(|i| obj.normals[*i as usize].iter().map(|x| f64::from(*x))).collect();
+        for q in &obj.quads {
+            poly.extend_from_slice(&[q[0] as i32, q[1] as i32, q[2] as i32, !(q[3] as i32)]);
+        }
+        let corners: Vec<u32> = obj.indices.iter().copied().chain(obj.quads.iter().flatten().copied()).collect();
+        let corner_normals: Vec<f64> = corners.iter().flat_map(|i| obj.normals[*i as usize].iter().map(|x| f64::from(*x))).collect();
         let mut kids = vec![
             n("Properties70", vec![], vec![]),
             n("GeometryVersion", vec![P::I(124)], vec![]),
@@ -280,7 +284,7 @@ pub fn write(scene: &Scene, animation: Option<&Animation>, o: &Options) -> Resul
                     n("MappingInformationType", vec![s("ByPolygonVertex")], vec![]),
                     n("ReferenceInformationType", vec![s("IndexToDirect")], vec![]),
                     n("UV", vec![P::Doubles(uv)], vec![]),
-                    n("UVIndex", vec![P::Ints(obj.indices.iter().map(|i| *i as i32).collect())], vec![]),
+                    n("UVIndex", vec![P::Ints(corners.iter().map(|i| *i as i32).collect())], vec![]),
                 ],
             ));
             layer.push(n("LayerElement", vec![], vec![n("Type", vec![s("LayerElementUV")], vec![]), n("TypedIndex", vec![P::I(0)], vec![])]));
@@ -293,7 +297,7 @@ pub fn write(scene: &Scene, animation: Option<&Animation>, o: &Options) -> Resul
                 }
             }
             if !used.is_empty() {
-                let mut per_face = vec![0i32; obj.indices.len() / 3];
+                let mut per_face = vec![0i32; obj.indices.len() / 3 + obj.quads.len()];
                 for g in &obj.groups {
                     let local = used.iter().position(|u| *u == g.material).unwrap_or(0) as i32;
                     per_face[g.first..g.first + g.count].fill(local);

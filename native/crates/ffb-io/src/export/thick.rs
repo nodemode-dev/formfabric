@@ -61,5 +61,5 @@ pub fn extrude(o: &SrcObject, t: &Thickness) -> (Object, Extrusion) {
         }
     }
     let normals = vertex_normals(&positions, &indices);
-    (Object { name: o.name.clone(), positions, normals, uvs, indices, groups }, ext)
+    (Object { name: o.name.clone(), positions, normals, uvs, indices, quads: Vec::new(), groups }, ext)
 }
