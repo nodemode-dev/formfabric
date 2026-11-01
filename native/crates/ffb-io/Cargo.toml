@@ -12,3 +12,4 @@ ffb-pattern.workspace = true
 ffb-body.workspace = true
 serde_json.workspace = true
 zip = { version = "2", default-features = false, features = ["deflate"] }
+png = { version = "0.17", default-features = false }
