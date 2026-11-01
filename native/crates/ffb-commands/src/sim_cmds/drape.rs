@@ -1,44 +1,19 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-
 use ffb_mesh::hash::Fnv;
 use ffb_pattern::Panel;
-
-const KEEP: usize = 16;
-
-type Shape = Arc<Vec<[f32; 3]>>;
-
-#[derive(Default)]
-pub struct DrapeCache {
-    map: HashMap<u32, Vec<(u64, Shape)>>,
-}
-
-impl DrapeCache {
-    pub(crate) fn get(&self, panel: u32, sig: u64, len: usize) -> Option<Arc<Vec<[f32; 3]>>> {
-        self.map.get(&panel)?.iter().rev().find(|(s, p)| *s == sig && p.len() == len).map(|(_, p)| p.clone())
-    }
-
-    pub(crate) fn put(&mut self, panel: u32, sig: u64, positions: Vec<[f32; 3]>) {
-        let list = self.map.entry(panel).or_default();
-        list.retain(|(s, _)| *s != sig);
-        list.push((sig, Arc::new(positions)));
-        if list.len() > KEEP {
-            list.remove(0);
-        }
-    }
-
-    pub(crate) fn forget_missing(&mut self, live: &[u32]) {
-        self.map.retain(|id, _| live.contains(id));
-    }
-}
 
 pub(crate) fn placement_signature(panel: &Panel) -> u64 {
     let mut h = Fnv::default();
     match &panel.place3d {
         Some(p) => {
             h.u64(1);
-            for v in p.origin.iter().chain(p.rotation.iter()) {
+            for v in p.origin.iter().chain(p.rotation.iter()).chain(std::iter::once(&p.bend)) {
                 h.f64(*v);
+            }
+            if let Some(pose) = &p.pose {
+                h.u64(pose.len() as u64);
+                for v in pose.iter().flatten() {
+                    h.u64(u64::from(v.to_bits()));
+                }
             }
         }
         None => {

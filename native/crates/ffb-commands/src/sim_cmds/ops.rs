@@ -3,12 +3,16 @@ use std::sync::atomic::Ordering;
 use ffb_sim::Params;
 use serde_json::{json, Value};
 
+use super::adapter;
 use super::build::{ensure, rebuild};
-use super::runtime::{lock, publish, spawn};
+use super::runtime::{lock, publish, spawn, MAX_TIME_STEP, MIN_TIME_STEP};
 use crate::{no_args, Command, CommandError, Group, Session, READ, SET, WRITE};
 
 const MAX_STEP_FRAMES: u64 = 2000;
 const MAX_COMPARE_FRAMES: u64 = 300;
+const MAX_SYNC_VERTICES: usize = 60_000;
+const STEP_BUDGET_SECONDS: f32 = 20.0;
+const COMPARE_BUDGET_SECONDS: f32 = 30.0;
 
 fn bad(message: impl Into<String>) -> CommandError {
     CommandError::new("bad_args", message)
@@ -30,22 +34,46 @@ pub(super) fn preset_params(name: &str, base: Params) -> Option<Params> {
 }
 
 pub(super) fn state_json(session: &Session) -> Value {
-    let c = lock(&session.sim.core);
+    let described = match session.sim.core.try_lock() {
+        Ok(c) => describe(&c, session),
+        Err(std::sync::TryLockError::Poisoned(e)) => describe(&e.into_inner(), session),
+        Err(std::sync::TryLockError::WouldBlock) => {
+            let mut cached = session.sim.live.lock().unwrap_or_else(|e| e.into_inner()).clone();
+            if let Some(map) = cached.as_object_mut() {
+                map.insert("running".into(), json!(session.sim.running.load(Ordering::Acquire)));
+                map.insert("busy".into(), json!(true));
+                return cached;
+            }
+            json!({"running": session.sim.running.load(Ordering::Acquire), "busy": true})
+        }
+    };
+    *session.sim.live.lock().unwrap_or_else(|e| e.into_inner()) = described.clone();
+    described
+}
+
+fn describe(c: &super::runtime::Core, session: &Session) -> Value {
     let p = c.params;
     json!({
+        "busy": false,
         "running": session.sim.running.load(Ordering::Acquire),
         "built": c.stepper.is_some(),
         "stale": c.stale,
         "frame": c.frame,
         "panels": c.slices.len(),
-        "vertices": c.base.positions.len(),
+        "vertices": c.solid,
         "triangles": c.base.triangles.len(),
         "seams": c.base.seams.len(),
         "pins": session.garment.pins.len(),
-        "pins_built": c.base.pins.len(),
+        "pins_built": c.pins.len(),
         "folds": c.base.folds.len(),
         "grabbed": c.grabbed,
+        "pinched": c.pinch.as_ref().map(|p| p.members.len()),
+        "wind": c.wind.enabled,
+        "frozen_vertices": c.extras.frozen.iter().map(|f| f.1).sum::<usize>(),
+        "held_vertices": c.extras.hold.iter().map(|f| f.1).sum::<usize>(),
         "preset": session.sim.preset,
+        "method": adapter::method_name(&p),
+        "device": session.sim.device,
         "fps": round(1.0 / f64::from(p.time_step), 2),
         "kinetic_energy": c.stepper.as_ref().map(|s| round(f64::from(s.kinetic_energy()), 3)),
         "last": {
@@ -100,14 +128,51 @@ fn step(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         return Err(bad(format!("frames must be from 1 to {MAX_STEP_FRAMES}")));
     }
     ensure(s)?;
-    let (snapshot, sink) = {
+    let clock = Clock::start();
+    let mut done = 0u64;
+    {
         let mut c = lock(&s.sim.core);
         c.sink = s.sink.clone();
-        c.step_frames(frames as u32);
+        if c.solid > MAX_SYNC_VERTICES {
+            return Err(bad(format!("sim.step refuses {} vertices (limit {MAX_SYNC_VERTICES}); use sim.start for large garments", c.solid)));
+        }
+    }
+    while done < frames && !clock.over(STEP_BUDGET_SECONDS) {
+        lock(&s.sim.core).step_frames(1);
+        done += 1;
+    }
+    let (snapshot, sink) = {
+        let c = lock(&s.sim.core);
         (c.snapshot(), c.sink.clone())
     };
     publish(&sink, &snapshot);
-    Ok(state_json(s))
+    let mut out = state_json(s);
+    if let Some(map) = out.as_object_mut() {
+        map.insert("frames_done".into(), json!(done));
+        map.insert("budget_reached".into(), json!(done < frames));
+    }
+    Ok(out)
+}
+
+pub(super) struct Clock(#[cfg(not(target_arch = "wasm32"))] std::time::Instant);
+
+impl Clock {
+    pub(super) fn start() -> Clock {
+        #[cfg(not(target_arch = "wasm32"))]
+        return Clock(std::time::Instant::now());
+        #[cfg(target_arch = "wasm32")]
+        return Clock();
+    }
+
+    pub(super) fn over(&self, seconds: f32) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        return self.0.elapsed().as_secs_f32() > seconds;
+        #[cfg(target_arch = "wasm32")]
+        return {
+            let _ = seconds;
+            false
+        };
+    }
 }
 
 fn reset(s: &mut Session, _a: &Value) -> Result<Value, CommandError> {
@@ -126,7 +191,7 @@ fn settings_schema() -> Value {
         "type": "object",
         "properties": {
             "preset": {"type": "string", "enum": ["normal", "fast", "fine"], "description": "normal: 5 substeps, 10 iterations. fast: 3 substeps, 6 iterations, thicker contact. fine: 10 substeps, 20 iterations, self collision, thin contact. Leave out every field to read the settings."},
-            "time_step": {"type": "number", "minimum": 0.002, "maximum": 0.1, "unit": "s", "description": "Seconds per frame. The run thread steps at 1 / time_step frames per second."},
+            "time_step": {"type": "number", "minimum": 0.004, "maximum": 0.0667, "unit": "s", "description": "Seconds per frame, from 1/240 to 1/15. The run thread steps at 1 / time_step frames per second."},
             "substeps": {"type": "integer", "minimum": 1, "maximum": 40},
             "iterations": {"type": "integer", "minimum": 1, "maximum": 200, "description": "Solver iterations per substep."},
             "gravity": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3, "unit": "mm/s2"},
@@ -134,7 +199,12 @@ fn settings_schema() -> Value {
             "skin_offset": {"type": "number", "minimum": 0, "maximum": 100, "unit": "mm"},
             "collision_thickness": {"type": "number", "minimum": 0, "maximum": 100, "unit": "mm"},
             "friction": {"type": "number", "minimum": 0, "maximum": 5},
-            "self_collision": {"type": "boolean"}
+            "self_collision": {"type": "boolean"},
+            "method": {"type": "string", "enum": ["vbd", "implicit"], "description": "Solver method: vbd is vertex block descent, implicit is implicit Euler with conjugate gradient."},
+            "newton": {"type": "integer", "minimum": 1, "maximum": 10, "description": "Newton iterations per substep (implicit method)."},
+            "cg_iterations": {"type": "integer", "minimum": 1, "maximum": 2000, "description": "Conjugate gradient iterations per Newton iteration (implicit method)."},
+            "cg_tolerance": {"type": "number", "minimum": 0.000001, "maximum": 0.1, "description": "Conjugate gradient relative tolerance (implicit method)."},
+            "device": {"type": "string", "enum": ["cpu", "gpu"], "description": "Where the solver runs. gpu is accepted and reported unavailable until a GPU solver exists; the simulation stays on the cpu."}
         },
         "required": [],
         "additionalProperties": false
@@ -152,12 +222,13 @@ fn params_json(p: &Params) -> Value {
     json!({
         "time_step": p.time_step, "substeps": p.substeps, "iterations": p.iterations, "gravity": p.gravity,
         "air_damping": p.air_damping, "skin_offset": p.skin_offset, "collision_thickness": p.collision_thickness,
-        "friction": p.friction, "self_collision": p.self_collision
+        "friction": p.friction, "self_collision": p.self_collision, "method": adapter::method_name(p),
+        "newton": p.newton, "cg_iterations": p.cg_iterations, "cg_tolerance": p.cg_tolerance
     })
 }
 
 fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
-    let mut p = lock(&s.sim.core).params;
+    let mut p = *s.sim.params.lock().unwrap_or_else(|e| e.into_inner());
     let mut preset = s.sim.preset.clone();
     let mut touched = false;
     if let Some(name) = a.get("preset").and_then(Value::as_str) {
@@ -166,8 +237,8 @@ fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         touched = true;
     }
     let mut manual = false;
-    if let Some(x) = number(a, "time_step", 0.002, 0.1)? {
-        p.time_step = x;
+    if let Some(x) = number(a, "time_step", f64::from(MIN_TIME_STEP) * 0.96, f64::from(MAX_TIME_STEP) * 1.001)? {
+        p.time_step = x.clamp(MIN_TIME_STEP, MAX_TIME_STEP);
         manual = true;
     }
     for (key, max) in [("substeps", 40.0), ("iterations", 200.0)] {
@@ -202,24 +273,54 @@ fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         p.self_collision = on;
         manual = true;
     }
+    if let Some(name) = a.get("method").and_then(Value::as_str) {
+        if !adapter::set_method(&mut p, name) {
+            return Err(bad("method must be vbd or implicit"));
+        }
+        touched = true;
+    }
+    if let Some(x) = number(a, "newton", 1.0, 10.0)? {
+        p.newton = x as u32;
+        touched = true;
+    }
+    if let Some(x) = number(a, "cg_iterations", 1.0, 2000.0)? {
+        p.cg_iterations = x as u32;
+        touched = true;
+    }
+    if let Some(x) = number(a, "cg_tolerance", 1.0e-6, 0.1)? {
+        p.cg_tolerance = x;
+        touched = true;
+    }
+    let mut requested = s.sim.device.clone();
+    if let Some(name) = a.get("device").and_then(Value::as_str) {
+        if !["cpu", "gpu"].contains(&name) {
+            return Err(bad("device must be cpu or gpu"));
+        }
+        requested = name.into();
+    }
     if manual {
         preset = "custom".into();
         touched = true;
     }
     if touched {
-        let mut c = lock(&s.sim.core);
-        c.params = p;
-        if let Some(stepper) = c.stepper.as_mut() {
-            stepper.set_params(p);
-        }
-        drop(c);
+        *s.sim.params.lock().unwrap_or_else(|e| e.into_inner()) = p;
         s.sim.preset = preset.clone();
     }
-    Ok(json!({"preset": s.sim.preset, "params": params_json(&p), "changed": touched, "presets": ["normal", "fast", "fine"]}))
+    let gpu = adapter::gpu_available();
+    s.sim.device = requested.clone();
+    Ok(json!({
+        "preset": s.sim.preset,
+        "params": params_json(&p),
+        "changed": touched,
+        "presets": ["normal", "fast", "fine"],
+        "device": {"requested": requested, "active": "cpu", "gpu_available": gpu, "message": if requested == "gpu" && !gpu { "gpu solver is not available yet; running on the cpu" } else { "" }}
+    }))
 }
 
 fn state(s: &mut Session, _a: &Value) -> Result<Value, CommandError> {
-    lock(&s.sim.core).sink = s.sink.clone();
+    if let Ok(mut c) = s.sim.core.try_lock() {
+        c.sink = s.sink.clone();
+    }
     Ok(state_json(s))
 }
 
@@ -242,9 +343,14 @@ fn compare(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         let c = lock(&s.sim.core);
         (c.base.clone(), c.colliders.clone(), c.params)
     };
-    let r = super::adapter::compare(&base, &colliders, params, frames as u32);
+    if base.positions.len() > MAX_SYNC_VERTICES {
+        return Err(bad(format!("sim.compare refuses {} vertices (limit {MAX_SYNC_VERTICES})", base.positions.len())));
+    }
+    let clock = Clock::start();
+    let r = super::adapter::compare(&base, &colliders, params, frames as u32, &|| clock.over(COMPARE_BUDGET_SECONDS));
     Ok(json!({
-        "frames": frames,
+        "frames": r.frames,
+        "requested_frames": frames,
         "vertices": base.positions.len(),
         "mean_distance": round(f64::from(r.mean), 4),
         "max_distance": round(f64::from(r.max), 4),

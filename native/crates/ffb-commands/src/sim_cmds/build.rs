@@ -11,11 +11,11 @@ fn build(session: &mut Session, force: bool) -> Result<(), CommandError> {
             return Ok(());
         }
     }
-    let Session { garment, mesh, sim, bodies, .. } = session;
-    let live: Vec<u32> = garment.panels.iter().map(|p| p.id).collect();
-    sim.drape.forget_missing(&live);
-    let assembled = assemble(garment, mesh, bodies, &sim.drape).map_err(|e| CommandError::new("invalid_geometry", e))?;
-    lock(&core).install(assembled);
+    let Session { garment, mesh, bodies, .. } = session;
+    let assembled = assemble(garment, mesh, bodies).map_err(|e| CommandError::new("invalid_geometry", e))?;
+    let mut c = lock(&core);
+    c.wind = garment.wind.clone();
+    c.install(assembled);
     Ok(())
 }
 

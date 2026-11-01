@@ -1,12 +1,12 @@
-use ffb_pattern::Place3D;
+use ffb_pattern::{Panel, Place3D};
 use serde_json::{json, Value};
 
 use super::build::ensure;
-use super::drape::{placement_signature, rigid_fit};
+use super::drape::rigid_fit;
 use super::runtime::lock;
 use crate::{no_args, Command, CommandError, Edit, Group, Session, WRITE};
 
-fn apply(s: &mut Session, _a: &Value) -> Result<Value, CommandError> {
+pub(crate) fn posed_panels(s: &mut Session) -> Result<Vec<(usize, Panel, Panel)>, CommandError> {
     ensure(s)?;
     let fits = {
         let c = lock(&s.sim.core);
@@ -36,21 +36,29 @@ fn apply(s: &mut Session, _a: &Value) -> Result<Value, CommandError> {
     if fits.is_empty() {
         return Err(CommandError::new("not_found", "no panel has a draped shape"));
     }
-    let mut edits = Vec::new();
-    let mut panels = Vec::new();
+    let mut out = Vec::new();
     for (id, origin, rotation, positions) in fits {
         let Some(index) = s.garment.index_of(id) else { continue };
+        if !origin.iter().chain(rotation.iter()).all(|x| x.is_finite()) || !positions.iter().flatten().all(|x| x.is_finite()) {
+            return Err(CommandError::new("invalid_geometry", format!("panel {id} has a non-finite draped shape; reset the simulation")));
+        }
         let before = s.garment.panels[index].clone();
         let mut after = before.clone();
-        let bend = before.place3d.as_ref().map_or(0.0, |p| p.bend);
-        after.place3d = Some(Place3D { origin, rotation, bend, pose: None });
-        let sig = placement_signature(&after);
-        s.sim.drape.put(id, sig, positions);
+        after.place3d = Some(Place3D { origin, rotation, bend: 0.0, pose: Some(positions) });
         if after != before {
-            s.garment.panels[index] = after.clone();
-            edits.push(Edit::Panel { label: "Apply drape".into(), index, before: Some(Box::new(before)), after: Some(Box::new(after)) });
-            panels.push(id);
+            out.push((index, before, after));
         }
+    }
+    Ok(out)
+}
+
+fn apply(s: &mut Session, _a: &Value) -> Result<Value, CommandError> {
+    let mut edits = Vec::new();
+    let mut panels = Vec::new();
+    for (index, before, after) in posed_panels(s)? {
+        panels.push(after.id);
+        s.garment.panels[index] = after.clone();
+        edits.push(Edit::Panel { label: "Apply drape".into(), index, before: Some(Box::new(before)), after: Some(Box::new(after)) });
     }
     let changed = !edits.is_empty();
     if changed {
@@ -65,7 +73,7 @@ pub(crate) fn commands() -> Vec<Command> {
         mcp: "sim_apply",
         group: Group::Sim,
         label: "Apply drape",
-        description: "Write the draped state into the document as one undo step: each panel gets the rigid placement (place3d) that best fits its draped vertices, and the draped vertex positions are kept in a cache keyed by that placement so the viewer and the next simulation start from the drape. Undo restores the earlier placement.",
+        description: "Write the draped state into the document as one undo step: each panel gets the rigid placement (place3d) that best fits its draped vertices, and the draped vertex positions are saved in place3d.pose (kept by save and open). The viewer and the next simulation or reset start from the pose while the mesh vertex count matches. Undo restores the earlier placement.",
         keys: &[],
         hints: WRITE,
         schema: no_args,
