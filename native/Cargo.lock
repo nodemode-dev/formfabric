@@ -183,7 +183,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
 name = "ffb-body"
-version = "0.6.0"
+version = "0.9.0"
 dependencies = [
  "ffb-core",
  "ffb-sim",
@@ -195,7 +195,7 @@ dependencies = [
 
 [[package]]
 name = "ffb-commands"
-version = "0.6.0"
+version = "0.9.0"
 dependencies = [
  "ffb-body",
  "ffb-core",
@@ -210,7 +210,7 @@ dependencies = [
 
 [[package]]
 name = "ffb-core"
-version = "0.6.0"
+version = "0.9.0"
 dependencies = [
  "glam",
  "serde",
@@ -218,7 +218,7 @@ dependencies = [
 
 [[package]]
 name = "ffb-fabric"
-version = "0.6.0"
+version = "0.9.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -227,7 +227,7 @@ dependencies = [
 
 [[package]]
 name = "ffb-io"
-version = "0.6.0"
+version = "0.9.0"
 dependencies = [
  "ffb-body",
  "ffb-pattern",
@@ -237,7 +237,7 @@ dependencies = [
 
 [[package]]
 name = "ffb-mesh"
-version = "0.6.0"
+version = "0.9.0"
 dependencies = [
  "ffb-pattern",
  "serde",
@@ -247,7 +247,7 @@ dependencies = [
 
 [[package]]
 name = "ffb-pattern"
-version = "0.6.0"
+version = "0.9.0"
 dependencies = [
  "ffb-core",
  "ffb-fabric",
@@ -257,7 +257,7 @@ dependencies = [
 
 [[package]]
 name = "ffb-py"
-version = "0.6.0"
+version = "0.9.0"
 dependencies = [
  "ffb-commands",
  "ffb-core",
@@ -268,7 +268,7 @@ dependencies = [
 
 [[package]]
 name = "ffb-sim"
-version = "0.6.0"
+version = "0.9.0"
 dependencies = [
  "ffb-core",
  "ffb-fabric",
@@ -280,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "ffb-stream"
-version = "0.6.0"
+version = "0.9.0"
 dependencies = [
  "getrandom",
  "tungstenite",
@@ -288,7 +288,7 @@ dependencies = [
 
 [[package]]
 name = "ffb-wasm"
-version = "0.6.0"
+version = "0.9.0"
 dependencies = [
  "ffb-commands",
  "ffb-pattern",

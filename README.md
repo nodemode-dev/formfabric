@@ -2,7 +2,7 @@
 
 **Garment pattern design and cloth simulation, in the NodeMode style**
 
-![version](https://img.shields.io/badge/version-0.6.0-f97316) ![status](https://img.shields.io/badge/status-in%20development-f97316) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
+![version](https://img.shields.io/badge/version-0.9.0-f97316) ![status](https://img.shields.io/badge/status-in%20development-f97316) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 ## What it is
 
@@ -12,7 +12,7 @@ Planned stack · Rust engine (`native/`, one Cargo workspace, wgpu compute solve
 
 ## Status
 
-Phases 1 to 6 of 18 have landed: the family window shell, the Rust engine, the 2D pattern core and advanced pattern tools, meshing with a live 3D View, and fabrics. You can draft panels with seam allowance, notches, darts, slash and spread, mirrored and instanced copies, exchange patterns as DXF-AAMA, see every panel meshed at its particle distance in 3D, and give panels fabrics with physical properties from measured data. Sewing, simulation, bodies, animation and export follow in later phases (see the parity matrix).
+Phases 1 to 9 of 18 have landed: the family window shell, the Rust engine, pattern drafting with DXF-AAMA exchange, meshing and the 3D View, fabrics, a CPU cloth solver, sewing, and bodies with placement. You can draft and sew panels, put them on a CC0 body or formfabric's own Basic Form, resize and pose the body, place panels on it and drape them. The solver is not yet fast or converged enough for large garments: the GPU solver is Phase 10. Animation, trims and export follow (see the parity matrix).
 
 ## Quick start
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.9.0 · 2026-11-01
+
+Phases 7, 8 and 9, built in parallel and released together.
+
+Phase 7, solver and drape:
+
+- A CPU cloth solver (Vertex Block Descent) with an orthotropic membrane, directional bending with buckling, seams, fold lines, pins, grab, pressure, body and primitive collisions with friction, optional self collision, and an implicit conjugate-gradient reference for comparison.
+- Drape from the window or MCP: on and off with Space, Step, Reset, Normal, Fast and Fine presets, pins, grab while draping, Apply.
+- Not yet met: the plan's 2 mm accuracy against the reference and interactive speed on large garments (see BUILD_NOTES); Phase 10's GPU solver addresses them.
+
+Phase 8, sewing:
+
+- Seam, Free Seam, Multi Seam, Edit Seam, Seam Fold, Seam Tension, Seam Side, Seam Check, Tack, Pleats and Gather, in the Pattern View and over MCP; seam lines in 3D.
+
+Phase 9, bodies and placement:
+
+- Default female and male bodies from MakeHuman community assets via MPFB2 (CC0 1.0), and formfabric's own Basic Form.
+- Import OBJ, glTF and GLB with skins, and FBX on desktop; the Body Editor resizes to target measurements; A, T and joint poses; skin offset and friction.
+- Placement volumes and points from the skeleton, Place Panel with wrapping, Auto Seam proposals.
+
+Security and fixes from an independent audit: engine and terminal calls only from the window or with the in-app token; absolute paths, required extensions and atomic writes; size caps on project, fabric and DXF files; control characters refused in names; engine panics no longer stop the service; stream connection limits; dropdowns and caption buttons update in place; per-item shortcut reset.
+
 ## v0.6.0 · 2026-11-01
 
 Phases 4, 5 and 6, built in parallel and released together.

@@ -41,15 +41,17 @@ The tool reference below is generated from the engine's command registry by `./f
 ## Tool reference
 
 [ffb-tools:begin]
-Generated from the engine's command registry (formfabric 0.6.0) by `./formfabric agents sync`; do not edit between the markers by hand.
+Generated from the engine's command registry (formfabric 0.9.0) by `./formfabric agents sync`; do not edit between the markers by hand.
 
 - Engine: `system_info`, `system_capabilities`
 - Files: `file_new`, `file_save`, `file_open`, `exchange_import_dxf`, `exchange_export_dxf`
 - History: `history_undo`, `history_redo`, `history_list`
 - Viewing: `view_units`, `mesh_get`, `mesh_stats`
 - Pattern: `pattern_get`, `pattern_select`, `pattern_measure`, `pattern_snap`, `pattern_draw_panel`, `pattern_rectangle`, `pattern_ellipse`, `pattern_inner_shape`, `pattern_inner_line`, `pattern_move_point`, `pattern_set_handle`, `pattern_add_point`, `pattern_split_line`, `pattern_delete_point`, `pattern_set_point_kind`, `pattern_curvature`, `pattern_smooth`, `pattern_transform`, `pattern_duplicate`, `pattern_delete`, `pattern_rename`, `pattern_set_props`, `pattern_begin_drag`, `pattern_end_drag`, `pattern_seam_allowance`, `pattern_offset_outline`, `pattern_notch_add`, `pattern_notch_set`, `pattern_notch_delete`, `pattern_grain_line`, `pattern_set_inner`, `pattern_segment_lengths`, `pattern_match_length`, `pattern_dart`, `pattern_slash_spread`, `pattern_unfold`, `pattern_spiral`, `pattern_trace`, `pattern_mirror_link`, `pattern_instance`, `pattern_unlink`
-- Simulation: `mesh_build`, `arrange_place`, `arrange_reset`
+- Simulation: `mesh_build`, `arrange_place`, `arrange_reset`, `sim_start`, `sim_stop`, `sim_toggle`, `sim_step`, `sim_reset`, `sim_settings`, `sim_state`, `sim_compare`, `pin_add`, `pin_remove`, `pin_clear`, `sim_grab`, `sim_apply`, `place_panel`, `place_reset`
 - Fabrics: `fabric_presets`, `fabric_list`, `fabric_create`, `fabric_update`, `fabric_duplicate`, `fabric_delete`, `fabric_assign`, `fabric_set_default`, `fabric_lab`, `fabric_export`, `fabric_import`, `colorway_create`, `colorway_update`, `colorway_delete`, `colorway_activate`
+- Sewing: `sew_segment`, `sew_free`, `sew_multi`, `sew_edit`, `sew_flip`, `sew_delete`, `sew_list`, `sew_check`, `sew_bindings`, `tack_add`, `tack_delete`, `sew_pleat`, `sew_gather`, `sew_auto`
+- Bodies: `body_load_default`, `body_import`, `body_remove`, `body_show`, `body_set`, `body_resize`, `body_pose`, `body_list`, `body_measure`, `body_joints`, `place_volume_set`, `place_point_set`, `place_points`, `place_defaults`
 
 ### system_info
 
@@ -167,7 +169,7 @@ Note: read-only.
 Create a pattern panel from outline points given in world mm. Points may carry curve kinds and Bezier handles. The outline is stored counter-clockwise, placed at its lower left corner, and rejected when it has no area or crosses itself. Returns the new panel id.
 
 - `name`: string; Panel name. Defaults to Panel and the new id.
-- `particle_distance`: number; default 20.0; range 1.0 to 200.0; Simulation particle spacing for this panel.
+- `particle_distance`: number; default 20.0; range 0.8 to 700.0; Simulation particle spacing for this panel.
 - `points`: array of value; required; Outline vertices in world mm, at least 3, in drawing order. A point is [x, y] or an object with p, kind, h_in and h_out. The outline is stored counter-clockwise.
 
 ### pattern_rectangle
@@ -177,7 +179,7 @@ Create a rectangular panel from its lower left corner, width and height in mm, w
 - `corner_radius`: number; default 0.0; range 0.0 to 20000.0; Round all four corners by this tangent length; 0 keeps them sharp. Limited to half of the shorter side.
 - `height`: number; required; range 0.1 to 20000.0; Height along y.
 - `name`: string; Panel name. Defaults to Panel and the new id.
-- `particle_distance`: number; default 20.0; range 1.0 to 200.0; Simulation particle spacing for this panel.
+- `particle_distance`: number; default 20.0; range 0.8 to 700.0; Simulation particle spacing for this panel.
 - `width`: number; required; range 0.1 to 20000.0; Width along x.
 - `x`: number; default 0.0; range -100000.0 to 100000.0; Left edge.
 - `y`: number; default 0.0; range -100000.0 to 100000.0; Bottom edge.
@@ -189,7 +191,7 @@ Create an elliptical panel from its centre and radii in mm as 4 or more smooth c
 - `cx`: number; default 0.0; range -100000.0 to 100000.0; Centre x.
 - `cy`: number; default 0.0; range -100000.0 to 100000.0; Centre y.
 - `name`: string; Panel name. Defaults to Panel and the new id.
-- `particle_distance`: number; default 20.0; range 1.0 to 200.0; Simulation particle spacing for this panel.
+- `particle_distance`: number; default 20.0; range 0.8 to 700.0; Simulation particle spacing for this panel.
 - `rx`: number; required; range 0.1 to 20000.0; Radius along x.
 - `ry`: number; required; range 0.1 to 20000.0; Radius along y. Equal to rx gives a circle.
 - `segments`: integer; default 4.0; range 4.0 to 64.0; Number of curve points around the ellipse. 4 already gives a close fit.
@@ -360,8 +362,9 @@ Set particle distance, layer, grain direction, position or rotation on one or mo
 - `inner`: integer; range 1.0 to 4294967295.0; Inner line id whose fold is set by fold_angle and fold_strength; needs exactly one panel.
 - `layer`: integer; range -100.0 to 100.0; Layer order for overlapping panels; higher lies on top.
 - `panels`: array of integer; required; Panel ids to change.
-- `particle_distance`: number; range 1.0 to 200.0; Simulation particle spacing.
+- `particle_distance`: number; range 0.8 to 700.0; Simulation particle spacing.
 - `position`: array of number; Absolute panel position on the pattern plane.
+- `pressure`: number; range -1000000.0 to 1000000.0; Inflation pressure of the panel in the solver's units, along the panel normal; 0 is none.
 - `rotation`: number; range -360.0 to 360.0; Absolute panel rotation.
 
 Note: safe to repeat.
@@ -552,7 +555,7 @@ Create a panel shaped as a flat spiral strip of a given width that winds from th
 - `inner_radius`: number; required; range 0.1 to 20000.0; Radius of the strip centre line where the spiral starts.
 - `name`: string; Panel name. Defaults to Spiral and the new id.
 - `outer_radius`: number; required; range 0.1 to 20000.0; Radius of the strip centre line where the spiral ends.
-- `particle_distance`: number; default 20.0; range 1.0 to 200.0; Simulation particle spacing for this panel.
+- `particle_distance`: number; default 20.0; range 0.8 to 700.0; Simulation particle spacing for this panel.
 - `start_angle`: number; default 0.0; range -360.0 to 360.0; Angle of the start of the strip.
 - `turns`: number; default 3.0; range 0.25 to 20.0; Number of turns from start to end.
 - `width`: number; required; range 0.1 to 20000.0; Width of the strip.
@@ -565,7 +568,7 @@ Create a new panel from a closed inner shape (by inner id, or the smallest one c
 - `inner`: integer; range 1.0 to 4294967295.0; Closed inner shape id to trace into a new panel.
 - `name`: string; Panel name. Defaults to Traced and the new id.
 - `panel`: integer; range 1.0 to 4294967295.0; Panel id as listed by pattern.get.
-- `particle_distance`: number; range 1.0 to 200.0; Simulation particle spacing for the new panel. Defaults to the source panel's.
+- `particle_distance`: number; range 0.8 to 700.0; Simulation particle spacing for the new panel. Defaults to the source panel's.
 - `points`: array of array; A closed region given by its vertices in world mm, in any winding. The panel is then optional and only supplies fabric, layer and grain.
 - `remove`: boolean; default false; Remove the traced inner shape from the source panel.
 
@@ -801,6 +804,446 @@ Show a colorway: its colour per fabric replaces the fabric's front colour in vie
 - `id`: integer; range 1 to 4294967295; Colorway to show. Leave out to show each fabric's own colour.
 
 Note: safe to repeat.
+
+### sew_segment
+
+Sew one whole segment to another. reversed (default true) pairs the start of side a with the end of side b, which is right for counter-clockwise outlines meeting along a shared edge. With ratio 1 and full segments both segments get the same number of mesh vertices. Returns the seam with both side lengths and the mismatch in mm.
+
+- `fold`: string (turned | flat | custom); default "turned"; turned: folded back 180 degrees, two plies, angle and strength locked. flat: butt joint, panels stay in their plane. custom: use fold_angle and fold_strength.
+- `fold_angle`: number; range 0.0 to 360.0; Fold angle for custom seams: 180 flat, lower folds to the front, higher to the back.
+- `fold_strength`: number; range 0.0 to 20.0; How firmly a custom seam holds its fold angle, 0 for none.
+- `inner_a`: integer; range 1.0 to 4294967295.0; Inner line of side a. Leave out for the outline.
+- `inner_b`: integer; range 1.0 to 4294967295.0; Inner line of side b. Leave out for the outline.
+- `panel_a`: integer; required; range 1.0 to 4294967295.0; Panel of side a.
+- `panel_b`: integer; required; range 1.0 to 4294967295.0; Panel of side b.
+- `ratio`: number; default 1.0; range 0.05 to 20.0; Intended arc length of side b over side a. Above 1 gathers b onto a.
+- `reversed`: boolean; default true; Pair the start of side a with the end of side b. Outlines drawn counter-clockwise that meet along a shared edge run in opposite directions, so the usual seam is reversed.
+- `segment_a`: integer; required; range 0.0 to 100000.0; Segment of side a; segment i runs from point i to point i+1.
+- `segment_b`: integer; required; range 0.0 to 100000.0; Segment of side b.
+- `side`: string (auto | front | back); Which face of the fabric of side a the other side attaches to. auto picks it from the 3D placement and the panel normal; sew.list reports the result as side_resolved.
+- `tension`: number; default 1.0; range 0.0 to 20.0; Stiffness of the seam pull relative to the cloth; 1 is normal, above 1 pulls harder, 0 leaves the seam slack.
+
+### sew_free
+
+Sew a span of one segment (t0 to t1 as curve parameters) to a span of another, so a seam can start and end anywhere on an outline or inner line. Sides are matched by arc length fraction.
+
+- `fold`: string (turned | flat | custom); default "turned"; turned: folded back 180 degrees, two plies, angle and strength locked. flat: butt joint, panels stay in their plane. custom: use fold_angle and fold_strength.
+- `fold_angle`: number; range 0.0 to 360.0; Fold angle for custom seams: 180 flat, lower folds to the front, higher to the back.
+- `fold_strength`: number; range 0.0 to 20.0; How firmly a custom seam holds its fold angle, 0 for none.
+- `inner_a`: integer; range 1.0 to 4294967295.0; Inner line of side a. Leave out for the outline.
+- `inner_b`: integer; range 1.0 to 4294967295.0; Inner line of side b. Leave out for the outline.
+- `panel_a`: integer; required; range 1.0 to 4294967295.0; Panel of side a.
+- `panel_b`: integer; required; range 1.0 to 4294967295.0; Panel of side b.
+- `ratio`: number; default 1.0; range 0.05 to 20.0; Intended arc length of side b over side a. Above 1 gathers b onto a.
+- `reversed`: boolean; default true; Pair the start of side a with the end of side b. Outlines drawn counter-clockwise that meet along a shared edge run in opposite directions, so the usual seam is reversed.
+- `segment_a`: integer; required; range 0.0 to 100000.0; Segment of side a; segment i runs from point i to point i+1.
+- `segment_b`: integer; required; range 0.0 to 100000.0; Segment of side b.
+- `side`: string (auto | front | back); Which face of the fabric of side a the other side attaches to. auto picks it from the 3D placement and the panel normal; sew.list reports the result as side_resolved.
+- `t0_a`: number; required; range 0.0 to 1.0; Start of the span on side a as a curve parameter on its segment.
+- `t0_b`: number; required; range 0.0 to 1.0; Start of the span on side b.
+- `t1_a`: number; required; range 0.0 to 1.0; End of the span on side a.
+- `t1_b`: number; required; range 0.0 to 1.0; End of the span on side b.
+- `tension`: number; default 1.0; range 0.0 to 20.0; Stiffness of the seam pull relative to the cloth; 1 is normal, above 1 pulls harder, 0 leaves the seam slack.
+
+### sew_multi
+
+Sew a list of spans (M) to another list of spans (N) as one seam, for example a sleeve cap to an armhole made of front and back pieces. Spans are listed in walking order and matched by total arc length fraction.
+
+- `a`: array of object; required; Spans that make side a, in walking order.
+- `b`: array of object; required; Spans that make side b, in walking order.
+- `fold`: string (turned | flat | custom); default "turned"; turned: folded back 180 degrees, two plies, angle and strength locked. flat: butt joint, panels stay in their plane. custom: use fold_angle and fold_strength.
+- `fold_angle`: number; range 0.0 to 360.0; Fold angle for custom seams: 180 flat, lower folds to the front, higher to the back.
+- `fold_strength`: number; range 0.0 to 20.0; How firmly a custom seam holds its fold angle, 0 for none.
+- `ratio`: number; default 1.0; range 0.05 to 20.0; Intended arc length of side b over side a. Above 1 gathers b onto a.
+- `reversed`: boolean; default true; Pair the start of side a with the end of side b. Outlines drawn counter-clockwise that meet along a shared edge run in opposite directions, so the usual seam is reversed.
+- `side`: string (auto | front | back); Which face of the fabric of side a the other side attaches to. auto picks it from the 3D placement and the panel normal; sew.list reports the result as side_resolved.
+- `tension`: number; default 1.0; range 0.0 to 20.0; Stiffness of the seam pull relative to the cloth; 1 is normal, above 1 pulls harder, 0 leaves the seam slack.
+
+### sew_edit
+
+Change any field of a seam: its sides (spans), reversed, fold (turned, flat, custom), fold angle and strength, ratio, tension and side. Only the given fields change. A turned seam locks the fold angle to 180 and the strength to 0.
+
+- `a`: array of object; Replace side a with these spans.
+- `b`: array of object; Replace side b with these spans.
+- `fold`: string (turned | flat | custom); turned: folded back 180 degrees, two plies, angle and strength locked. flat: butt joint, panels stay in their plane. custom: use fold_angle and fold_strength.
+- `fold_angle`: number; range 0.0 to 360.0; Fold angle for custom seams: 180 flat, lower folds to the front, higher to the back.
+- `fold_strength`: number; range 0.0 to 20.0; How firmly a custom seam holds its fold angle, 0 for none.
+- `ratio`: number; range 0.05 to 20.0; Intended arc length of side b over side a. Above 1 gathers b onto a.
+- `reversed`: boolean; Pair the start of side a with the end of side b. Outlines drawn counter-clockwise that meet along a shared edge run in opposite directions, so the usual seam is reversed.
+- `seam`: integer; required; range 1.0 to 4294967295.0; Seam id as listed by sew.list.
+- `side`: string (auto | front | back); Which face of the fabric of side a the other side attaches to. auto picks it from the 3D placement and the panel normal; sew.list reports the result as side_resolved.
+- `tension`: number; range 0.0 to 20.0; Stiffness of the seam pull relative to the cloth; 1 is normal, above 1 pulls harder, 0 leaves the seam slack.
+
+Note: safe to repeat; in the window: B.
+
+### sew_flip
+
+Reverse the direction of side b of one or several seams, so the start of side a is paired with the other end of side b.
+
+- `seam`: integer; range 1.0 to 4294967295.0; Seam id as listed by sew.list.
+- `seams`: array of integer; Several seam ids.
+
+### sew_delete
+
+Remove one seam, several, or all of them. Forced mesh vertex counts that existed for the seam are released.
+
+- `all`: boolean; default false; Remove every seam.
+- `seam`: integer; range 1.0 to 4294967295.0; Seam id as listed by sew.list.
+- `seams`: array of integer; Several seam ids.
+
+Note: removes or replaces (undoable).
+
+### sew_list
+
+Every seam with the length of each side in mm and the mismatch (side b minus ratio times side a), plus the tacks.
+
+- `seam`: integer; range 1.0 to 4294967295.0; Only this seam.
+
+Note: read-only.
+
+### sew_check
+
+List the seams whose side lengths differ by more than a tolerance (default 1 mm), measured as side b minus ratio times side a.
+
+- `tolerance`: number; range 0.0 to 100000.0; Largest allowed difference between side b and ratio times side a.
+
+Note: read-only.
+
+### sew_bindings
+
+Count the solver bindings the seams produce on the current meshes: vertex pairs and vertex-to-edge bindings, per seam.
+
+- `seam`: integer; range 1.0 to 4294967295.0; Only this seam.
+
+Note: read-only.
+
+### tack_add
+
+Add a temporary point-to-point constraint between two panel points, or between a panel point and a body point. Points are in world or local space and are stored panel-local.
+
+- `body_point_a`: array of number; End a on a body instead of a panel, in body space.
+- `body_point_b`: array of number; End b on a body instead of a panel, in body space.
+- `length`: number; range 0.0 to 100000.0; Rest distance the two ends are held at; 0 holds them together.
+- `panel_a`: integer; range 1.0 to 4294967295.0; Panel of end a.
+- `panel_b`: integer; range 1.0 to 4294967295.0; Panel of end b.
+- `point_a`: array of number; Point of end a on its panel.
+- `point_b`: array of number; Point of end b on its panel.
+- `space`: string (world | local); default "world"; world: coordinates on the pattern plane. local: coordinates inside the panel before its position, rotation and mirror apply.
+
+### tack_delete
+
+Remove one tack by id, several by tacks, or every tack with all.
+
+- `all`: boolean; default false; Remove every tack.
+- `tack`: integer; range 1.0 to 4294967295.0; Tack id as listed by sew.list.
+- `tacks`: array of integer; Several tack ids.
+
+Note: removes or replaces (undoable).
+
+### sew_pleat
+
+Create knife or box pleats on a panel: parallel fold lines from a start line (from and to, or an existing inner line) added to one side, with fold angles 0 (front) or 360 (back, reverse) on the creases, and seams that close each pleat. A knife pleat has three lines with the middle one creased and the outer two sewn together; a box pleat has five lines, creases at the second and fourth, both outer lines sewn to the middle one. Returns the new inner line ids per pleat and the seam ids.
+
+- `count`: integer; range 1.0 to 64.0; Number of pleats.
+- `depth`: number; range 1.0 to 1000.0; Depth of one fold, the distance between neighbouring lines of a pleat.
+- `from`: array of number; Start of the first pleat line. Give from and to, or inner.
+- `inner`: integer; range 1.0 to 4294967295.0; Existing inner line to take the direction and length of the first pleat line from.
+- `interval`: number; range 1.0 to 100000.0; Distance from the first line of one pleat to the first line of the next. Default is the pleat width plus twice the depth.
+- `kind`: string (knife | box); default "knife"; knife: one fold, three lines per pleat, the outer two sewn together. box: two knife folds facing apart, five lines per pleat.
+- `panel`: integer; required; range 1.0 to 4294967295.0; Panel that receives the pleat fold lines.
+- `reverse`: boolean; default false; Fold to the back (360 degrees) instead of the front (0 degrees).
+- `sew`: boolean; default true; Create the seams that close the pleats.
+- `side`: string (left | right); default "left"; Side of the first pleat line, walking from to, where the next lines are added.
+- `space`: string (world | local); default "world"; world: coordinates on the pattern plane. local: coordinates inside the panel before its position, rotation and mirror apply.
+- `strength`: number; range 0.0 to 20.0; Fold strength of the crease lines.
+- `to`: array of number; End of the first pleat line.
+
+### sew_gather
+
+Gather side b onto side a at a ratio of 1 or more: side a is shortened from its end so that side b is the given multiple of it, and the seam ratio is stored. The cloth of side b bunches up to fit when simulated.
+
+- `ratio`: number; required; range 1.0 to 20.0; Arc length of side b over side a, 1 or more. Side a is shortened from its end until it fits; side b keeps its spans.
+- `seam`: integer; required; range 1.0 to 4294967295.0; Seam id as listed by sew.list.
+
+Note: safe to repeat.
+
+### sim_start
+
+Start the background simulation at the frame rate. Positions stream to the viewer. Native builds only; use sim.step elsewhere.
+
+- no parameters
+
+Note: safe to repeat.
+
+### sim_stop
+
+Stop the background simulation. The draped state stays where it is.
+
+- no parameters
+
+Note: safe to repeat.
+
+### sim_toggle
+
+Start the simulation if it is stopped, stop it if it runs.
+
+- no parameters
+
+Note: in the window: Space.
+
+### sim_step
+
+Advance the simulation by a number of frames on the calling thread and publish the result. Works without a background thread.
+
+- `frames`: integer; default 1; range 1 to 2000; How many frames to step. Each frame runs the configured substeps.
+
+### sim_reset
+
+Rebuild the cloth from the garment and return every panel to its placed state, frame zero.
+
+- no parameters
+
+### sim_settings
+
+Get or set the solver parameters and the quality preset (normal, fast, fine). Settings are not saved in the document.
+
+- `air_damping`: number; range 0 to 1
+- `collision_thickness`: number; range 0 to 100
+- `friction`: number; range 0 to 5
+- `gravity`: array of number
+- `iterations`: integer; range 1 to 200; Solver iterations per substep.
+- `preset`: string (normal | fast | fine); normal: 5 substeps, 10 iterations. fast: 3 substeps, 6 iterations, thicker contact. fine: 10 substeps, 20 iterations, self collision, thin contact. Leave out every field to read the settings.
+- `self_collision`: boolean
+- `skin_offset`: number; range 0 to 100
+- `substeps`: integer; range 1 to 40
+- `time_step`: number; range 0.002 to 0.1; Seconds per frame. The run thread steps at 1 / time_step frames per second.
+
+Note: safe to repeat.
+
+### sim_state
+
+Read whether the simulation runs, the frame, the vertex count, the last step statistics and the preset.
+
+- no parameters
+
+Note: read-only.
+
+### sim_compare
+
+Run the same start for n frames with the interactive solver and with the reference solver and report the mean and maximum vertex distance in mm. Does not touch the running simulation.
+
+- `frames`: integer; default 30; range 1 to 300; Frames to run with the block descent solver and with the reference solver from the same start.
+
+Note: read-only.
+
+### pin_add
+
+Pin a mesh vertex of a panel in 3D. Pins are part of the document and an undo step; they hold the vertex where it is (or at target) during simulation.
+
+- `panel`: integer; required; range 1 to inf; Panel id as listed by pattern.get.
+- `point`: array of number; Panel-local point; the nearest mesh vertex is pinned. Give point or vertex.
+- `target`: ['array', 'null']; Where the pinned vertex is held in 3D. Leave out to hold it where it is now (the simulated position when a simulation exists, else the placed position).
+- `vertex`: integer; range 0 to inf; Vertex index in the panel mesh as streamed for that panel.
+
+### pin_remove
+
+Remove one pin by id.
+
+- `id`: integer; required; range 1 to inf; Pin id as returned by pin.add.
+
+### pin_clear
+
+Remove every pin, or those of one panel.
+
+- `panel`: integer; range 1 to inf; Only clear the pins of this panel. Leave out to clear every pin.
+
+### sim_grab
+
+Hold a vertex at a 3D target while the simulation runs, as the mouse drag does. A null or missing target releases the grab. Not saved and not an undo step.
+
+- `panel`: integer; range 1 to inf; Panel id. With vertex, the vertex index is in that panel's mesh; with point, the nearest vertex is taken.
+- `point`: array of number; Panel-local point (needs panel).
+- `target`: ['array', 'null']; Where to hold the grabbed vertex in 3D. Null or missing releases the grab. Send again to drag.
+- `vertex`: integer; range 0 to inf; Vertex index in the panel mesh when panel is given, else an index into the whole cloth.
+
+Note: safe to repeat.
+
+### sim_apply
+
+Write the draped state into the document as one undo step: each panel gets the rigid placement (place3d) that best fits its draped vertices, and the draped vertex positions are kept in a cache keyed by that placement so the viewer and the next simulation start from the drape. Undo restores the earlier placement.
+
+- no parameters
+
+### body_load_default
+
+Add a default body to the project: the built-in Basic Form (formfabric's own parametric body, about 20k triangles, 20 joints, skin weights) or a library body from assets/bodies by name. One undo step.
+
+- `name`: string; Body name; default Basic Form. body.list shows the library.
+
+### body_import
+
+Import a body from an OBJ, glTF, GLB or FBX file (FBX on native builds only), convert to millimetres with y up and stand it on the ground. Skins and skeletons are read from glTF and FBX; Alembic is deferred. One undo step.
+
+- `ground`: boolean; Stand the body on y = 0; default true.
+- `name`: string; Name for the body; default the file name.
+- `path`: string; required; File path of the body.
+- `units`: string (auto | mm | cm | m | in | ft); Units of the file; auto reads glTF as metres and guesses OBJ from its height.
+- `up`: string (y | -y | z | -z | x | -x); Up axis of the file; default y.
+
+### body_remove
+
+Remove a body from the project. One undo step.
+
+- `id`: integer; Body id. Defaults to the first body.
+
+Note: removes or replaces (undoable).
+
+### body_show
+
+Show or hide a body (all bodies when no id is given). A hidden body is removed from the 3D view but stays in the project.
+
+- `id`: integer
+- `visible`: boolean; Default true.
+
+Note: safe to repeat.
+
+### body_set
+
+Set a body's collision skin offset in millimetres (0 to 100, default 3), friction (0 to 10) or name.
+
+- `friction`: number
+- `id`: integer
+- `name`: string
+- `skin_offset`: number
+
+Note: safe to repeat.
+
+### body_resize
+
+Deform a body to target measurements in millimetres: height and inseam (vertical scale), chest (or bust), waist and hip (cross-sections scaled around the vertical axis with smooth falloff), shoulder width and arm length. The skeleton moves with its region. Targets are met within 1 mm. One undo step.
+
+- `arm_length`: number
+- `bust`: number; Same as chest.
+- `chest`: number
+- `height`: number
+- `hip`: number
+- `id`: integer
+- `inseam`: number
+- `shoulder_width`: number
+- `waist`: number
+
+### body_pose
+
+Pose a body with linear blend skinning: a named pose (rest, A, T) or joint rotations as quaternions [x, y, z, w], {euler: degrees} or {axis, angle}, applied on top of the rest pose. Joints given alone merge into the current pose; replace clears it first. One undo step.
+
+- `id`: integer
+- `joints`: object; Joint name to rotation.
+- `name`: string; rest, A or T.
+- `replace`: boolean
+
+Note: safe to repeat.
+
+### body_list
+
+List the bodies in the project and the body library (formfabric's Basic Form plus the files under assets/bodies), and the named poses.
+
+- no parameters
+
+Note: read-only.
+
+### body_measure
+
+Standard measurements in millimetres computed from the posed mesh: height, chest (also bust), waist, hip (widest girth below the waist), inseam, shoulder width and arm length. Girths are convex hull perimeters of horizontal slices.
+
+- `id`: integer; Body id. Defaults to the first body.
+
+Note: read-only.
+
+### body_joints
+
+The skeleton of a body: each joint with parent, local rest offset, rest and posed world positions and its pose rotation as a quaternion [x, y, z, w].
+
+- `id`: integer; Body id. Defaults to the first body.
+
+Note: read-only.
+
+### place_volume_set
+
+Create, edit or remove a Placement Volume of a body: a cylinder stretched between two joints with a sideways and a front to back radius. Volumes are authored data: a body without any gets the default set from its joints the first time you edit one. Radius, height, scale and kind follow to the mirrored side (_L and _R names) unless mirror is false. One undo step.
+
+- `axis`: array of number; Rest axis direction in body space; it is normalised.
+- `body`: integer; range 1 to inf; Body id as listed by body.list. Defaults to the first body.
+- `center`: array of number; Rest centre in body space.
+- `height`: number; range 1 to 5000; Length along the axis.
+- `joints`: array of ['integer', 'string']; The two joints the volume follows, by name or index. It moves with them when the body is posed.
+- `kind`: string (cylinder | box | plane); Shape of the cross section. Placement wraps cylinders.
+- `mirror`: boolean; default true; Apply radius, height, scale and kind to the opposite side volume as well.
+- `name`: string; Volume name. A name ending _L or _R pairs it with the other side.
+- `radius`: array of number; Radius sideways (left right) and radius front to back.
+- `remove`: boolean; default false; Delete the volume and the points on it.
+- `scale`: number; range 0.1 to 10; Multiply the radius by this.
+- `volume`: ['integer', 'string']; Volume id or name. Leave out to create a new volume (name and radius required).
+
+### place_point_set
+
+Create, edit or remove a Placement Point: a named spot on a volume given by an angle around the axis, a fraction along it, an offset from the surface and whether panels wrap. Points are stored in volume coordinates and follow the volume when the body is posed. Mirrored partners change together unless mirror is false. One undo step.
+
+- `along`: number; range -1 to 2; Position along the axis from the first joint end (0) to the second (1).
+- `around`: number; range -720 to 720; Angle around the volume axis: 0 front, 90 left, 180 back, 270 right.
+- `body`: integer; range 1 to inf; Body id as listed by body.list. Defaults to the first body.
+- `mirror`: boolean; default true; Apply the change to the mirrored partner point as well.
+- `name`: string; Point name.
+- `offset`: number; range -200 to 1000; Gap between the volume surface and a panel placed here.
+- `point`: ['integer', 'string']; Point id or name. Leave out to create a new point (name and volume required).
+- `remove`: boolean; default false; Delete the point.
+- `volume`: ['integer', 'string']; Volume the point sits on, by id or name.
+- `wrap`: boolean; Whether a panel placed here bends around the volume.
+
+### place_points
+
+List the Placement Volumes and Points of a body with their world position, outward normal and up direction for the current pose. A body without stored volumes shows the default set that would be created, with stored false.
+
+- `body`: integer; range 1 to inf; Body id as listed by body.list. Defaults to the first body.
+
+Note: read-only.
+
+### place_defaults
+
+Replace the volumes and points of a body with the default set built from its joints: torso, neck, upper and lower arms, thighs and shins, with points front, back, left, right, skirt, neck, sleeves, cuffs and trouser legs in mirrored pairs. The volumes are sized by a fixed profile from the joint distances, not from the mesh. One undo step.
+
+- `body`: integer; range 1 to inf; Body id as listed by body.list. Defaults to the first body.
+
+### place_panel
+
+Put a panel on a Placement Point: the panel centre goes to the point plus the offset, the panel front faces away from the volume (flip faces it inward), its top points up the body, and the panel is bent about the volume axis with a radius that clears the volume so it wraps instead of cutting through. Sets place3d (origin, rotation, bend); one undo step. Run sim.reset afterwards so the drape starts from this shape.
+
+- `body`: integer; range 1 to inf; Body id as listed by body.list. Defaults to the first body.
+- `flip`: boolean; default false; Face the panel front toward the body instead of away from it.
+- `offset`: number; range -200 to 1000; Gap between the volume surface and the panel. Defaults to the point's own offset.
+- `orientation`: number; default 0; range -360 to 360; Turn the panel about its normal. 0 puts the panel top toward the head or shoulder; 180 turns it upside down and still wraps. Other angles place the panel flat on the tangent plane.
+- `panel`: integer; required; range 1 to inf; Panel id as listed by pattern.get.
+- `point`: ['integer', 'string']; required; Placement point id or name, as listed by place.points.
+- `wrap`: boolean; Bend the panel around the volume. Defaults to the point's wrap setting.
+
+Note: safe to repeat.
+
+### place_reset
+
+Clear the 3D placement of the given panels, or of all panels, so they return to the flat layout, and with volumes true rebuild the body's default volumes and points from its joints. One undo step.
+
+- `body`: integer; range 1 to inf; Body id as listed by body.list. Defaults to the first body.
+- `panels`: array of integer; Panel ids to return to the flat layout. Leave out for every panel.
+- `volumes`: boolean; default false; Also rebuild the default volumes and points of the body from its joints.
+
+### sew_auto
+
+Propose seams for the garment from the notches on the panels' own outline segments. Every open outline segment with notches is a candidate; segments pair only when their notch counts are equal, and all pairs are chosen together as one minimum-cost assignment where the cost is the relative length difference plus the mean difference of the notch positions (segments given the same tag in this call pair at zero cost). When both panels are placed in 3D, a small term for the distance between the segment midpoints settles ties between otherwise equal candidates; panels placed by hand or not placed work the same. Panels are never resized: a length mismatch is reported and left to the seam ratio. Works on panels placed by hand or not placed at all. Returns the proposals and the open segments; with apply the seams are created as one undo step and can be edited like any other seam.
+
+- `apply`: boolean; default false; Create the proposed seams as one undo step. Without it the command only returns proposals.
+- `max_cost`: number; default 0.35; range 0.01 to 5; Largest cost of a proposed pair: relative length difference plus mean notch position difference.
+- `min_length`: number; default 10; range 0 to 10000; Ignore outline segments shorter than this.
+- `panels`: array of integer; Only consider the outlines of these panels. Leave out for all panels.
+- `tags`: array of object; Join tags for this call: segments given the same tag are proposed as a seam, whatever their notches. Nothing is stored.
 [ffb-tools:end]
 
 ## Not yet available
