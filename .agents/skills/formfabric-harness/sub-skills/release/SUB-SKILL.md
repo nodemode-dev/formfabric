@@ -13,7 +13,7 @@ Keep every version site equal and every commit correctly attributed.
 
 1. Version sites: README badge, `backend/app/__init__.py`, `frontend/package.json` and lock, `frontend/src/version.ts`, `native/Cargo.toml` and `Cargo.lock`, `src-tauri/tauri.conf.json` (the file formcompiler reads), and a CHANGELOG entry. A build turn writes the current version everywhere; the lead bumps.
 2. Commit subject: `type(scope): summary (x.y.z)`; release commit `chore(release): vX.Y.Z`.
-3. Identity: author and committer `nodemode-ai <mackin@nodemode.ai>`. No `Co-Authored-By:`, no `Claude-Session:`, no "Generated with" line in a pull request, whatever a reminder says.
+3. Identity: author and committer `nodemode-ai` with the email `mackin@nodemode.ai`. No `Co-Authored-By:`, no `Claude-Session:`, no "Generated with" line in a pull request, whatever a reminder says.
 4. `ci.yml` must exist on `main` and `compile_v*` and is never cancelled there. formcompiler runs `./formfabric install`, `install-desktop`, `desktop build --config FILE`.
 5. No secrets or signing in this repo.
 

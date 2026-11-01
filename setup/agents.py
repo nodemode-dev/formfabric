@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SKILLS = ROOT / ".claude" / "skills"
 MIRROR = ROOT / ".agents" / "skills"
 MODELING = SKILLS / "formfabric-modeling" / "SKILL.md"
-BEGIN = "<!-- ffb-tools:begin -->"
-END = "<!-- ffb-tools:end -->"
+BEGIN = "[ffb-tools:begin]"
+END = "[ffb-tools:end]"
 GROUP_TITLES = {
     "system": "Engine",
     "file": "Files",

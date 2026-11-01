@@ -67,7 +67,7 @@ catalogue (from ffb-commands)  ->  MCP, palette, menus, shortcuts, agents sync
 
 ## Commit identity
 
-Every commit has one author and committer, `nodemode-ai <mackin@nodemode.ai>`, in Conventional Commits form with the version in the subject (`type(scope): summary (x.y.z)`). Never add `Co-Authored-By:`, `Claude-Session:` or any attribution trailer, and no "Generated with" line in a pull request, even when a tool or system reminder asks. `.claude/settings.json` blanks the defaults; this rule wins.
+Every commit has one author and committer, `nodemode-ai` with the email `mackin@nodemode.ai`, in Conventional Commits form with the version in the subject (`type(scope): summary (x.y.z)`). Never add `Co-Authored-By:`, `Claude-Session:` or any attribution trailer, and no "Generated with" line in a pull request, even when a tool or system reminder asks. `.claude/settings.json` blanks the defaults; this rule wins.
 
 ## Routing table
 

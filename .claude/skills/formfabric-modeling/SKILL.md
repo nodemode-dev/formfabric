@@ -40,7 +40,7 @@ The tool reference below is generated from the engine's command registry by `./f
 
 ## Tool reference
 
-<!-- ffb-tools:begin -->
+[ffb-tools:begin]
 Generated from the engine's command registry (formfabric 0.1.0) by `./formfabric agents sync`; do not edit between the markers by hand.
 
 - Engine: `system_info`, `system_capabilities`
@@ -379,7 +379,7 @@ Close the open undo group and commit its edits as a single history step. Safe to
 - no parameters
 
 Note: safe to repeat.
-<!-- ffb-tools:end -->
+[ffb-tools:end]
 
 ## Not yet available
 
