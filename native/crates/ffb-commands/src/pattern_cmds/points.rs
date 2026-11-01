@@ -124,6 +124,7 @@ fn add_point(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         if optional_id(a, "inner").is_none() {
             notch::on_split(panel, segment, &[t]);
         }
+        ffb_pattern::sew::note_split(panel, optional_id(a, "inner"), segment, &[t]);
         Ok(json!({"index": index, "segment": segment, "t": t, "point": point}))
     })
 }
@@ -166,6 +167,7 @@ fn split_line(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         if optional_id(a, "inner").is_none() {
             notch::on_split(panel, segment, &ts);
         }
+        ffb_pattern::sew::note_split(panel, optional_id(a, "inner"), segment, &ts);
         Ok(json!({"indices": indices, "segment": segment, "pieces": indices.len() + 1, "length": total}))
     })
 }
@@ -189,6 +191,7 @@ fn delete_point(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         let remaining = pts.len();
         if optional_id(a, "inner").is_none() {
             notch::on_delete(panel, &old, index);
+            ffb_pattern::sew::note_reproject(panel, &old);
         }
         Ok(json!({"removed": index, "points": remaining}))
     })
@@ -263,6 +266,7 @@ fn smooth(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         let remaining = pts.len();
         if rounded > 0 && optional_id(a, "inner").is_none() {
             notch::reproject(panel, &old);
+            ffb_pattern::sew::note_reproject(panel, &old);
         }
         Ok(json!({"rounded": rounded, "skipped": indices.len() - rounded, "points": remaining}))
     })

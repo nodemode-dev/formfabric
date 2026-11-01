@@ -50,6 +50,7 @@ fn bake(panel: &mut Panel, l: V2, pivot: V2) {
     panel.grain_line = panel.grain_line.map(|[a, b]| [point(a), point(b)]);
     if flips {
         crate::notch::on_reverse(panel);
+        crate::sew::note_reverse(panel);
     }
     panel.position = new_pos;
     panel.rotation = 0.0;
