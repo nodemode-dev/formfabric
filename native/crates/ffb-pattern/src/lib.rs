@@ -17,6 +17,7 @@ pub mod slash;
 pub mod snap;
 pub mod spiral;
 pub mod trace;
+pub mod trim;
 pub mod unfold;
 pub mod xform;
 

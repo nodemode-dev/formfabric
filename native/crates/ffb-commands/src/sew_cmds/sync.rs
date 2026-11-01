@@ -68,7 +68,9 @@ fn repair(s: &mut Session, ops: Vec<sew::Op>) {
 pub(crate) fn after_change(s: &mut Session, command: &str) {
     let ops = sew::take_pending();
     if !command.starts_with("history.") && !command.starts_with("file.") {
+        let for_trims = ops.clone();
         repair(s, ops);
+        crate::trim_cmds::follow(s, &for_trims);
     }
     sync_counts(s);
 }
