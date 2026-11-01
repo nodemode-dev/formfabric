@@ -379,8 +379,8 @@ export class Drape {
     this.strip.sync(first?.state ?? null);
   }
 
-  pinRegion(command: 'pin.box' | 'pin.lasso', panel: number, vertices: number[]): Promise<void> {
-    return call(command, { panel, vertices }).then(() => undefined, (err: unknown) => { toast(err instanceof Error ? err.message : String(err), 'error'); });
+  pinRegion(command: 'pin.box' | 'pin.lasso', hits: Array<[number, number[]]>): Promise<void> {
+    return call(command, { panels: hits.map(([panel, vertices]) => ({ panel, vertices })) }).then(() => undefined, (err: unknown) => { toast(err instanceof Error ? err.message : String(err), 'error'); });
   }
 
   async flat(panel: number): Promise<number[][] | null> {

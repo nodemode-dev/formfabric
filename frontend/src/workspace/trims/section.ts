@@ -104,11 +104,11 @@ export class TrimSection {
     this.lenA = add(outRow('Length A'), ['zipper']);
     this.lenB = add(outRow('Length B'), ['zipper']);
     this.mismatch = add(outRow('Mismatch'), ['zipper']);
-    this.offsetOut = add(outRow('Offset'), ['stitch']);
+    this.offsetOut = add(numRow('Offset', '', { step: 0.5 }, (v) => run('stitch.set', { stitch: idOf(), offset: Math.min(50, Math.max(-50, fromUnit(v, this.unit()))) })), ['stitch']);
     this.finishKind = add(outRow('Kind'), ['finish']);
-    this.finishWidth = add(outRow('Width'), ['finish']);
-    this.finishRatio = add(outRow('Ratio'), ['finish']);
-    this.finishStrength = add(outRow('Strength'), ['finish']);
+    this.finishWidth = add(numRow('Width', '', { min: 0, step: 0.5 }, (v) => run('finish.set', { finish: idOf(), width: Math.min(100, Math.max(1, fromUnit(v, this.unit()))) })), ['finish']);
+    this.finishRatio = add(numRow('Ratio', '', { min: 0.2, max: 2, step: 0.05 }, (v) => run('finish.set', { finish: idOf(), ratio: Math.min(2, Math.max(0.2, v)) })), ['finish']);
+    this.finishStrength = add(numRow('Strength', '', { min: 0, max: 20, step: 0.5 }, (v) => run('finish.set', { finish: idOf(), strength: Math.min(20, Math.max(0, v)) })), ['finish']);
     this.finishGen = add(outRow('Generated panels'), ['finish']);
     this.pname = add(textRow('Name', (v) => { if (v) run('print.set', { print: idOf(), name: v }); }), ['print']);
     this.pimage = add(textRow('Image', (v) => { if (v) run('print.set', { print: idOf(), image: v }); }), ['print']);
@@ -228,14 +228,18 @@ export class TrimSection {
       const st = styleOf(d, s.style);
       this.styleOut.set(st ? st.name : '-');
       const fray = numParam(st?.params, 'fray', 0);
-      this.offsetOut.set(fray > 0 ? `${fmtNum(fray)} mm` : len(s.offset));
+      this.offsetOut.unit(u);
+      this.offsetOut.set(toUnit(fray > 0 ? fray : s.offset, u));
+      this.offsetOut.disable(fray > 0);
     } else if (it.kind === 'finish') {
       const f = d.finishes.find((x) => x.id === it.id);
       if (!f) return;
       this.finishKind.set(t(f.kind.charAt(0).toUpperCase() + f.kind.slice(1)));
-      this.finishWidth.set(len(f.width));
-      this.finishRatio.set(f.kind === 'elastic' ? fmtNum(f.ratio) : '-');
-      this.finishStrength.set(f.strength > 0 ? fmtNum(f.strength) : '-');
+      this.finishWidth.unit(u);
+      this.finishWidth.set(toUnit(f.width, u));
+      this.finishRatio.show(f.kind === 'elastic');
+      this.finishRatio.set(f.ratio);
+      this.finishStrength.set(f.strength);
       this.finishGen.set(f.generated.length ? f.generated.map((id) => this.doc.panel(id)?.name ?? String(id)).join(', ') : '-');
     } else {
       const found = findPrint(g, it.id);

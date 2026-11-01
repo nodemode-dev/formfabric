@@ -22,6 +22,7 @@ export interface TrimDoc {
   zippers: TZipper[];
   stitches: TStitch[];
   finishes: TFinish[];
+  ripped: number[];
 }
 
 export interface TrimItem { kind: ItemKind; id: number }
@@ -35,7 +36,7 @@ export function trimDoc(g: Garment): TrimDoc {
   const hit = memo.get(g);
   if (hit) return hit;
   const w = g as WithTrims;
-  const doc: TrimDoc = { styles: w.styles ?? [], hardware: w.hardware ?? [], zippers: w.zippers ?? [], stitches: w.stitches ?? [], finishes: w.finishes ?? [] };
+  const doc: TrimDoc = { styles: w.styles ?? [], hardware: w.hardware ?? [], zippers: w.zippers ?? [], stitches: w.stitches ?? [], finishes: w.finishes ?? [], ripped: w.ripped ?? [] };
   memo.set(g, doc);
   return doc;
 }

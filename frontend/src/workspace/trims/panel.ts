@@ -3,8 +3,10 @@ import type { ShellDeps } from '../../shell/deps';
 import { el, q, setClass, setHidden, setText } from '../../ui/dom';
 import { onLanguage, t } from '../../ui/i18n';
 import { icon } from '../../ui/icons';
+import { toast } from '../../ui/toast';
 import type { DocStore } from '../doc';
 import { canPickImage, pickImage } from '../fabric/files';
+import { nativeDialogs, pickPath } from '../../shell/file-dialog';
 import { decimals, fromUnit, toUnit, type Selection } from '../state';
 import { itemLabel, removeTrim } from './actions';
 import './icons';
@@ -84,6 +86,7 @@ const SECTIONS: Array<[string, string, string]> = [
   ['styles', 'Styles', 'trims'],
   ['tools', 'Tool options', 'tTrimSelect'],
   ['items', 'Items', 'layers'],
+  ['seams', 'Seams', 'seamCheck'],
 ];
 
 const HTML =
@@ -108,6 +111,16 @@ export class TrimsPanel {
   private readonly groups = new Map<StyleKind, HTMLElement>();
   private readonly params: Array<[StyleKind, ParamRow]> = [];
   private readonly toolRows: Array<() => void> = [];
+  private readonly seamPick;
+  private readonly ripBtn;
+  private readonly mendBtn;
+  private readonly frayAmount;
+  private readonly frayBtn;
+  private readonly importBtn;
+  private readonly objText;
+  private objPath = '';
+  private seamId = 0;
+  private fray = 3;
   private isOpen = false;
   private yielding = false;
   private selStyle: number | null = null;
@@ -169,6 +182,34 @@ export class TrimsPanel {
     }
 
     this.buildTools(part('tools'));
+    const toolsBody = part('tools');
+    const importHead = el('<p class="ff-tr-sub"></p>');
+    label(importHead, 'Trim import');
+    const objRow = el('<div class="ff-tr-pathrow"></div>');
+    this.objText = textRow('File', (v) => { this.objPath = v; });
+    this.objText.input.disabled = false;
+    objRow.appendChild(this.objText.el);
+    if (nativeDialogs()) {
+      const browse = el<HTMLButtonElement>(`<button class="cv-icon-btn" type="button">${icon('folder', 16)}</button>`);
+      titled(browse, 'Browse');
+      browse.addEventListener('click', () => { void pickPath('open', null, 'obj').then((p) => { if (p) { this.objPath = p; this.objText.set(p); } }); });
+      objRow.appendChild(browse);
+    }
+    this.importBtn = action('Import trim', 'tTrimMesh', () => { void this.importTrim(); });
+    toolsBody.append(importHead, objRow, this.importBtn.el);
+
+    const seamsBody = part('seams');
+    this.seamPick = selRow('Seam', [['0', '-']], false, (v) => { this.seamId = Number(v); this.render(); });
+    this.seamPick.select.disabled = false;
+    this.ripBtn = action('Rip', null, () => { void this.doc.run('sew.rip', { seams: [this.seamId] }); });
+    this.mendBtn = action('Mend', null, () => { void this.doc.run('sew.mend', { seams: [this.seamId] }); });
+    this.frayAmount = numRow('Fray', 'mm', { min: 0.1, max: 30, step: 0.5 }, (v) => { this.fray = Math.min(30, Math.max(0.1, v)); });
+    this.frayAmount.input.disabled = false;
+    this.frayAmount.set(this.fray);
+    this.frayBtn = action('Add fray', null, () => { if (this.seamId > 0) void this.doc.run('fray.add', { seam: this.seamId, amount: this.fray }); });
+    const seamActions = el('<div class="ff-tr-actions"></div>');
+    seamActions.append(this.ripBtn.el, this.mendBtn.el, this.frayBtn.el);
+    seamsBody.append(this.seamPick.el, seamActions, this.frayAmount.el);
 
     this.items = el('<div class="ff-tr-list ff-tr-list-items" role="listbox"></div>');
     this.itemsEmpty = el('<p class="ff-tr-empty"></p>');
@@ -323,6 +364,20 @@ export class TrimsPanel {
     this.render();
   }
 
+  private async importTrim(): Promise<void> {
+    if (!this.objPath && nativeDialogs()) {
+      const p = await pickPath('open', null, 'obj');
+      if (p) { this.objPath = p; this.objText.set(p); }
+    }
+    const ids = this.sel.list().filter((id) => this.doc.panel(id));
+    if (!this.objPath) return;
+    if (ids.length !== 1) { toast(t('Select one panel'), 'error'); return; }
+    const geo = this.doc.geos().find((x) => x.panel.id === ids[0]);
+    const point = geo ? geo.center : this.doc.panel(ids[0])?.position;
+    if (!point) return;
+    await this.doc.run('trim.import', { path: this.objPath, panel: ids[0], point });
+  }
+
   setOpen(on: boolean): void {
     if (on === this.isOpen) return;
     this.isOpen = on;
@@ -408,5 +463,14 @@ export class TrimsPanel {
       },
     });
     setHidden(this.itemsEmpty, rows.length > 0);
+
+    const seams = this.doc.sew.seams;
+    this.seamPick.options(seams.length ? seams.map((s): [string, string] => [String(s.id), `${t('Seam')} ${s.id}`]) : [['0', '-']], false);
+    if (!seams.some((s) => s.id === this.seamId)) this.seamId = this.sel.seam !== null && seams.some((s) => s.id === this.sel.seam) ? (this.sel.seam as number) : seams.length ? seams[0].id : 0;
+    this.seamPick.set(String(this.seamId));
+    const torn = d.ripped.includes(this.seamId);
+    this.ripBtn.set(this.seamId === 0 || torn);
+    this.mendBtn.set(this.seamId === 0 || !torn);
+    this.frayBtn.set(this.seamId === 0);
   }
 }

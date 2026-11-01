@@ -1,6 +1,32 @@
 import type { PinMark, SeamLine } from '../drape/types';
 import type { Frame } from './frame';
 import type { Scene } from './scene';
+import type { Garment } from '../types';
+import { trimBuffers } from '../trims/hook3d';
+import type { DrawPalette } from './renderer';
+
+const PVS = `#version 300 es
+layout(location = 0) in vec4 aPos;
+uniform mat4 uVP;
+uniform float uScale;
+void main() {
+  vec4 p = uVP * vec4(aPos.xyz, 1.0);
+  p.z -= 0.0012 * p.w;
+  gl_Position = p;
+  gl_PointSize = clamp(aPos.w * uScale / max(p.w, 1e-4), 3.0, 64.0);
+}`;
+
+const PFS = `#version 300 es
+precision highp float;
+uniform vec4 uColor;
+out vec4 outColor;
+void main() {
+  vec2 c = gl_PointCoord * 2.0 - 1.0;
+  if (dot(c, c) > 1.0) discard;
+  outColor = uColor;
+}`;
+
+interface TrimRun { accent: boolean; first: number; count: number }
 
 const VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
@@ -38,6 +64,22 @@ export class Extras {
   private scratch = new Float32Array(1024);
   private gpuBytes = 0;
   private readonly tmp = new Float64Array(3);
+  private readonly pprog: WebGLProgram;
+  private readonly puVP: WebGLUniformLocation | null;
+  private readonly puScale: WebGLUniformLocation | null;
+  private readonly puColor: WebGLUniformLocation | null;
+  private readonly tvao: WebGLVertexArrayObject | null;
+  private readonly tbuf: WebGLBuffer | null;
+  private readonly pvao: WebGLVertexArrayObject | null;
+  private readonly pbuf: WebGLBuffer | null;
+  private tscratch = new Float32Array(1024);
+  private pscratch = new Float32Array(1024);
+  private tbytes = 0;
+  private pbytes = 0;
+  private truns: TrimRun[] = [];
+  private pcount = 0;
+  private tgarment: Garment | null = null;
+  private tversion = -1;
 
   constructor(private readonly gl: WebGL2RenderingContext) {
     const prog = gl.createProgram() as WebGLProgram;
@@ -56,6 +98,109 @@ export class Extras {
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    const pprog = gl.createProgram() as WebGLProgram;
+    gl.attachShader(pprog, compile(gl, gl.VERTEX_SHADER, PVS));
+    gl.attachShader(pprog, compile(gl, gl.FRAGMENT_SHADER, PFS));
+    gl.linkProgram(pprog);
+    if (!gl.getProgramParameter(pprog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pprog) ?? 'link');
+    this.pprog = pprog;
+    this.puVP = gl.getUniformLocation(pprog, 'uVP');
+    this.puScale = gl.getUniformLocation(pprog, 'uScale');
+    this.puColor = gl.getUniformLocation(pprog, 'uColor');
+    this.tvao = gl.createVertexArray();
+    this.tbuf = gl.createBuffer();
+    gl.bindVertexArray(this.tvao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.tbuf);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    this.pvao = gl.createVertexArray();
+    this.pbuf = gl.createBuffer();
+    gl.bindVertexArray(this.pvao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.pbuf);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  }
+
+  syncTrims(garment: Garment, scene: Scene): void {
+    if (garment === this.tgarment && scene.version === this.tversion) return;
+    this.tgarment = garment;
+    this.tversion = scene.version;
+    const gl = this.gl;
+    const t = trimBuffers(garment, (id) => {
+      const b = scene.get(id);
+      return b && b.ready && b.local ? { local: b.local, idx: b.idx, pos: b.pos } : null;
+    });
+    let lf = 0;
+    for (const l of t.lines) lf += l.positions.length;
+    let pf = 0;
+    for (const p of t.points) pf += p.diameters.length * 4;
+    if (this.tscratch.length < lf) this.tscratch = new Float32Array(lf * 2);
+    if (this.pscratch.length < pf) this.pscratch = new Float32Array(pf * 2);
+    this.truns.length = 0;
+    let at = 0;
+    for (const l of t.lines) {
+      this.tscratch.set(l.positions, at);
+      this.truns.push({ accent: l.layer === 'finish' || l.layer === 'fray' || l.layer === 'buttonhole', first: at / 3, count: l.positions.length / 3 });
+      at += l.positions.length;
+    }
+    let pn = 0;
+    for (const p of t.points) {
+      for (let i = 0; i < p.diameters.length; i++) {
+        this.pscratch[pn++] = p.positions[i * 3];
+        this.pscratch[pn++] = p.positions[i * 3 + 1];
+        this.pscratch[pn++] = p.positions[i * 3 + 2];
+        this.pscratch[pn++] = p.diameters[i];
+      }
+    }
+    this.pcount = pn / 4;
+    if (at > 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.tbuf);
+      if (at * 4 > this.tbytes) {
+        this.tbytes = Math.max(at * 4, this.tbytes * 2);
+        gl.bufferData(gl.ARRAY_BUFFER, this.tbytes, gl.DYNAMIC_DRAW);
+      }
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.tscratch, 0, at);
+    }
+    if (pn > 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.pbuf);
+      if (pn * 4 > this.pbytes) {
+        this.pbytes = Math.max(pn * 4, this.pbytes * 2);
+        gl.bufferData(gl.ARRAY_BUFFER, this.pbytes, gl.DYNAMIC_DRAW);
+      }
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.pscratch, 0, pn);
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  }
+
+  drawTrims(f: Frame, pal: DrawPalette): void {
+    if (this.truns.length === 0 && this.pcount === 0) return;
+    const gl = this.gl;
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.depthMask(false);
+    if (this.truns.length > 0) {
+      gl.useProgram(this.prog);
+      gl.uniformMatrix4fv(this.uVP, false, f.vp);
+      gl.bindVertexArray(this.tvao);
+      for (const r of this.truns) {
+        const c = r.accent ? pal.accent : pal.line;
+        gl.uniform4f(this.uColor, c[0], c[1], c[2], 0.95);
+        gl.drawArrays(gl.LINES, r.first, r.count);
+      }
+    }
+    if (this.pcount > 0) {
+      gl.useProgram(this.pprog);
+      gl.uniformMatrix4fv(this.puVP, false, f.vp);
+      gl.uniform1f(this.puScale, 0.5 * f.height * f.proj[5]);
+      gl.uniform4f(this.puColor, pal.line[0], pal.line[1], pal.line[2], 1);
+      gl.bindVertexArray(this.pvao);
+      gl.drawArrays(gl.POINTS, 0, this.pcount);
+    }
+    gl.depthMask(true);
+    gl.disable(gl.DEPTH_TEST);
+    gl.bindVertexArray(null);
   }
 
   pinAt(panel: number, vertex: number): number {

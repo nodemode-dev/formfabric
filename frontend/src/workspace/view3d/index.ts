@@ -208,6 +208,7 @@ export class View3D {
       this.feedIn.sync(this.doc.garment as GarmentFull);
       this.applyStates();
       this.drape.docChanged();
+      this.redraw();
     });
     this.feedIn.sync(this.doc.garment as GarmentFull);
     void this.feedIn.refreshCaps();
@@ -477,9 +478,7 @@ export class View3D {
       if (list.length) hits.push([b.id, list]);
     }
     const command = r.kind === 'box' ? 'pin.box' : 'pin.lasso';
-    void (async (): Promise<void> => {
-      for (const [panel, vertices] of hits) await this.drape.pinRegion(command, panel, vertices);
-    })();
+    if (hits.length) void this.drape.pinRegion(command, hits);
   }
 
   private finishFold(p: number[]): void {
@@ -767,6 +766,10 @@ export class View3D {
     gl.bindVertexArray(null);
     this.meshes.draw(this.frame, this.scene, this.style, this.sel.panels, this.hover, this.pal);
     if (this.extras && !this.drape.draping) this.extras.drawSeams(this.frame, this.scene, this.pal.accent);
+    if (this.extras) {
+      this.extras.syncTrims(this.doc.garment, this.scene);
+      this.extras.drawTrims(this.frame, this.pal);
+    }
     const ms = performance.now() - t0;
     this.lastPaintMs = ms;
     this.statMs = this.statMs === 0 ? ms : this.statMs * 0.7 + ms * 0.3;

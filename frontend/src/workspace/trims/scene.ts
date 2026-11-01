@@ -125,7 +125,7 @@ export interface TrimScene {
   byHardware: Map<number, HwGeo>;
 }
 
-export const EMPTY_SCENE: TrimScene = { doc: { styles: [], hardware: [], zippers: [], stitches: [], finishes: [] }, stitches: [], zippers: [], finishes: [], hardware: [], prints: new Map(), byHardware: new Map() };
+export const EMPTY_SCENE: TrimScene = { doc: { styles: [], hardware: [], zippers: [], stitches: [], finishes: [], ripped: [] }, stitches: [], zippers: [], finishes: [], hardware: [], prints: new Map(), byHardware: new Map() };
 
 function toWorld(runs: LocalRun[]): Vec[][] {
   return runs.map((r) => r.pts.map((p) => place(r.panel, p)));
