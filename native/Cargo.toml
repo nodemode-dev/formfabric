@@ -13,6 +13,8 @@ publish = false
 [workspace.dependencies]
 ffb-core = { path = "crates/ffb-core" }
 ffb-pattern = { path = "crates/ffb-pattern" }
+ffb-fabric = { path = "crates/ffb-fabric" }
+ffb-mesh = { path = "crates/ffb-mesh" }
 ffb-io = { path = "crates/ffb-io" }
 ffb-commands = { path = "crates/ffb-commands" }
 glam = "0.34"

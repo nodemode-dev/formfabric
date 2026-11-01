@@ -178,7 +178,7 @@ fn add_inner(s: &mut Session, a: &Value, label: &str, kind: InnerKind, mut pts: 
         if !path::flatten(&pts, closed, 0.2).into_iter().all(inside) {
             return Err(geometry("the inner shape must lie inside the panel outline"));
         }
-        panel.inner.push(Inner { id, kind, points: pts, closed, fold_angle: angle, fold_strength: strength });
+        panel.inner.push(Inner { id, kind, points: pts, closed, fold_angle: angle, fold_strength: strength, ..Inner::default() });
         Ok(json!({"panel": panel_id, "id": id, "kind": format!("{kind:?}").to_lowercase(), "index": panel.inner.len() - 1}))
     })?;
     Ok(out)

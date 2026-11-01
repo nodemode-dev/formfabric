@@ -133,7 +133,9 @@ name = "ffb-commands"
 version = "0.3.0"
 dependencies = [
  "ffb-core",
+ "ffb-fabric",
  "ffb-io",
+ "ffb-mesh",
  "ffb-pattern",
  "serde",
  "serde_json",
@@ -148,6 +150,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ffb-fabric"
+version = "0.3.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ffb-io"
 version = "0.3.0"
 dependencies = [
@@ -157,10 +167,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ffb-mesh"
+version = "0.3.0"
+dependencies = [
+ "ffb-pattern",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ffb-pattern"
 version = "0.3.0"
 dependencies = [
  "ffb-core",
+ "ffb-fabric",
  "serde",
  "serde_json",
 ]

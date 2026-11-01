@@ -9,5 +9,6 @@ publish.workspace = true
 
 [dependencies]
 ffb-core.workspace = true
+ffb-fabric.workspace = true
 serde.workspace = true
 serde_json.workspace = true

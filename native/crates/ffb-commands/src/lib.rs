@@ -1,8 +1,12 @@
 mod args;
+mod exchange_cmds;
+mod fabric_cmds;
 mod file_cmds;
 mod history;
 mod history_cmds;
+mod mesh_cmds;
 mod pattern_cmds;
+mod pattern_tools_cmds;
 mod system_cmds;
 mod view_cmds;
 
@@ -121,6 +125,10 @@ static COMMANDS: LazyLock<Vec<Command>> = LazyLock::new(|| {
     all.extend(history_cmds::commands());
     all.extend(view_cmds::commands());
     all.extend(pattern_cmds::commands());
+    all.extend(pattern_tools_cmds::commands());
+    all.extend(exchange_cmds::commands());
+    all.extend(mesh_cmds::commands());
+    all.extend(fabric_cmds::commands());
     all
 });
 

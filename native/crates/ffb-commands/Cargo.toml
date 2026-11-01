@@ -11,6 +11,8 @@ publish.workspace = true
 ffb-core.workspace = true
 ffb-io.workspace = true
 ffb-pattern.workspace = true
+ffb-fabric.workspace = true
+ffb-mesh.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
