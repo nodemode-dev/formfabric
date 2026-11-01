@@ -17,6 +17,7 @@ ffb-sim.workspace = true
 ffb-body.workspace = true
 ffb-anim.workspace = true
 ffb-remesh.workspace = true
+glam.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

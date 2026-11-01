@@ -9,4 +9,7 @@ publish.workspace = true
 
 [dependencies]
 ffb-core.workspace = true
-glam.workspace = true
+ffb-pattern.workspace = true
+ffb-mesh.workspace = true
+serde.workspace = true
+spade = "2.15"
