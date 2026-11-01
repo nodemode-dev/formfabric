@@ -1,4 +1,4 @@
-import { pointInPoly, type Hit, type PanelGeo, type Seg } from '../geom';
+import { pointInPoly, type Hit, type NotchGeo, type PanelGeo, type Seg } from '../geom';
 import type { Selection } from '../state';
 import { toUnit } from '../state';
 import type { Cam, Colors, Tool } from './ctx';
@@ -135,6 +135,81 @@ function rulers(g: CanvasRenderingContext2D, sc: Scene): void {
   g.restore();
 }
 
+export function notch(g: CanvasRenderingContext2D, n: NotchGeo, map: (x: number, y: number) => [number, number], s: number, color: string, alpha: number): void {
+  const p = map(n.pt[0], n.pt[1]);
+  const l = Math.hypot(n.n[0], n.n[1]) || 1;
+  const nx = n.n[0] / l;
+  const ny = -n.n[1] / l;
+  const px = -ny;
+  const py = nx;
+  const d = Math.max(5, n.depth * s);
+  const w = Math.max(4, n.width * s);
+  g.save();
+  g.globalAlpha = alpha;
+  g.strokeStyle = color;
+  g.lineWidth = 1.4;
+  g.lineCap = 'round';
+  g.beginPath();
+  if (n.kind === 'slit') {
+    g.moveTo(p[0], p[1]);
+    g.lineTo(p[0] + nx * d, p[1] + ny * d);
+  } else if (n.kind === 'v') {
+    g.moveTo(p[0] - px * w / 2, p[1] - py * w / 2);
+    g.lineTo(p[0] + nx * d, p[1] + ny * d);
+    g.lineTo(p[0] + px * w / 2, p[1] + py * w / 2);
+  } else if (n.kind === 't') {
+    g.moveTo(p[0], p[1]);
+    g.lineTo(p[0] + nx * d, p[1] + ny * d);
+    g.moveTo(p[0] + nx * d - px * w / 2, p[1] + ny * d - py * w / 2);
+    g.lineTo(p[0] + nx * d + px * w / 2, p[1] + ny * d + py * w / 2);
+  } else {
+    const r = w / 2;
+    const c = [p[0] + nx * Math.max(d - r, 0), p[1] + ny * Math.max(d - r, 0)];
+    g.moveTo(p[0] - px * r, p[1] - py * r);
+    g.lineTo(c[0] - px * r, c[1] - py * r);
+    const cross = -px * ny - -py * nx;
+    g.arc(c[0], c[1], r, Math.atan2(-py, -px), Math.atan2(py, px), cross < 0);
+    g.lineTo(p[0] + px * r, p[1] + py * r);
+  }
+  g.stroke();
+  g.restore();
+}
+
+function linkBadge(g: CanvasRenderingContext2D, geo: PanelGeo, map: (x: number, y: number) => [number, number], c: Colors): void {
+  const tl = map(geo.bounds[0], geo.bounds[3]);
+  const x = Math.round(tl[0]) + 6;
+  const y = Math.round(tl[1]) + 6;
+  const link = geo.panel.link;
+  const ord = link && link.kind === 'instance' && Array.isArray(link.axis) && Array.isArray(link.axis[1]) ? Number(link.axis[1][0]) : 0;
+  g.save();
+  g.fillStyle = c.bg;
+  g.globalAlpha = 0.92;
+  g.fillRect(x, y, ord > 0 ? 30 : 22, 16);
+  g.globalAlpha = 1;
+  g.strokeStyle = c.muted;
+  g.lineWidth = 1;
+  g.strokeRect(x + 0.5, y + 0.5, ord > 0 ? 29 : 21, 15);
+  g.strokeStyle = c.text;
+  g.lineWidth = 1.3;
+  g.beginPath();
+  g.roundRect(x + 4, y + 5, 8, 6, 3);
+  g.roundRect(x + 9, y + 5, 8, 6, 3);
+  g.stroke();
+  if (ord > 0) {
+    g.font = '10px Inter, sans-serif';
+    g.fillStyle = c.text;
+    g.textBaseline = 'middle';
+    g.fillText(String(ord), x + 20, y + 9);
+  } else {
+    g.setLineDash([2, 2]);
+    g.beginPath();
+    g.moveTo(x + 10.5, y + 2);
+    g.lineTo(x + 10.5, y + 14);
+    g.stroke();
+  }
+  g.restore();
+}
+
 export function drawScene(g: CanvasRenderingContext2D, sc: Scene, tool: Tool): void {
   const { w, h, cam, colors } = sc;
   g.fillStyle = colors.bg;
@@ -148,56 +223,101 @@ export function drawScene(g: CanvasRenderingContext2D, sc: Scene, tool: Tool): v
 
   for (const geo of geos) {
     const picked = sc.sel.panels.has(geo.panel.id);
-    g.beginPath();
-    pathSegs(g, geo.outline, map, true);
-    g.globalAlpha = picked ? 0.2 : 0.09;
-    g.fillStyle = picked ? colors.accent : colors.text;
-    g.fill();
-    g.globalAlpha = 1;
-    g.lineWidth = picked ? 2 : 1.5;
-    g.strokeStyle = picked ? colors.accent : colors.line;
-    g.stroke();
-
-    for (const inner of geo.inner) {
+    const dim = geo.linked ? 0.6 : 1;
+    if (geo.seam) {
       g.beginPath();
-      pathSegs(g, inner.segs, map, inner.closed);
+      pathSegs(g, geo.seam, map, true);
+      g.globalAlpha = (picked ? 1 : 0.85) * dim;
       g.lineWidth = 1;
-      g.setLineDash([5, 4]);
+      g.setLineDash([7, 4]);
       g.strokeStyle = picked ? colors.accent : colors.muted;
       g.stroke();
       g.setLineDash([]);
+      g.globalAlpha = 1;
     }
+    g.beginPath();
+    pathSegs(g, geo.outline, map, true);
+    g.globalAlpha = picked ? 0.2 : geo.linked ? 0.05 : 0.09;
+    g.fillStyle = picked ? colors.accent : colors.text;
+    g.fill();
+    g.globalAlpha = dim;
+    g.lineWidth = picked ? 2 : 1.5;
+    g.strokeStyle = picked ? colors.accent : colors.line;
+    g.stroke();
+    g.globalAlpha = 1;
 
-    const [cx, cy] = map(geo.center[0], geo.center[1]);
-    const gr = (geo.panel.rotation + (geo.panel.mirror ? 180 - geo.panel.grain : geo.panel.grain)) * (Math.PI / 180);
-    const half = Math.min(geo.bounds[2] - geo.bounds[0], geo.bounds[3] - geo.bounds[1]) * 0.22 * cam.s;
-    if (half > 8) {
-      const dx = Math.cos(gr) * half;
-      const dy = -Math.sin(gr) * half;
+    for (const inner of geo.inner) {
+      const chosen = sc.sel.inner !== null && sc.sel.inner.panel === geo.panel.id && sc.sel.inner.id === inner.id;
       g.beginPath();
-      g.moveTo(cx - dx, cy - dy);
-      g.lineTo(cx + dx, cy + dy);
-      g.lineWidth = 1;
-      g.strokeStyle = colors.muted;
-      g.stroke();
-      for (const k of [-1, 1]) {
-        const ex = cx + dx * k;
-        const ey = cy + dy * k;
-        const ang = Math.atan2(dy * k, dx * k);
-        g.beginPath();
-        g.moveTo(ex, ey);
-        g.lineTo(ex - Math.cos(ang - 0.45) * 7, ey - Math.sin(ang - 0.45) * 7);
-        g.moveTo(ex, ey);
-        g.lineTo(ex - Math.cos(ang + 0.45) * 7, ey - Math.sin(ang + 0.45) * 7);
+      pathSegs(g, inner.segs, map, inner.closed);
+      g.globalAlpha = dim;
+      const tone = chosen || picked ? colors.accent : colors.muted;
+      if (inner.role === 'fold') {
+        g.lineWidth = 1.8;
+        g.setLineDash([12, 3, 2, 3]);
+        g.strokeStyle = chosen || picked ? colors.accent : colors.text;
+        g.stroke();
+      } else if (inner.role === 'dart') {
+        g.globalAlpha = 0.14 * dim;
+        g.fillStyle = tone;
+        if (inner.closed) g.fill();
+        g.globalAlpha = dim;
+        g.lineWidth = 1.4;
+        g.setLineDash([]);
+        g.strokeStyle = chosen || picked ? colors.accent : colors.line;
+        g.stroke();
+      } else if (inner.role === 'reference') {
+        g.lineWidth = 1;
+        g.setLineDash([1.5, 4]);
+        g.strokeStyle = tone;
+        g.stroke();
+      } else {
+        g.lineWidth = chosen ? 2 : 1;
+        g.setLineDash([5, 4]);
+        g.strokeStyle = tone;
         g.stroke();
       }
+      g.setLineDash([]);
+      g.globalAlpha = 1;
     }
-    if (Math.min(geo.bounds[2] - geo.bounds[0], geo.bounds[3] - geo.bounds[1]) * cam.s > 36) {
+
+    for (const n of geo.notches) notch(g, n, map, cam.s, picked ? colors.accent : colors.text, dim);
+
+    const [cx, cy] = map(geo.center[0], geo.center[1]);
+    const small = Math.min(geo.bounds[2] - geo.bounds[0], geo.bounds[3] - geo.bounds[1]) * cam.s;
+    let labelY = cy + 16;
+    if (geo.grain) {
+      const a = map(geo.grain.a[0], geo.grain.a[1]);
+      const b = map(geo.grain.b[0], geo.grain.b[1]);
+      const px = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (px > 14) {
+        g.globalAlpha = (geo.grain.set ? 1 : 0.38) * dim;
+        g.strokeStyle = geo.grain.set ? colors.text : colors.muted;
+        g.lineWidth = geo.grain.set ? 1.4 : 1;
+        g.beginPath();
+        g.moveTo(a[0], a[1]);
+        g.lineTo(b[0], b[1]);
+        for (const [e, o] of [[b, a], [a, b]]) {
+          const ang = Math.atan2(e[1] - o[1], e[0] - o[0]);
+          g.moveTo(e[0], e[1]);
+          g.lineTo(e[0] - Math.cos(ang - 0.45) * 8, e[1] - Math.sin(ang - 0.45) * 8);
+          g.moveTo(e[0], e[1]);
+          g.lineTo(e[0] - Math.cos(ang + 0.45) * 8, e[1] - Math.sin(ang + 0.45) * 8);
+        }
+        g.stroke();
+        g.globalAlpha = 1;
+        labelY = Math.max(a[1], b[1]) + 16;
+      }
+    }
+    if (small > 36) {
       g.font = '11px Inter, sans-serif';
       g.textAlign = 'center';
+      g.globalAlpha = dim;
       g.fillStyle = picked ? colors.accent : colors.muted;
-      g.fillText(geo.panel.name, cx, cy + Math.max(half, 0) + 16);
+      g.fillText(geo.panel.name, cx, Math.max(labelY, cy + 16));
       g.textAlign = 'start';
+      g.globalAlpha = 1;
+      if (geo.linked) linkBadge(g, geo, map, colors);
     }
   }
 

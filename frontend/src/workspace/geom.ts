@@ -1,4 +1,4 @@
-import type { Panel, Pt, Vec } from './types';
+import type { InnerRole, Notch, NotchKind, Panel, Pt, Vec } from './types';
 
 export const add = (a: Vec, b: Vec): Vec => [a[0] + b[0], a[1] + b[1]];
 export const sub = (a: Vec, b: Vec): Vec => [a[0] - b[0], a[1] - b[1]];
@@ -132,12 +132,20 @@ export function pointInPoly(p: Vec, poly: Vec[]): boolean {
   return inside;
 }
 
-export interface InnerGeo { id: number; kind: string; closed: boolean; segs: Seg[]; pts: Vec[] }
+export interface InnerGeo { id: number; kind: string; role: InnerRole; closed: boolean; segs: Seg[]; pts: Vec[] }
+
+export interface NotchGeo { id: number; kind: NotchKind; pt: Vec; n: Vec; depth: number; width: number }
+
+export interface GrainGeo { a: Vec; b: Vec; set: boolean }
 
 export interface PanelGeo {
   panel: Panel;
   outline: Seg[];
+  seam: Seg[] | null;
   inner: InnerGeo[];
+  notches: NotchGeo[];
+  grain: GrainGeo | null;
+  linked: boolean;
   pts: Vec[];
   hin: Array<Vec | null>;
   hout: Array<Vec | null>;
@@ -158,12 +166,47 @@ export function geoOf(panel: Panel): PanelGeo {
   const poly: Vec[] = pts.length ? [pts[0]] : [];
   for (const s of outline) flatten(s, 16, poly);
   const b = boundsOf(poly.length ? poly : [[0, 0]]);
+  const kinds = new Map<number, Notch>();
+  for (const n of panel.notches ?? []) kinds.set(n.id, n);
+  const g = panel.grain_line_effective;
   const geo: PanelGeo = {
     panel, outline, pts, hin, hout, poly, bounds: b, center: [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2],
-    inner: panel.inner.map((i) => ({ id: i.id, kind: i.kind, closed: i.closed, segs: segsOf(panel, i.points, i.closed), pts: i.points.map((p) => place(panel, p.p)) })),
+    seam: panel.seam_outline && panel.seam_outline.length > 2 ? segsOf(panel, panel.seam_outline, true) : null,
+    notches: (panel.notch_points ?? []).map((n) => {
+      const k = kinds.get(n.id);
+      return { id: n.id, kind: k?.kind ?? 'slit', pt: place(panel, n.point), n: placeVec(panel, n.normal), depth: k?.depth ?? 6, width: k?.width ?? 3 };
+    }),
+    grain: g ? { a: place(panel, g.from), b: place(panel, g.to), set: !g.computed } : null,
+    linked: !!panel.link,
+    inner: panel.inner.map((i) => ({ id: i.id, kind: i.kind, role: i.role ?? 'shape', closed: i.closed, segs: segsOf(panel, i.points, i.closed), pts: i.points.map((p) => place(panel, p.p)) })),
   };
   cache.set(panel, geo);
   return geo;
+}
+
+export interface InnerHit { panel: number; inner: number; d: number }
+
+export function hitInner(geos: PanelGeo[], w: Vec, tol: number, closedFill: boolean): InnerHit | null {
+  let best: InnerHit | null = null;
+  let fill: InnerHit | null = null;
+  let area = Infinity;
+  for (const g of geos) {
+    for (const i of g.inner) {
+      let d = Infinity;
+      for (const s of i.segs) d = Math.min(d, nearestOnSeg(s, w).d);
+      if (d <= tol && (!best || d < best.d)) best = { panel: g.panel.id, inner: i.id, d };
+      if (closedFill && i.closed && i.segs.length) {
+        const poly: Vec[] = [i.segs[0].a];
+        for (const s of i.segs) flatten(s, 12, poly);
+        if (pointInPoly(w, poly)) {
+          const b = boundsOf(poly);
+          const a = (b[2] - b[0]) * (b[3] - b[1]);
+          if (a < area) { area = a; fill = { panel: g.panel.id, inner: i.id, d: 0 }; }
+        }
+      }
+    }
+  }
+  return best ?? fill;
 }
 
 export type HitKind = 'handle' | 'point' | 'segment' | 'panel';

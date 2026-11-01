@@ -50,29 +50,24 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   const sel = new Selection();
   const doc = new DocStore(deps.engine, (m) => deps.toast(m, 'error'));
 
-  const inspector = new Inspector(q(root, '[data-k="inspector"]'), doc, sel, unit);
+  const inspector = new Inspector(q(root, '[data-k="inspector"]'), doc, sel, unit, () => view.redraw());
   let inspectorQueued = false;
   const scheduleInspector = (): void => {
     if (inspectorQueued) return;
     inspectorQueued = true;
     requestAnimationFrame(() => { inspectorQueued = false; inspector.update(); });
   };
+  void import('./fabric').then((m) => m.mountFabric(root, deps, doc, sel));
   const zoomEl = q(root, '[data-k="zoom"]');
-
-  const cursorEl = document.createElement('span');
-  cursorEl.className = 'cv-st-cursor';
-  const statusRoot = document.querySelector('.cv-status');
-  const hintEl = statusRoot?.querySelector('.cv-st-hint');
-  if (statusRoot && hintEl) statusRoot.insertBefore(cursorEl, hintEl);
 
   const toolsEl = q(root, '[data-k="tools"]');
   const toolButtons = new Map<string, HTMLButtonElement>();
   const view = new PatternView(q(root, '[data-k="pane2d"]'), q(root, '[data-k="canvas2d"]'), deps, doc, sel, {
-    selected: () => { inspector.update(); view.redraw(); },
+    selected: () => { inspector.update(); view.redraw(); view3d.redraw(); },
     cursor: (w: Vec | null) => {
       const u = unit();
       const d = decimals(u);
-      setText(cursorEl, w ? `X ${toUnit(w[0], u).toFixed(d)}  Y ${toUnit(w[1], u).toFixed(d)} ${u}` : '');
+      deps.status.setCursor(w ? `X ${toUnit(w[0], u).toFixed(d)}  Y ${toUnit(w[1], u).toFixed(d)} ${u}` : '');
     },
     zoom: (s) => setText(zoomEl, `${Math.round(s * 100)}%`),
     tool: (id) => { for (const [k, b] of toolButtons) setClass(b, 'is-on', k === id); },
@@ -90,13 +85,17 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
     toolsEl.appendChild(b);
     return b;
   };
+  const addRule = (): void => {
+    const r = document.createElement('i');
+    r.className = 'ff-tool-rule';
+    toolsEl.appendChild(r);
+  };
   for (const tool of view.tools) {
+    if (tool.id === 'seam') addRule();
     const b = addButton(tool.id, tool.icon, tool.key, tool.label, () => view.setTool(tool.id));
     toolButtons.set(tool.id, b);
   }
-  const rule = document.createElement('i');
-  rule.className = 'ff-tool-rule';
-  toolsEl.appendChild(rule);
+  addRule();
   const snapBtn = addButton('snap', 'snap', 'N', 'Snap', () => {
     const p = deps.prefs();
     const on = !(p.snapGrid || p.snapPoints || p.snapEdges);
@@ -171,7 +170,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
     localStorage.setItem(RATIO_KEY, String(ratio));
   });
 
-  const view3d = new View3D(pane3d, q(root, '[data-k="canvas3d"]'));
+  const view3d = new View3D(pane3d, q(root, '[data-k="canvas3d"]'), { doc, sel, selected: () => { inspector.update(); view.redraw(); } });
   const noGl = q(root, '[data-k="nogl"]');
   if (!view3d.available) {
     noGl.hidden = false;
@@ -186,7 +185,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
     view.redraw();
   });
   const refreshed = async (name: string): Promise<void> => {
-    const fresh = name === 'file.new' || name === 'file.open';
+    const fresh = name === 'file.new' || name === 'file.open' || name === 'exchange.import_dxf';
     if (fresh) sel.clear();
     await doc.refresh();
     if (fresh) view.frame();

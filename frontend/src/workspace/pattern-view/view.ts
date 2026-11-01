@@ -9,6 +9,8 @@ import type { Cam, Colors, Ptr, SnapResult, Tool, ViewCtx } from './ctx';
 import { drawScene, gridStep } from './render';
 import { DrawPanelTool, EllipseTool, InnerLineTool, InnerShapeTool, RectangleTool } from './tools-create';
 import { CurvatureTool, EditTool, MeasureTool, SelectTool, SplitTool } from './tools-edit';
+import { GrainTool, MatchTool, NotchTool, SeamTool } from './tools-garment';
+import { DartTool, InstanceTool, MirrorTool, SlashTool, SpiralTool, TraceTool, UnfoldTool } from './tools-derive';
 
 export interface ViewHooks {
   selected(): void;
@@ -51,6 +53,8 @@ export class PatternView implements ViewCtx {
     this.tools = [
       new SelectTool(this), new EditTool(this), new DrawPanelTool(this), new RectangleTool(this), new EllipseTool(this),
       new InnerShapeTool(this), new InnerLineTool(this), new SplitTool(this), new CurvatureTool(this), new MeasureTool(this),
+      new SeamTool(this), new NotchTool(this), new GrainTool(this), new DartTool(this), new SlashTool(this), new MirrorTool(this),
+      new InstanceTool(this), new UnfoldTool(this), new SpiralTool(this), new TraceTool(this), new MatchTool(this),
     ];
     this.active = this.tools[0];
     this.probe = document.createElement('span');

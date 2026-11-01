@@ -2,6 +2,44 @@
 
 Living context for the Rust engine. What would be comments in the crates lives here, newest first. Read before editing anything under `native/`.
 
+## v0.4.0 to v0.6.0 · 2026-11-01
+
+### Shared plumbing
+
+- `hooks::after_change(session, command_id)` runs once after any command that moved the epoch, undo and redo included. It calls the pattern-tools hook (linked panels) then the mesh hook (re-mesh and stream). Derived state never needs its own undo step.
+- `History::amend_last` folds the link regeneration into the step just recorded, so a source edit and its mirrored or instanced copies undo together; it respects an open drag group.
+- `Session.sink` is an optional `FrameSink`; `ffb_engine` installs one backed by the ffb-stream publisher when the frame server starts.
+- serde_json parses with `float_roundtrip`; without it a reopened project could differ in the last bit of a coordinate.
+
+### Pattern tools
+
+- Offsets: each Bezier segment is flattened to 0.02 mm, vertices moved along mitered normals (exact end tangents keep continuity), joins added only at gaps (miter with a limit of 4 times the distance, square, round, mirror), self-crossings cut by dropping wrongly oriented loops, then refitted with Schneider least-squares cubics at 0.03 mm. A collapsing inward offset is `invalid_geometry`.
+- Seam allowance is stored as width, corners and per-segment overrides; the outline is derived (`pattern.get` returns `seam_outline`). Per-segment widths follow splits, deletes and outline reversal.
+- Notches stay `{segment, t}`. Splitting re-maps by the de Casteljau interval rule (exact); deleting or smoothing re-projects the old world position. Mirror and uneven scale reverse the outline, so notch segment and t and seam widths are re-mapped there too. Notch angle is measured counter-clockwise from the outline tangent, 90 square, pointing into the panel.
+- The drawn `grain_line` (panel-local endpoints) is separate from `panel.grain` (the solver's angle); `pattern.get` adds `grain_line_effective`, defaulting to a vertical line through the centre.
+- Derived panels (mirror, instance): regenerated from the source on every change; a direct edit of a derived panel is snapped back in the same step. Mirror `axis` stores the gap-shifted mirror line; instance `axis` stores `[interval, [ordinal, 0]]`.
+
+### Exchange
+
+- formfabric's own DXF R12 reader and writer. AAMA (ASTM D6673) layer use: 1 cut, 2 turn points, 3 curve points (fitted back to cubics), 4 notches, 7 grain, 8 internal lines, 14 sew line (its distance from the cut line gives the seam allowance width), 15 annotation, 80 and 83 for T and U notches. AAMA export writes panel-local coordinates; plain export writes world coordinates.
+- Layer 8 lines carry a `FF:role=..;kind=..;angle=..;strength=..` label so fold role and angles survive a round trip; foreign files import those lines as role reference.
+- Plain DXF facets: a vertex between two edges under 40 mm turning under 15 degrees becomes a curve point (`smooth_facets`), so curves flattened elsewhere do not import as dozens of corners.
+- Graded nests import one size (the sample size); grade rules are not read or written.
+
+### Mesh
+
+- Outline segments are flattened adaptively and resampled to `round(length / d)` points, or a forced count per segment (`MeshState::set_segment_counts`, `mesh.build segment_counts`): the seam API for Phase 7. Fold and dart inner lines are constraint chains; shape and reference lines are not meshed.
+- Interior: a triangular lattice clipped 0.65 d from edges, constrained Delaunay with spade (`try_bulk_load_cdt`) plus four frame points, refinement to a 20 degree minimum angle with outline vertex counts preserved. Inside faces come from formfabric's own flood fill, because spade treats closed inner loops as holes and internal darts must stay filled.
+- Cache per panel: FNV-1a of outline, fold and dart lines, particle distance, options and forced counts. Without a sink, meshing happens on demand only.
+- Streaming: object id is the panel id. Topology is re-sent only when its signature changes; positions follow topology. 3D uses `place3d` (origin plus quaternion on (x, y, 0)) or the flat layout; `bend` and mirror are not applied in 3D yet.
+
+### Fabric
+
+- Stored in SI: stretch and shear N/m, bending micro newton metres per metre width, density g/m2, thickness mm, ratios 0 to 1. Validation lives in `validate.rs` so nested values report paths such as `physical.density`.
+- Presets come from encyclopedia chapter 16 with source keys; provisional ones are flagged. The default preset is cotton poplin shirting; `file.new` creates the default fabric.
+- Every fabric and colorway change records one `Edit::Garment` snapshot. Colorways override `look.front.color` per fabric at render time.
+- `.ffab` is a zip: `fabric.json` (`format formfabric-fabric`, schema 1) plus `maps/` images.
+
 ## v0.2.0 to v0.3.0 · 2026-10-31
 
 ### Workspace

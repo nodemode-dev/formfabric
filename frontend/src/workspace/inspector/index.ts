@@ -3,15 +3,27 @@ import { icon } from '../../ui/icons';
 import { q, setDisabled, setText, setValue } from '../../ui/dom';
 import type { DocStore } from '../doc';
 import { decimals, fmtArea, fmtLen, fromUnit, toUnit, type Selection } from '../state';
+import type { Panel } from '../types';
 
 type FieldKey = 'name' | 'px' | 'py' | 'rot' | 'grain' | 'pd' | 'layer';
 
 const LABELS: Array<[string, string]> = [
   ['title', 'Inspector'], ['name', 'Name'], ['pos', 'Position'], ['rot', 'Rotation'], ['grain', 'Grain'], ['pd', 'Particle distance'],
   ['layer', 'Layer'], ['perimeter', 'Perimeter'], ['area', 'Area'], ['mirx', 'Mirror X'], ['miry', 'Mirror Y'],
+  ['seam', 'Seam Allowance'], ['swidth', 'Width'], ['corners', 'Corners'], ['clear', 'Clear'], ['link', 'Link'], ['unlink', 'Unlink'],
+  ['notches', 'Notches'], ['notch', 'Notch'], ['kind', 'Kind'], ['depth', 'Depth'], ['ndel', 'Delete'],
+  ['inner', 'Inner Shape'], ['ishape', 'Shape'], ['role', 'Role'], ['fangle', 'Fold angle'], ['fstrength', 'Fold strength'],
 ];
 
+const CORNERS: Array<[string, string]> = [['miter', 'Miter'], ['square', 'Square'], ['round', 'Round'], ['mirror', 'Mirror']];
+const KINDS: Array<[string, string]> = [['slit', 'Slit'], ['v', 'V'], ['t', 'T'], ['u', 'U']];
+const ROLES: Array<[string, string]> = [['shape', 'Shape'], ['fold', 'Fold'], ['dart', 'Dart'], ['reference', 'Reference']];
+
 const num = (key: string, extra = ''): string => `<input class="cv-input ff-num" type="number" step="any" data-k="${key}" ${extra} disabled>`;
+const pick = (key: string): string => `<div class="ff-sel"><select class="cv-input" data-k="${key}" disabled></select></div>`;
+const row = (label: string, control: string): string => `<span class="ff-ins-label" data-l="${label}"></span>${control}`;
+const btn = (key: string, label: string): string => `<span></span><button class="ff-btn" type="button" data-k="${key}" disabled><span data-l="${label}"></span></button>`;
+const sub = (label: string): string => `<header class="ff-ins-sub"><span data-l="${label}"></span></header>`;
 
 const HTML =
   '<header class="ff-ins-head"><span data-l="title"></span></header>' +
@@ -28,14 +40,25 @@ const HTML =
   '<span class="ff-ins-label" data-l="perimeter"></span><output data-k="perimeter">-</output>' +
   '<span class="ff-ins-label" data-l="area"></span><output data-k="area">-</output>' +
   '</div>' +
-  `<div class="ff-ins-actions"><button class="ff-btn" type="button" data-k="mirx" disabled>${icon('layout2d', 14)}<span data-l="mirx"></span></button><button class="ff-btn" type="button" data-k="miry" disabled>${icon('layout2d', 14)}<span data-l="miry"></span></button></div>`;
+  `<div class="ff-ins-actions"><button class="ff-btn" type="button" data-k="mirx" disabled>${icon('layout2d', 14)}<span data-l="mirx"></span></button><button class="ff-btn" type="button" data-k="miry" disabled>${icon('layout2d', 14)}<span data-l="miry"></span></button></div>` +
+  sub('seam') +
+  '<div class="ff-ins-grid">' + row('swidth', num('sa_w', 'min="0" max="500"')) + row('corners', pick('sa_c')) + btn('sa_clear', 'clear') + '</div>' +
+  sub('link') +
+  '<div class="ff-ins-grid"><span class="ff-ins-label" data-l="link"></span><output class="ff-ins-out" data-k="linkinfo">-</output>' + btn('unlink', 'unlink') + '</div>' +
+  sub('notches') +
+  '<div class="ff-ins-grid">' + row('notch', pick('nt_sel')) + row('kind', pick('nt_k')) + row('depth', num('nt_d', 'min="0.5"')) + row('swidth', num('nt_w', 'min="0.1"')) + btn('nt_del', 'ndel') + '</div>' +
+  sub('inner') +
+  '<div class="ff-ins-grid">' + row('ishape', pick('in_sel')) + row('role', pick('in_r')) + row('fangle', num('in_a', 'min="0" max="360"')) + row('fstrength', num('in_s', 'min="0" max="20"')) + '</div>';
 
 export class Inspector {
   private readonly input = new Map<string, HTMLInputElement>();
+  private readonly choice = new Map<string, HTMLSelectElement>();
+  private notchId = 0;
 
-  constructor(private readonly root: HTMLElement, private readonly doc: DocStore, private readonly sel: Selection, private readonly unit: () => string) {
+  constructor(private readonly root: HTMLElement, private readonly doc: DocStore, private readonly sel: Selection, private readonly unit: () => string, private readonly onInner: () => void = () => undefined) {
     root.innerHTML = HTML;
     for (const el of root.querySelectorAll<HTMLInputElement>('input[data-k]')) this.input.set(el.dataset.k ?? '', el);
+    for (const el of root.querySelectorAll<HTMLSelectElement>('select[data-k]')) this.choice.set(el.dataset.k ?? '', el);
     const paint = (): void => {
       for (const [k, text] of LABELS) for (const el of root.querySelectorAll<HTMLElement>(`[data-l="${k}"]`)) setText(el, t(text));
       this.update();
@@ -43,9 +66,112 @@ export class Inspector {
     paint();
     onLanguage(paint);
     for (const [k, el] of this.input) el.addEventListener('change', () => this.commit(k as FieldKey));
+    for (const [k, el] of this.choice) el.addEventListener('change', () => this.extra(k));
+    for (const k of ['sa_clear', 'unlink', 'nt_del']) q(root, `[data-k="${k}"]`).addEventListener('click', () => this.extra(k));
     this.input.get('name')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') (e.target as HTMLElement).blur(); });
     q(root, '[data-k="mirx"]').addEventListener('click', () => this.mirror('x'));
     q(root, '[data-k="miry"]').addEventListener('click', () => this.mirror('y'));
+  }
+
+  private extra(k: string): boolean {
+    if (!['sa_w', 'sa_c', 'sa_clear', 'unlink', 'nt_sel', 'nt_k', 'nt_d', 'nt_w', 'nt_del', 'in_sel', 'in_r', 'in_a', 'in_s'].includes(k)) return false;
+    const ids = this.ids();
+    const panel = ids.length === 1 ? this.doc.panel(ids[0]) : undefined;
+    if (!panel) return true;
+    const u = this.unit();
+    const num = (key: string): number => Number(this.input.get(key)?.value);
+    const text = (key: string): string => this.choice.get(key)?.value ?? '';
+    const notch = Number(text('nt_sel')) || 0;
+    const inner = Number(text('in_sel')) || 0;
+    if (k === 'sa_w' || k === 'sa_c') {
+      const w = k === 'sa_w' ? fromUnit(num('sa_w'), u) : (panel.seam_allowance?.width ?? 0);
+      if (!Number.isFinite(w)) return true;
+      if (w <= 0) { if (panel.seam_allowance) void this.doc.run('pattern.seam_allowance', { panels: [panel.id], clear: true }); return true; }
+      void this.doc.run('pattern.seam_allowance', { panels: [panel.id], width: Math.min(500, w), corners: text('sa_c') || 'miter' });
+    } else if (k === 'sa_clear') void this.doc.run('pattern.seam_allowance', { panels: [panel.id], clear: true });
+    else if (k === 'unlink') void this.doc.run('pattern.unlink', { panel: panel.id });
+    else if (k === 'nt_sel') { this.notchId = notch; this.update(); }
+    else if (k === 'nt_k') { if (notch) void this.doc.run('pattern.notch_set', { panel: panel.id, notch, kind: text('nt_k') }); }
+    else if (k === 'nt_d' || k === 'nt_w') {
+      const v = fromUnit(num(k), u);
+      if (notch && Number.isFinite(v)) void this.doc.run('pattern.notch_set', k === 'nt_d' ? { panel: panel.id, notch, depth: v } : { panel: panel.id, notch, width: v });
+    } else if (k === 'nt_del') { if (notch) void this.doc.run('pattern.notch_delete', { panel: panel.id, notch }); }
+    else if (k === 'in_sel') { this.sel.inner = inner ? { panel: panel.id, id: inner } : null; this.update(); this.onInner(); }
+    else if (k === 'in_r') { if (inner) void this.doc.run('pattern.set_inner', { panel: panel.id, inner, role: text('in_r') }); }
+    else if (k === 'in_a' || k === 'in_s') {
+      const v = num(k);
+      if (inner && Number.isFinite(v)) void this.doc.run('pattern.set_inner', k === 'in_a' ? { panel: panel.id, inner, fold_angle: Math.min(360, Math.max(0, v)) } : { panel: panel.id, inner, fold_strength: Math.min(20, Math.max(0, v)) });
+    }
+    return true;
+  }
+
+  private fill(key: string, items: Array<[string, string]>, current: string): void {
+    const el = this.choice.get(key);
+    if (!el) return;
+    while (el.options.length > items.length) el.remove(el.options.length - 1);
+    items.forEach(([value, label], i) => {
+      let o = el.options[i];
+      if (!o) { o = new Option(label, value); el.add(o); return; }
+      if (o.value !== value) o.value = value;
+      if (o.text !== label) o.text = label;
+    });
+    if (el.value !== current && document.activeElement !== el) el.value = current;
+  }
+
+  private refreshExtra(first: Panel | undefined, single: boolean): void {
+    const u = this.unit();
+    const d = decimals(u) + 1;
+    const lock = !!first && !!first.link;
+    const ok = !!first && single;
+    const set = (k: string, v: string): void => { const el = this.input.get(k); if (el) setValue(el, v); };
+    const off = (k: string, on: boolean): void => {
+      const a = this.input.get(k);
+      const b = this.choice.get(k);
+      if (a) setDisabled(a, on);
+      if (b) setDisabled(b, on);
+    };
+    const sa = first?.seam_allowance ?? null;
+    this.fill('sa_c', CORNERS.map(([v, l]) => [v, t(l)]), sa?.corners ?? 'miter');
+    set('sa_w', ok && sa ? toUnit(sa.width, u).toFixed(d) : '');
+    off('sa_w', !ok || lock);
+    off('sa_c', !ok || lock);
+    setDisabled(q(this.root, '[data-k="sa_clear"]'), !ok || lock || !sa);
+
+    const link = first?.link ?? null;
+    const copies = first ? this.doc.garment.panels.filter((p) => p.link && p.link.source === first.id).length : 0;
+    let info = '-';
+    if (ok && link) info = `${t(link.kind === 'mirror' ? 'Mirror' : 'Instance')} · ${this.doc.panel(link.source)?.name ?? link.source}`;
+    else if (ok && copies > 0) info = `${t('Source')} · ${copies}`;
+    setText(q(this.root, 'output[data-k="linkinfo"]'), info);
+    setDisabled(q(this.root, '[data-k="unlink"]'), !ok || (!link && copies === 0));
+
+    const notches = ok && first ? first.notches ?? [] : [];
+    const kindLabel = (k: string): string => t(KINDS.find((x) => x[0] === k)?.[1] ?? k);
+    const items = notches.map((n, i): [string, string] => [String(n.id), `${i + 1} · ${kindLabel(n.kind)}`]);
+    if (!notches.some((n) => n.id === this.notchId)) this.notchId = notches[0]?.id ?? 0;
+    const cur = notches.find((n) => n.id === this.notchId);
+    this.fill('nt_sel', items, cur ? String(cur.id) : '');
+    this.fill('nt_k', KINDS.map(([v, l]) => [v, t(l)]), cur?.kind ?? 'slit');
+    set('nt_d', cur ? toUnit(cur.depth, u).toFixed(d) : '');
+    set('nt_w', cur ? toUnit(cur.width, u).toFixed(d) : '');
+    off('nt_sel', !cur);
+    off('nt_k', !cur || lock);
+    off('nt_d', !cur || lock);
+    off('nt_w', !cur || lock);
+    setDisabled(q(this.root, '[data-k="nt_del"]'), !cur || lock);
+
+    const inners = ok && first ? first.inner : [];
+    const wanted = this.sel.inner && first && this.sel.inner.panel === first.id ? this.sel.inner.id : 0;
+    const pickInner = inners.find((i) => i.id === wanted) ?? inners[0];
+    this.fill('in_sel', inners.map((i): [string, string] => [String(i.id), `#${i.id} ${i.kind}`]), pickInner ? String(pickInner.id) : '');
+    this.fill('in_r', ROLES.map(([v, l]) => [v, t(l)]), pickInner?.role ?? 'shape');
+    const fold = pickInner?.role === 'fold';
+    set('in_a', pickInner && fold ? String(Math.round(pickInner.fold_angle * 100) / 100) : '');
+    set('in_s', pickInner && fold ? String(Math.round(pickInner.fold_strength * 100) / 100) : '');
+    off('in_sel', !pickInner);
+    off('in_r', !pickInner || lock);
+    off('in_a', !fold || lock);
+    off('in_s', !fold || lock);
   }
 
   focusName(): void {
@@ -61,6 +187,7 @@ export class Inspector {
   }
 
   private commit(k: FieldKey): void {
+    if (this.extra(k)) return;
     const ids = this.ids();
     if (!ids.length) return;
     const u = this.unit();
@@ -96,9 +223,13 @@ export class Inspector {
     const off = (k: string, on: boolean): void => { const el = this.input.get(k); if (el) setDisabled(el, on); };
     const single = ids.length === 1;
     setText(q(this.root, '[data-k="count"]'), !first ? t('Nothing selected') : single ? first.name : `${t('Panels')}: ${ids.length}`);
-    for (const k of ['name', 'px', 'py', 'rot']) off(k, !single);
-    for (const k of ['grain', 'pd', 'layer']) off(k, !first);
-    for (const k of ['mirx', 'miry']) setDisabled(q(this.root, `[data-k="${k}"]`), !first);
+    const locked = !!first && !!first.link;
+    off('name', !single);
+    for (const k of ['px', 'py', 'rot']) off(k, !single || locked);
+    off('grain', !first || locked);
+    for (const k of ['pd', 'layer']) off(k, !first);
+    for (const k of ['mirx', 'miry']) setDisabled(q(this.root, `[data-k="${k}"]`), !first || locked);
+    this.refreshExtra(first, single);
     const out = (k: string, v: string): void => setText(q(this.root, `output[data-k="${k}"]`), v);
     if (!first) {
       for (const k of ['name', 'px', 'py', 'rot', 'grain', 'pd', 'layer']) set(k, '');

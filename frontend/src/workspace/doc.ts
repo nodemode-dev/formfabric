@@ -16,6 +16,8 @@ export class DocStore {
   private again = false;
   private holding = 0;
   private held = false;
+  private trialBase: Garment | null = null;
+  private trialKey = new Map<number, string>();
 
   constructor(private readonly engine: EngineApi, private readonly fail: (message: string) => void) {}
 
@@ -75,7 +77,9 @@ export class DocStore {
     const r = w.dispatch(name, args);
     if (!r.ok) return false;
     const fresh = this.garment.panels.slice();
-    for (const id of panels) {
+    const ids = new Set(panels);
+    for (const p of fresh) if (p.link && ids.has(p.link.source)) ids.add(p.id);
+    for (const id of ids) {
       const g = w.dispatch<Garment>('pattern.get', { panel: id });
       if (!g.ok || !g.result.panels[0]) continue;
       const at = fresh.findIndex((p) => p.id === id);
@@ -99,6 +103,70 @@ export class DocStore {
 
   async cancelPreview(): Promise<void> {
     this.endPreview();
+    await this.settle();
+  }
+
+  prime(panels: number[], name?: string, args?: Record<string, unknown>): void {
+    if (name) this.preview(name, args ?? {}, panels);
+    else {
+      for (const id of panels) {
+        const g = this.wasm?.dispatch<Garment>('pattern.get', { panel: id });
+        if (g && g.ok && g.result.panels[0]) geoOf(g.result.panels[0]);
+      }
+    }
+    for (const id of panels) {
+      const p = this.panel(id);
+      if (p) geoOf(p);
+    }
+    this.wasm?.dispatch('pattern.snap', { point: [0, 0], targets: ['point', 'segment', 'grid'], tolerance: 1, grid: 10 });
+  }
+
+  discardPreview(): void {
+    this.endPreview();
+    if (this.held && this.holding === 0) void this.settle();
+  }
+
+  beginTrial(): void {
+    this.holding++;
+    this.trialBase = this.garment;
+    this.trialKey = new Map(this.garment.panels.map((p) => [p.id, JSON.stringify(p)]));
+  }
+
+  trial(name: string, args: Record<string, unknown>): string | null {
+    const w = this.wasm;
+    const base = this.trialBase;
+    if (!w || !base) return 'unavailable';
+    w.load(base);
+    const r = w.dispatch(name, args);
+    if (!r.ok) {
+      if (this.garment !== base) { this.garment = base; this.emit(); }
+      return r.error.message;
+    }
+    const g = w.dispatch<Garment>('pattern.get', {});
+    if (!g.ok) return g.error.message;
+    const old = new Map(base.panels.map((p) => [p.id, p]));
+    const panels = g.result.panels.map((p) => {
+      const o = old.get(p.id);
+      return o && this.trialKey.get(p.id) === JSON.stringify(p) ? o : p;
+    });
+    this.garment = { ...g.result, panels };
+    this.emit();
+    return null;
+  }
+
+  endTrial(): void {
+    this.trialBase = null;
+    this.holding = Math.max(0, this.holding - 1);
+  }
+
+  async commitTrial(steps: Step[], label: string): Promise<boolean> {
+    const done = this.commit(steps, label);
+    this.endTrial();
+    return done;
+  }
+
+  async cancelTrial(): Promise<void> {
+    this.endTrial();
     await this.settle();
   }
 

@@ -25,7 +25,7 @@ import { HomeScreen } from './shell/home';
 import { probeGpu } from './shell/gpu';
 import { LayoutState } from './shell/layout';
 import { buildMenus } from './shell/menus';
-import { nativeDialogs, pickPath } from './shell/file-dialog';
+import { dxfCommand, nativeDialogs, pickPath } from './shell/file-dialog';
 import { Session } from './shell/session';
 import { StatusBar } from './shell/statusbar';
 import { TitleBar } from './shell/titlebar';
@@ -95,8 +95,16 @@ export function startApp(): void {
       if (!picked) return undefined;
       args = { path: picked };
     }
+    const dxf = dxfCommand(c.id);
+    const dxfName = session.path ? `${session.path.replace(/\.ffbrc$/i, '')}.dxf` : null;
+    if (!args && dxf && nativeDialogs()) {
+      const picked = await pickPath(dxf, dxf === 'save' ? dxfName : null, 'dxf');
+      if (!picked) return undefined;
+      args = { path: picked };
+    }
     if (!args && hasRequired(c.inputSchema)) {
-      args = (await exactInput(t(c.label).replace(/\.\.\.$/, ''), c.inputSchema, c.id === 'file.save' || c.id === 'file.open' ? { path: session.path ?? undefined } : {})) ?? undefined;
+      const initial = c.id === 'file.save' || c.id === 'file.open' ? { path: session.path ?? undefined } : dxf === 'save' && dxfName ? { path: dxfName } : {};
+      args = (await exactInput(t(c.label).replace(/\.\.\.$/, ''), c.inputSchema, initial)) ?? undefined;
       if (!args) return undefined;
     }
     if (c.id === 'file.save' && !args && session.path) args = { path: session.path };

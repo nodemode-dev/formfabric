@@ -2,11 +2,13 @@ export class Selection {
   panels = new Set<number>();
   pts: { panel: number; idx: number[] } | null = null;
   seg: { panel: number; i: number } | null = null;
+  inner: { panel: number; id: number } | null = null;
 
   clear(): void {
     this.panels.clear();
     this.pts = null;
     this.seg = null;
+    this.inner = null;
   }
 
   only(id: number): void {
@@ -14,6 +16,7 @@ export class Selection {
     this.panels.add(id);
     this.pts = null;
     this.seg = null;
+    if (this.inner && this.inner.panel !== id) this.inner = null;
   }
 
   list(): number[] {
@@ -24,6 +27,7 @@ export class Selection {
     for (const id of [...this.panels]) if (!ids.has(id)) this.panels.delete(id);
     if (this.pts && !ids.has(this.pts.panel)) this.pts = null;
     if (this.seg && !ids.has(this.seg.panel)) this.seg = null;
+    if (this.inner && !ids.has(this.inner.panel)) this.inner = null;
   }
 }
 

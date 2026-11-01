@@ -1,4 +1,4 @@
-import { add, bezAt, dist, hitTest, len, lerp, mul, segLength, sub, unionBounds, type Bounds, type Hit, type Seg } from '../geom';
+import { add, bezAt, dist, hitInner, hitTest, len, lerp, mul, segLength, sub, unionBounds, type Bounds, type Hit, type Seg } from '../geom';
 import { fmtArea, fmtLen } from '../state';
 import type { Step } from '../doc';
 import type { PanelMeasure, Vec } from '../types';
@@ -27,6 +27,7 @@ export class SelectTool extends BaseTool {
   private a0 = 0;
   private marquee: [Vec, Vec] | null = null;
   private toggleOff: number | null = null;
+  private warm = false;
 
   private bounds(): Bounds | null {
     let b: Bounds | null = null;
@@ -88,9 +89,14 @@ export class SelectTool extends BaseTool {
         if (picked) this.toggleOff = hit.panel;
         else this.ctx.sel.panels.add(hit.panel);
       } else if (!picked) this.ctx.sel.only(hit.panel);
+      const inner = hitInner(this.ctx.doc.geos(), p.w, this.ctx.tol(5), false);
+      this.ctx.sel.inner = inner ? { panel: inner.panel, id: inner.inner } : null;
       this.ctx.selected();
       this.mode = 'pending';
       this.anchor = nearestVertex(this.ctx.doc.geos().filter((g) => this.ctx.sel.panels.has(g.panel.id)).flatMap((g) => g.pts), p.w) ?? p.w;
+      this.warm = true;
+      this.ctx.doc.beginPreview('Move Panels');
+      this.ctx.doc.prime(this.ids(), 'pattern.transform', { panels: this.ids(), translate: [0, 0] });
     } else {
       if (!p.shift) { this.ctx.sel.clear(); this.ctx.selected(); }
       this.mode = 'marquee';
@@ -111,7 +117,8 @@ export class SelectTool extends BaseTool {
       return;
     }
     if (this.mode === 'pending' && moved(s, p)) {
-      this.ctx.doc.beginPreview('Move Panels');
+      if (!this.warm) this.ctx.doc.beginPreview('Move Panels');
+      this.warm = false;
       this.mode = 'move';
       this.applied = [0, 0];
     }
@@ -181,10 +188,14 @@ export class SelectTool extends BaseTool {
         this.ctx.selected();
       }
       this.marquee = null;
-    } else if (mode === 'pending' && this.toggleOff !== null) {
-      this.ctx.sel.panels.delete(this.toggleOff);
-      this.ctx.selected();
+    } else if (mode === 'pending') {
+      if (this.warm) this.ctx.doc.discardPreview();
+      if (this.toggleOff !== null) {
+        this.ctx.sel.panels.delete(this.toggleOff);
+        this.ctx.selected();
+      }
     }
+    this.warm = false;
     this.toggleOff = null;
     this.ctx.redraw();
   }
@@ -219,6 +230,8 @@ export class SelectTool extends BaseTool {
 
   cancel(): void {
     if (this.mode === 'move' || this.mode === 'scale' || this.mode === 'rotate') void this.ctx.doc.cancelPreview();
+    else if (this.warm) this.ctx.doc.discardPreview();
+    this.warm = false;
     this.mode = 'idle';
     this.marquee = null;
     this.start = null;
@@ -288,6 +301,20 @@ export class EditTool extends BaseTool {
   private applied: Vec = [0, 0];
   private last: Step[] = [];
   private marquee: [Vec, Vec] | null = null;
+  private warm = false;
+
+  private warmUp(): void {
+    const hit = this.hit;
+    const sel = this.ctx.sel;
+    if (!hit || this.mode === 'idle' || this.mode === 'marquee') return;
+    this.warm = true;
+    this.ctx.doc.beginPreview('Edit Points');
+    if (this.mode === 'point' && sel.pts) this.ctx.doc.prime([sel.pts.panel], 'pattern.move_point', { panel: sel.pts.panel, indices: sel.pts.idx, delta: [0, 0], space: 'world' });
+    else if (this.mode === 'segment' && sel.seg) {
+      const n = this.ctx.doc.panel(sel.seg.panel)?.outline.length ?? 1;
+      this.ctx.doc.prime([sel.seg.panel], 'pattern.move_point', { panel: sel.seg.panel, indices: [sel.seg.i, (sel.seg.i + 1) % n], delta: [0, 0], space: 'world' });
+    } else this.ctx.doc.prime([hit.panel]);
+  }
 
   private pointPos(panel: number, i: number): Vec | null {
     const g = this.ctx.doc.geos().find((x) => x.panel.id === panel);
@@ -329,6 +356,7 @@ export class EditTool extends BaseTool {
       this.mode = 'idle';
     }
     this.ctx.selected();
+    this.warmUp();
     this.ctx.redraw();
   }
 
@@ -336,7 +364,8 @@ export class EditTool extends BaseTool {
     if (this.live) return;
     this.live = true;
     this.applied = [0, 0];
-    this.ctx.doc.beginPreview(label);
+    if (!this.warm) this.ctx.doc.beginPreview(label);
+    this.warm = false;
   }
 
   private run(name: string, args: Record<string, unknown>, panel: number): void {
@@ -418,6 +447,7 @@ export class EditTool extends BaseTool {
     this.mode = 'idle';
     this.start = null;
     this.ctx.setSnapMark(null);
+    if (this.warm && !live) { this.warm = false; this.ctx.doc.discardPreview(); }
     if (mode === 'marquee' && this.marquee) {
       const [a, b] = this.marquee;
       const box: Bounds = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
@@ -484,6 +514,8 @@ export class EditTool extends BaseTool {
 
   cancel(): void {
     if (this.live) { this.live = false; void this.ctx.doc.cancelPreview(); }
+    else if (this.warm) this.ctx.doc.discardPreview();
+    this.warm = false;
     this.mode = 'idle';
     this.marquee = null;
     this.start = null;
