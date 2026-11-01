@@ -25,6 +25,7 @@ pub struct Solver {
     pub(crate) v: Vec<DVec3>,
     pub(crate) acc: Vec<DVec3>,
     pub(crate) ext: Vec<DVec3>,
+    pub(crate) outside: Vec<DVec3>,
     pub(crate) vp: Vec<DVec3>,
     pub(crate) pins: Vec<PinState>,
     pub(crate) pinned: Vec<bool>,
@@ -38,6 +39,7 @@ pub struct Solver {
     hev: Vec<HingeEval>,
     hst: Vec<(f64, f64)>,
     tst: Vec<TriState>,
+    pub(crate) imp: Option<Box<crate::implicit::State>>,
 }
 
 pub(crate) fn v3(p: [f32; 3]) -> DVec3 {
@@ -155,6 +157,7 @@ impl Solver {
             v: vec![DVec3::ZERO; n],
             acc: vec![DVec3::ZERO; n],
             ext: vec![DVec3::ZERO; n],
+            outside: Vec::new(),
             vp: vec![DVec3::ZERO; n],
             pins: Vec::new(),
             pinned: vec![false; n],
@@ -168,6 +171,7 @@ impl Solver {
             hev: Vec::new(),
             hst: Vec::new(),
             tst: Vec::new(),
+            imp: None,
         };
         s.set_pins(cloth.pins);
         s.sync_out();
@@ -226,6 +230,9 @@ impl Solver {
         }
         for p in self.pins.iter_mut() {
             p.prev = p.target;
+        }
+        if let Some(st) = self.imp.as_mut() {
+            st.reset();
         }
         self.sync_out();
     }
@@ -301,6 +308,9 @@ impl Solver {
             for &i in &t {
                 self.ext[i as usize] += f;
             }
+        }
+        for (e, w) in self.ext.iter_mut().zip(&self.outside) {
+            *e += *w;
         }
         for p in &self.pins {
             self.pin_pos[p.vertex as usize] = p.prev + (p.target - p.prev) * frac;
@@ -400,6 +410,9 @@ impl Solver {
     }
 
     pub fn step(&mut self) -> StepStats {
+        if self.params.method == crate::Method::Implicit {
+            return self.step_implicit();
+        }
         #[cfg(not(target_arch = "wasm32"))]
         let t0 = std::time::Instant::now();
         let substeps = self.params.substeps.max(1);

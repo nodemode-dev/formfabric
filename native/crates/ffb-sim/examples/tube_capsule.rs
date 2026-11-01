@@ -9,10 +9,16 @@ fn arg(name: &str, default: f32) -> f32 {
 }
 
 fn main() {
+    for m in support::methods() {
+        run(m);
+    }
+}
+
+fn run(method: ffb_sim::Method) {
     let spacing = 20.0f32;
     let (nx, ny) = ((400.0 / spacing) as usize + 1, (600.0 / spacing) as usize + 1);
     let r = 400.0 / std::f32::consts::PI;
-    let frames = arg("frames", 90.0) as usize;
+    let frames = arg("frames", 150.0) as usize;
     let mut cloth = Cloth { materials: vec![Material::from_physical(&Physical::default())], ..Cloth::default() };
     let top = support::add_grid(&mut cloth, nx, ny, spacing, 0, &|s, t| {
         let phi = std::f32::consts::PI * s / 400.0;
@@ -27,17 +33,21 @@ fn main() {
         cloth.seams.push(SeamPair { a: top.index(nx - 1, j), b: bottom.index(0, j), rest_length: 0.0, stiffness: 0.0 });
     }
     let seams = cloth.seams.clone();
-    let params = Params { substeps: arg("substeps", 5.0) as u32, iterations: arg("iterations", 10.0) as u32, ..Params::default() };
+    let params: Params = support::params_for(method);
     let capsule_radius = 100.0;
     let colliders = vec![Collider::Capsule { a: [-400.0, 0.0, 0.0], b: [400.0, 0.0, 0.0], radius: capsule_radius }, Collider::Plane { point: [0.0, -400.0, 0.0], normal: [0.0, 1.0, 0.0] }];
     let mut solver = Solver::new(cloth, params);
     solver.set_colliders(colliders);
-    println!("vertices {} seams {} substeps {} iterations {} frames {}", solver.vertex_count(), seams.len(), params.substeps, params.iterations, frames);
+    println!("{} vertices {} seams {} substeps {} iterations {} frames {}", support::name(method), solver.vertex_count(), seams.len(), params.substeps, params.iterations, frames);
 
     let mut total = 0.0;
+    let mut worst_pen: f32 = 0.0;
+    let mut worst_v: f32 = 0.0;
     for f in 0..frames {
         let stats = solver.step();
         total += stats.ms;
+        worst_pen = worst_pen.max(solver.max_penetration());
+        worst_v = worst_v.max(stats.max_velocity);
         if f % 15 == 14 {
             let p = solver.positions();
             let gap = seams.iter().map(|s| {
@@ -47,5 +57,5 @@ fn main() {
             println!("frame {:3}  {:7.2} ms  KE {:10.3}  vmax {:8.2}  contacts {:4}  penetration {:.3}  max seam gap {:.3} mm", f + 1, stats.ms, solver.kinetic_energy(), stats.max_velocity, stats.contacts, solver.max_penetration(), gap);
         }
     }
-    println!("tube: mean {:.2} ms/frame, final KE {:.3} uN.mm, max penetration {:.4} mm", total / frames as f32, solver.kinetic_energy(), solver.max_penetration());
+    println!("{} tube: mean {:.2} ms/frame, final KE {:.3} uN.mm, worst penetration {:.4} mm, max velocity {:.1} mm/s, strain +{:.4} -{:.4}", support::name(method), total / frames as f32, solver.kinetic_energy(), worst_pen, worst_v, solver.max_stretch(), solver.max_compression());
 }

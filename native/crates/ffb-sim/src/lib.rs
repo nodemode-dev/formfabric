@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 pub mod bvh;
 pub mod collide;
 pub mod energy;
+pub mod external;
+pub mod implicit;
 pub mod material;
 pub mod model;
 pub mod reference;
@@ -93,9 +95,21 @@ pub enum Collider {
     Mesh { positions: Vec<[f32; 3]>, triangles: Vec<[u32; 3]> },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Method {
+    #[default]
+    Vbd,
+    Implicit,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Params {
+    pub method: Method,
+    pub newton: u32,
+    pub cg_iterations: u32,
+    pub cg_tolerance: f32,
     pub time_step: f32,
     pub substeps: u32,
     pub iterations: u32,
@@ -110,9 +124,29 @@ pub struct Params {
     pub accel: f32,
 }
 
+impl Params {
+    pub fn preset(name: &str, method: Method) -> Option<Params> {
+        let base = Params { method, ..Params::default() };
+        let p = match (method, name) {
+            (Method::Vbd, "normal") => Params { substeps: 5, iterations: 10, ..base },
+            (Method::Vbd, "fast") => Params { substeps: 3, iterations: 6, ..base },
+            (Method::Vbd, "fine") => Params { substeps: 10, iterations: 20, self_collision: true, collision_thickness: 1.0, ..base },
+            (Method::Implicit, "normal") => Params { substeps: 3, newton: 2, cg_tolerance: 3.0e-3, ..base },
+            (Method::Implicit, "fast") => Params { substeps: 2, newton: 2, cg_tolerance: 1.0e-2, ..base },
+            (Method::Implicit, "fine") => Params { substeps: 5, newton: 2, cg_tolerance: 1.0e-3, self_collision: true, collision_thickness: 1.0, ..base },
+            _ => return None,
+        };
+        Some(p)
+    }
+}
+
 impl Default for Params {
     fn default() -> Self {
         Params {
+            method: Method::Implicit,
+            newton: 2,
+            cg_iterations: 200,
+            cg_tolerance: 3.0e-3,
             time_step: 1.0 / 30.0,
             substeps: 5,
             iterations: 10,

@@ -207,6 +207,14 @@ impl HingeEval {
         self.dtheta
     }
 
+    pub fn coef(&self) -> f64 {
+        self.c
+    }
+
+    pub fn gvec(&self, s: usize) -> DVec3 {
+        self.g[s]
+    }
+
     pub fn dot_g(&self, s: usize, v: DVec3) -> f64 {
         self.g[s].dot(v)
     }
@@ -356,6 +364,68 @@ impl HingeEval {
         let g = self.g[slot];
         acc.g += g * (self.c * (lin + r * ds));
         acc.add_outer(g, self.c * (1.0 + r));
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TriAsm {
+    pub grad: [DVec3; 3],
+    pub blk: [[f64; 9]; 6],
+}
+
+pub const TRI_PAIRS: [(usize, usize); 6] = [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)];
+
+impl TriElem {
+    pub fn assemble(&self, p: [DVec3; 3], d: [DVec3; 3], r: f64, nl: NonLinear, hess: bool) -> TriAsm {
+        let fu = p[0] * self.alpha[0] + p[1] * self.alpha[1] + p[2] * self.alpha[2];
+        let fv = p[0] * self.beta[0] + p[1] * self.beta[1] + p[2] * self.beta[2];
+        let (ru, nu, mu) = stretch_terms(fu, self.ku, self.area, nl);
+        let (rv, nv, mv) = stretch_terms(fv, self.kv, self.area, nl);
+        let sk = self.ks * self.area;
+        let sg = sk * fu.dot(fv);
+        let (cu, cv) = (mu.0 - mu.1, mv.0 - mv.1);
+        let mut grad = [DVec3::ZERO; 3];
+        let (du, dv) = if r > 0.0 {
+            (d[0] * self.alpha[0] + d[1] * self.alpha[1] + d[2] * self.alpha[2], d[0] * self.beta[0] + d[1] * self.beta[1] + d[2] * self.beta[2])
+        } else {
+            (DVec3::ZERO, DVec3::ZERO)
+        };
+        let qu = nu * (cu * nu.dot(du)) + du * mu.1;
+        let qv = nv * (cv * nv.dot(dv)) + dv * mv.1;
+        let sd = sk * (fv.dot(du) + fu.dot(dv));
+        let mut jac = [DVec3::ZERO; 3];
+        for s in 0..3 {
+            let (a, b) = (self.alpha[s], self.beta[s]);
+            jac[s] = fv * a + fu * b;
+            let mut g = nu * (a * ru) + nv * (b * rv) + jac[s] * sg;
+            if r > 0.0 {
+                g += (qu * a + qv * b + jac[s] * sd) * r;
+            }
+            grad[s] = g;
+        }
+        let mut blk = [[0.0f64; 9]; 6];
+        if hess {
+            let s1 = 1.0 + r;
+            let uu = [nu.x * nu.x, nu.x * nu.y, nu.x * nu.z, nu.y * nu.y, nu.y * nu.z, nu.z * nu.z];
+            let vv = [nv.x * nv.x, nv.x * nv.y, nv.x * nv.z, nv.y * nv.y, nv.y * nv.z, nv.z * nv.z];
+            for (k, &(s, t)) in TRI_PAIRS.iter().enumerate() {
+                let (aa, bb) = (self.alpha[s] * self.alpha[t] * s1, self.beta[s] * self.beta[t] * s1);
+                let (e, f, g) = (aa * cu, bb * cv, aa * mu.1 + bb * mv.1);
+                let js = jac[s] * (sk * s1);
+                let jt = jac[t];
+                let b = &mut blk[k];
+                b[0] = e * uu[0] + f * vv[0] + js.x * jt.x + g;
+                b[1] = e * uu[1] + f * vv[1] + js.x * jt.y;
+                b[2] = e * uu[2] + f * vv[2] + js.x * jt.z;
+                b[3] = b[1] + js.y * jt.x - js.x * jt.y;
+                b[4] = e * uu[3] + f * vv[3] + js.y * jt.y + g;
+                b[5] = e * uu[4] + f * vv[4] + js.y * jt.z;
+                b[6] = b[2] + js.z * jt.x - js.x * jt.z;
+                b[7] = b[5] + js.z * jt.y - js.y * jt.z;
+                b[8] = e * uu[5] + f * vv[5] + js.z * jt.z + g;
+            }
+        }
+        TriAsm { grad, blk }
     }
 }
 

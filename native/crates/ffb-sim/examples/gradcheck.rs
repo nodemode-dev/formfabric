@@ -39,4 +39,27 @@ fn main() {
     let link = LinkElem { v: [0, 1, 2], c: [1.0, -0.7, -0.3], n: 3, k: 1.0e4, rest: 2.0 };
     let r: [DVec3; 3] = [DVec3::new(0.0, 0.0, 0.0), DVec3::new(20.0, 1.0, 0.0), DVec3::new(5.0, 9.0, 3.0)];
     check("link", r, &|a| link.energy(a), &|a, s| link.eval(a).grad(s));
+
+    let d: [DVec3; 3] = std::array::from_fn(|_| DVec3::new(rnd(&mut seed), rnd(&mut seed), rnd(&mut seed)));
+    let rate = 0.3;
+    let asm = tri.assemble(p, d, rate, nl, true);
+    let ev = tri.eval(p, nl);
+    let du = d[0] * tri.alpha[0] + d[1] * tri.alpha[1] + d[2] * tri.alpha[2];
+    let dv = d[0] * tri.beta[0] + d[1] * tri.beta[1] + d[2] * tri.beta[2];
+    let mut worst_g: f64 = 0.0;
+    let mut worst_h: f64 = 0.0;
+    for (k, &(s, t)) in ffb_sim::energy::TRI_PAIRS.iter().enumerate() {
+        let h = ev.hess(s, t) * (1.0 + rate);
+        let c = h.to_cols_array();
+        for r in 0..3 {
+            for q in 0..3 {
+                worst_h = worst_h.max((asm.blk[k][3 * r + q] - c[3 * q + r]).abs() / (c[3 * q + r].abs() + 1.0));
+            }
+        }
+    }
+    for s in 0..3 {
+        let g = ev.grad(s) + ev.damp_d(s, du, dv) * rate;
+        worst_g = worst_g.max((asm.grad[s] - g).length() / (g.length() + 1.0));
+    }
+    println!("membrane assemble against eval: gradient relative {worst_g:.2e}, hessian relative {worst_h:.2e}");
 }
