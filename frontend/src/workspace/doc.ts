@@ -1,0 +1,149 @@
+import type { WasmEngine } from '../engine/wasm';
+import type { EngineApi } from '../shell/deps';
+import { geoOf, type PanelGeo } from './geom';
+import type { Garment, Panel, PanelMeasure } from './types';
+
+export type Step = [string, Record<string, unknown>];
+
+const EMPTY: Garment = { units: 'mm', panels: [] };
+
+export class DocStore {
+  garment: Garment = EMPTY;
+  wasm: WasmEngine | null = null;
+  ready = false;
+  private readonly listeners = new Set<() => void>();
+  private inflight: Promise<void> | null = null;
+  private again = false;
+  private holding = 0;
+  private held = false;
+
+  constructor(private readonly engine: EngineApi, private readonly fail: (message: string) => void) {}
+
+  onChange(cb: () => void): () => void {
+    this.listeners.add(cb);
+    return () => { this.listeners.delete(cb); };
+  }
+
+  private emit(): void {
+    for (const cb of this.listeners) cb();
+  }
+
+  geos(): PanelGeo[] {
+    return this.garment.panels.map(geoOf);
+  }
+
+  panel(id: number): Panel | undefined {
+    return this.garment.panels.find((p) => p.id === id);
+  }
+
+  setWasm(w: WasmEngine | null): void {
+    this.wasm = w;
+    if (!w) return;
+    if (this.ready) w.load(this.garment);
+    w.dispatch('pattern.snap', { point: [0, 0] });
+    w.dispatch('pattern.measure', {});
+  }
+
+  refresh(): Promise<void> {
+    if (this.holding > 0) { this.held = true; return Promise.resolve(); }
+    if (this.inflight) { this.again = true; return this.inflight; }
+    this.inflight = this.pull().finally(() => { this.inflight = null; });
+    return this.inflight;
+  }
+
+  private async pull(): Promise<void> {
+    do {
+      this.again = false;
+      let next: Garment;
+      try { next = await this.engine.call<Garment>('pattern.get', {}); } catch { return; }
+      if (this.holding > 0) { this.held = true; return; }
+      this.garment = next;
+      this.ready = true;
+      this.wasm?.load(next);
+      this.emit();
+    } while (this.again);
+  }
+
+  beginPreview(label: string): void {
+    this.holding++;
+    this.wasm?.dispatch('pattern.begin_drag', { label });
+  }
+
+  preview(name: string, args: Record<string, unknown>, panels: number[]): boolean {
+    const w = this.wasm;
+    if (!w) return false;
+    const r = w.dispatch(name, args);
+    if (!r.ok) return false;
+    const fresh = this.garment.panels.slice();
+    for (const id of panels) {
+      const g = w.dispatch<Garment>('pattern.get', { panel: id });
+      if (!g.ok || !g.result.panels[0]) continue;
+      const at = fresh.findIndex((p) => p.id === id);
+      if (at >= 0) fresh[at] = g.result.panels[0];
+    }
+    this.garment = { ...this.garment, panels: fresh };
+    this.emit();
+    return true;
+  }
+
+  endPreview(): void {
+    this.wasm?.dispatch('pattern.end_drag', {});
+    this.holding = Math.max(0, this.holding - 1);
+  }
+
+  async settle(): Promise<void> {
+    if (this.holding > 0) return;
+    this.held = false;
+    await this.refresh();
+  }
+
+  async cancelPreview(): Promise<void> {
+    this.endPreview();
+    await this.settle();
+  }
+
+  async commit(steps: Step[], label: string): Promise<boolean> {
+    let ok = true;
+    this.holding++;
+    try {
+      await this.engine.call('pattern.begin_drag', { label });
+      try {
+        for (const [name, args] of steps) await this.engine.call(name, args);
+      } finally {
+        await this.engine.call('pattern.end_drag', {});
+      }
+    } catch (err) {
+      ok = false;
+      this.fail(err instanceof Error ? err.message : String(err));
+    } finally {
+      this.holding = Math.max(0, this.holding - 1);
+    }
+    await this.settle();
+    return ok;
+  }
+
+  async commitPreview(steps: Step[], label: string): Promise<boolean> {
+    const done = this.commit(steps, label);
+    this.endPreview();
+    return done;
+  }
+
+  async run<T>(name: string, args: Record<string, unknown>): Promise<T | undefined> {
+    try {
+      const r = await this.engine.call<T>(name, args);
+      await this.refresh();
+      return r;
+    } catch (err) {
+      this.fail(err instanceof Error ? err.message : String(err));
+      await this.refresh();
+      return undefined;
+    }
+  }
+
+  measure(id: number): PanelMeasure | null {
+    const w = this.wasm;
+    if (!w) return null;
+    const r = w.dispatch<PanelMeasure>('pattern.measure', { panel: id });
+    return r.ok ? r.result : null;
+  }
+}

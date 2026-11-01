@@ -1,7 +1,6 @@
 import type { ShellDeps } from '../shell/deps';
+import { assemble } from './layout';
 
 export function mountWorkspace(host: HTMLElement, deps: ShellDeps): void {
-  void deps;
-  host.dataset.layout = deps.layout.get();
-  host.innerHTML = '<div class="cv-workspace-reserve"></div>';
+  assemble(host, deps);
 }

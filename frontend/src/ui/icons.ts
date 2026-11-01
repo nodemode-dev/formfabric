@@ -82,6 +82,9 @@ export const ICONS: Record<string, string> = {
   layoutSplit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M12 5v14"/></svg>`,
   layout2d: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2"/><rect x="8" y="9" width="8" height="6" rx=".8"/></svg>`,
   layout3d: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M12 8.2l3.8 2v3.6L12 15.8l-3.8-2v-3.6z"/><path d="M12 12v3.8M8.2 10.2L12 12l3.8-1.8"/></svg>`,
+  tSelect: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l12 8.2-5.3 1.1 3 5.6-2.2 1.2-3-5.6L6 18.2z"/></svg>`,
+  rulers: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4.5H8.5V20H4z"/><path d="M8 4v2M12 4v2M16 4v2M4 8h2M4 12h2M4 16h2"/></svg>`,
+  frameAll: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/><rect x="8.5" y="8.5" width="7" height="7" rx="1"/></svg>`,
 };
 
 export function icon(name: string, size = 16): string {
