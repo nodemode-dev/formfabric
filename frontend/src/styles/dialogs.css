@@ -167,7 +167,7 @@
 .cv-exact { display: grid; gap: var(--space-2); }
 .cv-exact-json { height: auto; padding: var(--space-2); resize: vertical; font-family: var(--font-mono); }
 .cv-exact-error { color: var(--danger-text); }
-.cv-keys-row { grid-template-columns: minmax(0, 1fr) 210px auto; cursor: default; }
+.cv-keys-row { grid-template-columns: minmax(0, 1fr) 210px auto auto; cursor: default; }
 .cv-keys-row .cv-list-name, .cv-keys-row .cv-list-meta { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .cv-keys-row .cv-list-meta { text-align: right; }
 .cv-btn-apart { margin-right: auto; }

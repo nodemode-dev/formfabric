@@ -18,7 +18,7 @@ export class CaptionButtons {
     this.box.hidden = true;
     this.box.innerHTML =
       `<button class="cv-caption-btn" type="button" data-cap="min" title="Minimize" aria-label="Minimize">${icon('capMin', 16)}</button>` +
-      `<button class="cv-caption-btn" type="button" data-cap="max" title="Maximize" aria-label="Maximize">${icon('capMax', 16)}</button>` +
+      `<button class="cv-caption-btn" type="button" data-cap="max" title="Maximize" aria-label="Maximize"><span class="cv-cap-ic" data-ic="max">${icon('capMax', 16)}</span><span class="cv-cap-ic" data-ic="restore" hidden>${icon('capRestore', 16)}</span></button>` +
       `<button class="cv-caption-btn is-close" type="button" data-cap="close" title="Close" aria-label="Close">${icon('close', 16)}</button>`;
     header.append(this.box);
     if (wantsOverlayTitleBar()) {
@@ -70,7 +70,8 @@ export class CaptionButtons {
     this.maximized = now;
     this.box.dataset.shown = '1';
     const b = q<HTMLElement>(this.box, '[data-cap="max"]');
-    b.innerHTML = icon(now ? 'capRestore' : 'capMax', 16);
+    setHidden(q<HTMLElement>(b, '[data-ic="max"]'), now);
+    setHidden(q<HTMLElement>(b, '[data-ic="restore"]'), !now);
     setTitle(b, now ? 'Restore' : 'Maximize');
     b.setAttribute('aria-label', now ? 'Restore' : 'Maximize');
   }

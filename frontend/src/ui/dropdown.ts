@@ -21,31 +21,49 @@ export function enhanceSelect(select: HTMLSelectElement, opts: { search?: string
   const disabled = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'disabled') as PropertyDescriptor;
   Object.defineProperty(select, 'disabled', { configurable: true, get() { return disabled.get?.call(select); }, set(v) { disabled.set?.call(select, v); label(); } });
   select.addEventListener('change', label);
-  const fill = (): void => {
-    const q = search?.value.trim().toLowerCase() ?? '';
+  type Entry = { o: HTMLOptionElement; item: HTMLButtonElement; head: HTMLElement | null; group: HTMLOptGroupElement | null };
+  let entries: Entry[] = [];
+  let dirty = true;
+  new MutationObserver(() => { dirty = true; }).observe(select, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'label'] });
+  const visible = (): HTMLElement[] => entries.filter((e) => !e.item.hidden).map((e) => e.item);
+  const build = (): void => {
+    dirty = false;
     list.textContent = '';
+    entries = [];
     for (const node of Array.from(select.children)) {
       const group = node instanceof HTMLOptGroupElement ? node : null, options = group ? Array.from(group.children) as HTMLOptionElement[] : [node as HTMLOptionElement];
-      const shown = options.filter((o) => !o.hidden && (!q || (o.textContent ?? '').toLowerCase().includes(q)));
-      if (!shown.length) continue;
-      if (group && !q) list.appendChild(el(`<div class="cv-dd-head">${group.label}</div>`));
-      for (const o of shown) {
+      let head: HTMLElement | null = null;
+      if (group) { head = el('<div class="cv-dd-head"></div>'); list.appendChild(head); }
+      for (const o of options) {
         const item = el<HTMLButtonElement>(`<button class="cv-dd-item" type="button" role="option"><span></span>${icon('check', 14)}</button>`);
-        setText(item.querySelector('span') as HTMLElement, o.textContent ?? '');
-        item.dataset.value = o.value;
-        item.classList.toggle('is-chosen', o.value === select.value);
-        item.setAttribute('aria-selected', String(o.value === select.value));
         item.addEventListener('click', () => { if (select.value !== o.value) { select.value = o.value; select.dispatchEvent(new Event('change', { bubbles: true })); } close(); });
-        item.addEventListener('pointerenter', () => { picked = Array.from(list.querySelectorAll('.cv-dd-item')).indexOf(item); mark(); opts.onHover?.(o.value); });
+        item.addEventListener('pointerenter', () => { picked = visible().indexOf(item); mark(); opts.onHover?.(o.value); });
         list.appendChild(item);
+        entries.push({ o, item, head, group });
       }
     }
-    const items = Array.from(list.querySelectorAll<HTMLElement>('.cv-dd-item'));
+  };
+  const fill = (): void => {
+    if (dirty) build();
+    const q = search?.value.trim().toLowerCase() ?? '';
+    const live = new Set<HTMLElement>();
+    for (const e of entries) {
+      const text = e.o.textContent ?? '', chosen = e.o.value === select.value;
+      setText(e.item.querySelector('span') as HTMLElement, text);
+      e.item.dataset.value = e.o.value;
+      e.item.classList.toggle('is-chosen', chosen);
+      e.item.setAttribute('aria-selected', String(chosen));
+      const show = !e.o.hidden && (!q || text.toLowerCase().includes(q));
+      setHidden(e.item, !show);
+      if (show && e.head) live.add(e.head);
+    }
+    for (const e of entries) if (e.head && e.group) { setText(e.head, e.group.label); setHidden(e.head, !!q || !live.has(e.head)); }
+    const items = visible();
     picked = Math.max(0, items.findIndex((i) => i.classList.contains('is-chosen')));
     if (q) picked = 0;
     mark();
   };
-  const mark = (): void => { list.querySelectorAll<HTMLElement>('.cv-dd-item').forEach((i, n) => i.classList.toggle('is-picked', n === picked)); };
+  const mark = (): void => { visible().forEach((i, n) => i.classList.toggle('is-picked', n === picked)); };
   const close = (): void => { setHidden(pop, true); btn.setAttribute('aria-expanded', 'false'); opts.onHover?.(null); };
   const open = (): void => {
     if (search) search.value = '';

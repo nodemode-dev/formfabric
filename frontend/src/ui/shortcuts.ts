@@ -4,8 +4,20 @@ import { el, patchList, q, setClass, setText } from './dom';
 import { t } from './i18n';
 import { loadPrefs, updatePrefs } from './prefs';
 
+const KEYS_KEY = 'formfabric.keys';
+
+function storedKeys(): Record<string, string[]> {
+  try {
+    const raw = localStorage.getItem(KEYS_KEY);
+    if (raw === null) return loadPrefs().shortcuts;
+    const out: Record<string, string[]> = {};
+    for (const [id, keys] of Object.entries(JSON.parse(raw) as Record<string, unknown>)) if (Array.isArray(keys)) out[id] = keys.filter((k): k is string => typeof k === 'string');
+    return out;
+  } catch { return {}; }
+}
+
 export function applyShortcuts(commands: Commands): void {
-  for (const [id, keys] of Object.entries(loadPrefs().shortcuts)) if (commands.get(id)) commands.setKeys(id, keys);
+  for (const [id, keys] of Object.entries(storedKeys())) if (commands.get(id)) commands.setKeys(id, keys);
 }
 
 export class ShortcutsDialog extends Dialog {
@@ -26,6 +38,7 @@ export class ShortcutsDialog extends Dialog {
       const id = row?.dataset.key;
       if (!id) return;
       if (target?.closest('[data-clear]')) { this.assign(id, []); return; }
+      if (target?.closest('[data-reset]')) { this.assign(id, this.commands.defaultKeys(id)); return; }
       this.capturing = id;
       this.pending = null;
       this.say(t('Press the new shortcut, or Escape to cancel.'));
@@ -45,7 +58,11 @@ export class ShortcutsDialog extends Dialog {
     this.open(this.search);
   }
 
-  private save(): void { updatePrefs({ shortcuts: this.commands.overrides() }); }
+  private save(): void {
+    const over = this.commands.overrides();
+    try { localStorage.setItem(KEYS_KEY, JSON.stringify(over)); } catch { return; }
+    updatePrefs({ shortcuts: over });
+  }
 
   private say(text: string): void { setText(this.note, text); }
 
@@ -80,7 +97,7 @@ export class ShortcutsDialog extends Dialog {
     patchList(this.list, rows, {
       key: (c) => c.id,
       create: (c) => {
-        const n = el<HTMLElement>('<div class="cv-list-row cv-keys-row"><span class="cv-list-name"></span><span class="cv-list-meta"></span><button class="cv-btn cv-btn-ghost" type="button" data-clear>Clear</button></div>');
+        const n = el<HTMLElement>('<div class="cv-list-row cv-keys-row"><span class="cv-list-name"></span><span class="cv-list-meta"></span><button class="cv-btn cv-btn-ghost" type="button" data-reset>Reset</button><button class="cv-btn cv-btn-ghost" type="button" data-clear>Clear</button></div>');
         this.fill(n, c.id);
         return n;
       },
@@ -96,5 +113,9 @@ export class ShortcutsDialog extends Dialog {
     const keys = this.capturing === id ? t('Press keys...') : (c.keys ?? []).map(formatKeys).join('  ') || t('None');
     setText(q(n, '.cv-list-meta'), keys);
     setClass(n, 'is-selected', this.capturing === id);
+    const def = this.commands.defaultKeys(id), cur = c.keys ?? [];
+    const same = def.length === cur.length && def.every((k, i) => k === cur[i]);
+    const reset = q<HTMLButtonElement>(n, '[data-reset]');
+    if (reset.disabled !== same) reset.disabled = same;
   }
 }
