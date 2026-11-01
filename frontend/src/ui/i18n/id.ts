@@ -1,4 +1,6 @@
 export const id: Record<string, string> = {
+  "Statistics": "Statistik",
+  "Stats": "Statistik",
   "Engine offline": "Mesin offline",
   "General": "Umum",
   "Interface": "Antarmuka",

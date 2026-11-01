@@ -1,4 +1,6 @@
 export const srLatn: Record<string, string> = {
+  "Statistics": "Statistika",
+  "Stats": "Statistika",
   "Engine offline": "Engine van mreže",
   "General": "Opšte",
   "Interface": "Interfejs",

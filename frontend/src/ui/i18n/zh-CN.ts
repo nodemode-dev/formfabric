@@ -1,4 +1,6 @@
 export const zhCN: Record<string, string> = {
+  "Statistics": "统计信息",
+  "Stats": "统计",
   "Engine offline": "引擎离线",
   "General": "常规",
   "Interface": "界面",

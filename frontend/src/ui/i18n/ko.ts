@@ -1,4 +1,6 @@
 export const ko: Record<string, string> = {
+  "Statistics": "통계",
+  "Stats": "통계",
   "Engine offline": "엔진 오프라인",
   "General": "일반",
   "Interface": "인터페이스",

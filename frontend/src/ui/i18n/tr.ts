@@ -1,4 +1,6 @@
 export const tr: Record<string, string> = {
+  "Statistics": "İstatistikler",
+  "Stats": "İstatistik",
   "Engine offline": "Motor çevrimdışı",
   "General": "Genel",
   "Interface": "Arayüz",

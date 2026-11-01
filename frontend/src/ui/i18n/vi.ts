@@ -1,4 +1,6 @@
 export const vi: Record<string, string> = {
+  "Statistics": "Thống kê",
+  "Stats": "Thống kê",
   "Engine offline": "Công cụ xử lý ngoại tuyến",
   "General": "Chung",
   "Interface": "Giao diện",

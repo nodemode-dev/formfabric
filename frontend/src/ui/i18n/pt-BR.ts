@@ -1,4 +1,6 @@
 export const ptBR: Record<string, string> = {
+  "Statistics": "Estatísticas",
+  "Stats": "Estatísticas",
   "Engine offline": "Mecanismo offline",
   "General": "Geral",
   "Interface": "Interface",

@@ -1,4 +1,6 @@
 export const fi: Record<string, string> = {
+  "Statistics": "Tilastot",
+  "Stats": "Tilastot",
   "Engine offline": "Moottori ei ole yhteydessä",
   "General": "Yleiset",
   "Interface": "Käyttöliittymä",

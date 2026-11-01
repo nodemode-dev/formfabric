@@ -1,4 +1,6 @@
 export const hi: Record<string, string> = {
+  "Statistics": "आँकड़े",
+  "Stats": "आँकड़े",
   "Engine offline": "इंजन ऑफ़लाइन",
   "General": "सामान्य",
   "Interface": "इंटरफ़ेस",

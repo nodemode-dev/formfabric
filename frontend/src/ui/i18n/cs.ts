@@ -1,4 +1,6 @@
 export const cs: Record<string, string> = {
+  "Statistics": "Statistiky",
+  "Stats": "Statistiky",
   "Engine offline": "Jádro offline",
   "General": "Obecné",
   "Interface": "Rozhraní",

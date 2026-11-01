@@ -1,4 +1,6 @@
 export const uk: Record<string, string> = {
+  "Statistics": "Статистика",
+  "Stats": "Статистика",
   "Engine offline": "Рушій не в мережі",
   "General": "Загальні",
   "Interface": "Інтерфейс",

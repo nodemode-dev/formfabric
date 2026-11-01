@@ -1,4 +1,6 @@
 export const el: Record<string, string> = {
+  "Statistics": "Στατιστικά",
+  "Stats": "Στατιστικά",
   "Engine offline": "Η μηχανή είναι εκτός σύνδεσης",
   "General": "Γενικά",
   "Interface": "Περιβάλλον εργασίας",

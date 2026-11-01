@@ -1,4 +1,6 @@
 export const ja: Record<string, string> = {
+  "Statistics": "統計",
+  "Stats": "統計",
   "Engine offline": "エンジンはオフラインです",
   "General": "一般",
   "Interface": "インターフェイス",

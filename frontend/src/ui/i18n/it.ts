@@ -1,4 +1,6 @@
 export const it: Record<string, string> = {
+  "Statistics": "Statistiche",
+  "Stats": "Statistiche",
   "Engine offline": "Motore non in linea",
   "General": "Generali",
   "Interface": "Interfaccia",

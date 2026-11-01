@@ -1,4 +1,6 @@
 export const hu: Record<string, string> = {
+  "Statistics": "Statisztika",
+  "Stats": "Statisztika",
   "Engine offline": "Motor offline",
   "General": "Általános",
   "Interface": "Felület",

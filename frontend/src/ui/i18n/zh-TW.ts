@@ -1,4 +1,6 @@
 export const zhTW: Record<string, string> = {
+  "Statistics": "統計資訊",
+  "Stats": "統計",
   "Engine offline": "引擎離線",
   "General": "一般",
   "Interface": "介面",

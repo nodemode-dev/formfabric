@@ -1,4 +1,6 @@
 export const nb: Record<string, string> = {
+  "Statistics": "Statistikk",
+  "Stats": "Statistikk",
   "Engine offline": "Motor frakoblet",
   "General": "Generelt",
   "Interface": "Grensesnitt",

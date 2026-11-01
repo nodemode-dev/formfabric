@@ -1,4 +1,6 @@
 export const sv: Record<string, string> = {
+  "Statistics": "Statistik",
+  "Stats": "Statistik",
   "Engine offline": "Motor offline",
   "General": "Allmänt",
   "Interface": "Gränssnitt",

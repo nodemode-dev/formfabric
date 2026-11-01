@@ -97,4 +97,3 @@
 .ff-lab-formula + .ff-lab-formula { margin-top: var(--space-1); }
 .ff-lab-warn { height: 52px; overflow-y: auto; color: var(--danger-text); font-size: var(--fs-11); line-height: 1.35; }
 .ff-fb-dname { margin: 0; font-weight: 600; color: var(--text-primary); }
-.ff-fabric .cv-dd-native, .ff-lab .cv-dd-native, .ff-fb-dlg .cv-dd-native { display: none; }

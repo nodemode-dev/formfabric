@@ -1,4 +1,6 @@
 export const nl: Record<string, string> = {
+  "Statistics": "Statistieken",
+  "Stats": "Statistieken",
   "Engine offline": "Engine offline",
   "General": "Algemeen",
   "Interface": "Interface",

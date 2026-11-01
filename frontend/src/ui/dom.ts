@@ -41,6 +41,7 @@ export function patchList<T>(container: HTMLElement, items: T[], opts: PatchList
     } else {
       node = opts.create(item);
       node.dataset.key = k;
+      opts.update(node, item);
     }
     if (node !== cursor) container.insertBefore(node, cursor);
     else cursor = cursor.nextElementSibling;

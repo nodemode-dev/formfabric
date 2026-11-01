@@ -1,4 +1,6 @@
 export const th: Record<string, string> = {
+  "Statistics": "สถิติ",
+  "Stats": "สถิติ",
   "Engine offline": "เอนจินออฟไลน์",
   "General": "ทั่วไป",
   "Interface": "อินเทอร์เฟซ",

@@ -1,4 +1,6 @@
 export const ar: Record<string, string> = {
+  "Statistics": "الإحصائيات",
+  "Stats": "إحصائيات",
   "Engine offline": "المحرك غير متصل",
   "General": "عام",
   "Interface": "الواجهة",
