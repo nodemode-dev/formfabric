@@ -1,5 +1,8 @@
+pub mod anim;
 pub mod bezier;
 pub mod dart;
+pub mod output;
+pub mod viz;
 pub mod edit;
 pub mod garment;
 pub mod geom;
@@ -45,6 +48,19 @@ pub struct Garment {
     pub finishes: Vec<EdgeFinish>,
     pub wind: Wind,
     pub ripped: Vec<u32>,
+    pub anim: anim::Anim,
+    pub output: output::Output,
+    pub viz: viz::Viz,
+    pub style_lines: Vec<StyleLine>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct StyleLine {
+    pub id: u32,
+    pub panel: u32,
+    pub points: Vec<[f32; 2]>,
+    pub closed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -153,6 +169,10 @@ impl Default for Garment {
             finishes: Vec::new(),
             wind: Wind::default(),
             ripped: Vec::new(),
+            anim: anim::Anim::default(),
+            output: output::Output::default(),
+            viz: viz::Viz::default(),
+            style_lines: Vec::new(),
         }
     }
 }

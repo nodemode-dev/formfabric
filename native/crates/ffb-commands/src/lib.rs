@@ -1,5 +1,8 @@
+mod anim_cmds;
 mod args;
 mod exchange_cmds;
+mod output_cmds;
+mod viz_cmds;
 mod fabric_cmds;
 mod file_cmds;
 mod history;
@@ -209,6 +212,9 @@ static COMMANDS: LazyLock<Vec<Command>> = LazyLock::new(|| {
     all.extend(place_cmds::commands());
     all.extend(edit3d_cmds::commands());
     all.extend(trim_cmds::commands());
+    all.extend(anim_cmds::commands());
+    all.extend(output_cmds::commands());
+    all.extend(viz_cmds::commands());
     all
 });
 

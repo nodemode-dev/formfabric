@@ -20,6 +20,8 @@ ffb-body = { path = "crates/ffb-body" }
 ffb-gpu = { path = "crates/ffb-gpu" }
 ffb-io = { path = "crates/ffb-io" }
 ffb-commands = { path = "crates/ffb-commands" }
+ffb-anim = { path = "crates/ffb-anim" }
+ffb-remesh = { path = "crates/ffb-remesh" }
 glam = "0.34"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }

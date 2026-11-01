@@ -9,4 +9,7 @@ pub(crate) fn after_change(session: &mut Session, command: &str) {
     crate::edit3d_cmds::after_change(session, command);
     crate::mesh_cmds::after_change(session, command);
     crate::sim_cmds::after_change(session, command);
+    crate::anim_cmds::after_change(session, command);
+    crate::output_cmds::after_change(session, command);
+    crate::viz_cmds::after_change(session, command);
 }
