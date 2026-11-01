@@ -13,6 +13,8 @@ formfabric is licensed under the Apache License 2.0 (see `LICENSE`). Copyright 2
 
 ## Data
 
+Default bodies: the female and male base bodies are derived from the MakeHuman community assets distributed with MPFB2 (base mesh, macro targets, default rig and skin weights), dedicated to the public domain under CC0 1.0 Universal. Source: https://github.com/makehumancommunity/mpfb2 (assets, not the GPLv3 code; no MPFB code is included). Licence text: `assets/bodies/mpfb2-female/LICENSE.txt` and `assets/bodies/mpfb2-male/LICENSE.txt`. Converted, scaled and re-skinned by formfabric. The Basic Form body is formfabric's own.
+
 Fabric presets and Fabric Lab formulas are derived from published measurements and textile-testing literature cited in `docs/encyclopedia/16-FABRIC-DATA.md`; the values are formfabric's own and no dataset is redistributed.
 
 The DXF-AAMA reader and writer follow the public ASTM D6673 conventions as described in the sources cited in the build notes; no code from any CAD vendor is included.
@@ -32,6 +34,9 @@ The DXF-AAMA reader and writer follow the public ASTM D6673 conventions as descr
 | glam, serde, serde_json, regex | MIT or Apache-2.0 | engine and shell |
 | zip, flate2, miniz_oxide, zopfli, adler2 | MIT, Zlib, Apache-2.0, 0BSD | `.ffbrc` and `.ffab` containers |
 | spade and its dependencies | MIT or Apache-2.0 | constrained Delaunay meshing of panels |
+| gltf 1.4.1 and its dependencies | MIT or Apache-2.0 | glTF and GLB body import |
+| ufbx 0.11.5 (Rust bindings and the bundled ufbx C library) | MIT or Unlicense | FBX body import, desktop builds |
+| rayon and its dependencies (optional feature, off by default) | MIT or Apache-2.0 | parallel solver sweeps |
 | tungstenite, getrandom, rand, sha1 and the RustCrypto support crates | MIT or Apache-2.0 | frame stream |
 | pyo3 | MIT or Apache-2.0 | Python engine module |
 | FastAPI, Starlette, pydantic | MIT, BSD-3-Clause | engine service |

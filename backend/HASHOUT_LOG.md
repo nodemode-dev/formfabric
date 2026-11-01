@@ -2,6 +2,13 @@
 
 Living context for the FastAPI engine service. What would be comments in `backend/` lives here, newest first. Read before editing.
 
+## v0.9.0 · 2026-11-01
+
+- `core/window_guard.py`: engine dispatch, terminal and Claude Code commands, `/mcp/consent` and `/mcp/window` need a browser Origin exactly equal to a configured window origin (scheme, host and port; `FFB_FRONTEND_PORT` sets the dev one) or the in-app token. Read-only routes stay open. A local program can still forge an Origin; a per-launch window token from the desktop shell is the planned fix.
+- The in-app token goes to Claude Code through the environment (`FFB_INAPP_TOKEN`), never argv; untested against a real Claude Code.
+- `terminal.resize` clamps columns and rows to 1 to 1000.
+- Test servers must set `FFB_FRONTEND_PORT` to the Vite port they use, or the window is refused.
+
 ## v0.1.0 to v0.3.0 · 2026-10-31
 
 ### Shape
