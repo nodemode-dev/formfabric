@@ -23,6 +23,41 @@ fn round(x: f64, places: i32) -> f64 {
     (x * k).round() / k
 }
 
+const MAX_POSITIONS: usize = 5000;
+
+fn positions_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "panel": {"type": "integer", "minimum": 1, "description": "Panel id as listed by pattern.get."},
+            "decimate": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 1, "description": "Keep every n-th vertex of the panel mesh."}
+        },
+        "required": ["panel"],
+        "additionalProperties": false
+    })
+}
+
+fn positions(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
+    let id = a.get("panel").and_then(Value::as_u64).ok_or_else(|| bad("panel must be a panel id"))? as u32;
+    let every = a.get("decimate").and_then(Value::as_u64).unwrap_or(1).clamp(1, 1000) as usize;
+    let c = lock(&s.sim.core);
+    let found = c.slices.iter().find(|x| x.id == id);
+    let (Some(st), Some(sl)) = (c.stepper.as_ref(), found) else {
+        return Err(CommandError::new("not_found", format!("panel {id} is not in the built cloth; run sim.reset first")));
+    };
+    let step = every.max(sl.count.div_ceil(MAX_POSITIONS)).max(1);
+    let all = st.positions();
+    let mut indices = Vec::new();
+    let mut points = Vec::new();
+    for local in (0..sl.count).step_by(step) {
+        if let Some(p) = all.get(sl.start + local) {
+            indices.push(local);
+            points.push([round(f64::from(p[0]), 2), round(f64::from(p[1]), 2), round(f64::from(p[2]), 2)]);
+        }
+    }
+    Ok(json!({"panel": id, "frame": c.frame, "vertices": sl.count, "step": step, "returned": points.len(), "indices": indices, "positions": points}))
+}
+
 pub(super) fn preset_params(name: &str, base: Params) -> Option<Params> {
     adapter::preset(name, base)
 }
@@ -60,6 +95,7 @@ fn describe(c: &super::runtime::Core, session: &Session) -> Value {
         "pins": session.garment.pins.len(),
         "pins_built": c.pins.len(),
         "folds": c.base.folds.len(),
+        "placed_poses": session.garment.panels.iter().filter(|p| p.place3d.as_ref().is_some_and(|q| q.pose.is_some())).count(),
         "grabbed": c.grabbed,
         "pinched": c.pinch.as_ref().map(|p| p.members.len()),
         "wind": c.wind.enabled,
@@ -366,8 +402,9 @@ pub(crate) fn commands() -> Vec<Command> {
         Command { id: "sim.toggle", mcp: "sim_toggle", group: Group::Sim, label: "Simulate", description: "Start the simulation if it is stopped, stop it if it runs.", keys: &["Space"], hints: WRITE, schema: no_args, run: toggle },
         Command { id: "sim.step", mcp: "sim_step", group: Group::Sim, label: "Step simulation", description: "Advance the simulation by a number of frames on the calling thread and publish the result. Works without a background thread.", keys: &[], hints: WRITE, schema: step_schema, run: step },
         Command { id: "sim.reset", mcp: "sim_reset", group: Group::Sim, label: "Reset simulation", description: "Rebuild the cloth from the garment and return every panel to its placed state, frame zero.", keys: &[], hints: WRITE, schema: no_args, run: reset },
-        Command { id: "sim.settings", mcp: "sim_settings", group: Group::Sim, label: "Simulation settings", description: "Get or set the solver parameters and the quality preset (normal, fast, fine). Settings are not saved in the document.", keys: &[], hints: SET, schema: settings_schema, run: settings },
+        Command { id: "sim.settings", mcp: "sim_settings", group: Group::Sim, label: "Simulation settings", description: "Get or set the solver parameters and the quality preset (fast, normal, quality, final). Settings are not saved in the document.", keys: &[], hints: SET, schema: settings_schema, run: settings },
         Command { id: "sim.state", mcp: "sim_state", group: Group::Sim, label: "Simulation state", description: "Read whether the simulation runs, the frame, the vertex count, the last step statistics and the preset.", keys: &[], hints: READ, schema: no_args, run: state },
+        Command { id: "sim.positions", mcp: "sim_positions", group: Group::Sim, label: "Cloth positions", description: "Read the current simulated 3D positions of one panel's vertices. decimate keeps every n-th vertex; the answer never holds more than 5000 vertices, so large panels are decimated further. Read only.", keys: &[], hints: READ, schema: positions_schema, run: positions },
         Command { id: "sim.compare", mcp: "sim_compare", group: Group::Sim, label: "Compare solvers", description: "Run the same start for n frames with the interactive solver and with the reference solver and report the mean and maximum vertex distance in mm. Does not touch the running simulation.", keys: &[], hints: READ, schema: compare_schema, run: compare },
     ]
 }

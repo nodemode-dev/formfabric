@@ -45,7 +45,26 @@ fn find(s: &Session, id: u64) -> Result<usize, CommandError> {
 }
 
 fn same_topology(a: &Body, b: &Body) -> bool {
-    !a.positions.is_empty() && a.positions.len() == b.positions.len() && a.triangles == b.triangles
+    if a.positions.is_empty() || a.positions.len() != b.positions.len() || a.triangles.len() != b.triangles.len() {
+        return false;
+    }
+    if a.triangles == b.triangles {
+        return true;
+    }
+    let canon = |body: &Body| {
+        let mut out: Vec<[u32; 3]> = body
+            .triangles
+            .iter()
+            .map(|t| {
+                let mut s = *t;
+                s.sort_unstable();
+                s
+            })
+            .collect();
+        out.sort_unstable();
+        out
+    };
+    canon(a) == canon(b)
 }
 
 fn lerp(a: &[[f32; 3]], b: &[[f32; 3]], t: f32) -> Vec<[f32; 3]> {
@@ -155,6 +174,7 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
                 if let Some(st) = c.stepper.as_mut() {
                     st.set_colliders(colliders);
                     st.set_pins(pins);
+                    st.push_out(0.0);
                 }
                 c.step_frames(frames as u32);
                 c.snapshot()
@@ -183,6 +203,7 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         let mut c = lock(&core);
         if let Some(st) = c.stepper.as_mut() {
             st.set_colliders(colliders);
+            st.push_out(1.0);
         }
     }
     let snapshot = {

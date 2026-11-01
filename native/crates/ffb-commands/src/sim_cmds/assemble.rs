@@ -14,6 +14,9 @@ use super::seams;
 use super::states::{Anchor, Extras};
 use crate::mesh_cmds::MeshState;
 
+const GRAVITY_MM: f32 = 9810.0;
+const PRESSURE_WEIGHTS: f32 = 8.0;
+
 #[derive(Debug, Clone)]
 pub(crate) struct Slice {
     pub id: u32,
@@ -94,7 +97,8 @@ pub(crate) fn assemble(garment: &Garment, mesh: &mut MeshState, bodies: &[ffb_bo
             Some(i) => i,
             None => {
                 let mut made = adapter::stiffened(&adapter::material(&physical), state.stiffen as f32);
-                made.pressure = pressure;
+                let limit = made.density * GRAVITY_MM * PRESSURE_WEIGHTS;
+                made.pressure = pressure.clamp(-limit, limit);
                 made.shrink_weft = state.shrink_weft as f32;
                 made.shrink_warp = state.shrink_warp as f32;
                 cloth.materials.push(made);
@@ -134,20 +138,22 @@ pub(crate) fn assemble(garment: &Garment, mesh: &mut MeshState, bodies: &[ffb_bo
         let (Binding::Pair { seam, .. } | Binding::Edge { seam, .. }) = b;
         !garment.ripped.contains(seam)
     });
+    let seam_k = cloth.materials.iter().map(|m| m.stretch_weft.max(m.stretch_warp)).fold(0.0, f32::max).max(1.0);
+    let pull = |seam: u32, tension: f64| if seam == 0 { tension as f32 } else { (tension as f32 * seam_k).max(1.0e-6) };
     for binding in sewn.chain(adapter::trim_bindings(garment, &meshes)) {
         match binding {
-            Binding::Pair { a, b, rest_length, stiffness, .. } => {
+            Binding::Pair { seam, a, b, rest_length, stiffness } => {
                 if let (Some(sa), Some(sb)) = (start_of(a.panel), start_of(b.panel)) {
-                    cloth.seams.push(SeamPair { a: (sa + a.vertex as usize) as u32, b: (sb + b.vertex as usize) as u32, rest_length: rest_length as f32, stiffness: stiffness as f32 });
+                    cloth.seams.push(SeamPair { a: (sa + a.vertex as usize) as u32, b: (sb + b.vertex as usize) as u32, rest_length: rest_length as f32, stiffness: pull(seam, stiffness) });
                 }
             }
-            Binding::Edge { a, b0, b1, w, rest_length, stiffness, .. } => {
+            Binding::Edge { seam, a, b0, b1, w, rest_length, stiffness } => {
                 if let (Some(sa), Some(s0), Some(s1)) = (start_of(a.panel), start_of(b0.panel), start_of(b1.panel)) {
                     cloth.binds.push(SeamBind {
                         a: (sa + a.vertex as usize) as u32,
                         b: [(s0 + b0.vertex as usize) as u32, (s1 + b1.vertex as usize) as u32],
                         w: w as f32,
-                        stiffness: stiffness as f32,
+                        stiffness: pull(seam, stiffness),
                         rest_length: rest_length as f32,
                     });
                 }

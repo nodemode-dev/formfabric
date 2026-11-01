@@ -1,5 +1,5 @@
 use ffb_body::light_copy;
-use ffb_body::place::{cross, rotate, scale, sub, quaternion_from_columns, Rig};
+use ffb_body::place::{cross, rotate, scale, sub, quaternion_from_columns, Rig, Wrapper};
 use ffb_pattern::Place3D;
 use serde_json::{json, Value};
 
@@ -52,7 +52,8 @@ fn place_panel(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         point.offset = x;
     }
     let volume = body.volumes.iter().find(|v| v.id == point.volume).ok_or_else(|| missing(format!("point {} refers to a volume that is gone", point.name)))?;
-    let frame = Rig::new(&body).point(volume, &point);
+    let rig = Rig::new(&body);
+    let frame = rig.fit(&body, volume, &point, 2.0);
     let (volume_name, point_name) = (volume.name.clone(), point.name.clone());
     let wrap = a.get("wrap").and_then(Value::as_bool).unwrap_or(point.wrap);
     let turn = orientation.to_radians();
@@ -69,7 +70,14 @@ fn place_panel(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let bend = if flip { -radius } else { radius };
     let anchor_world = rotate(q, anchor);
     let origin = sub(frame.position, anchor_world);
-    let place = Place3D { origin, rotation: q, bend, pose: None };
+    let pose = if radius > 0.0 {
+        let mut wrapper = Wrapper::new(&rig, &body, volume, &point, frame.up);
+        let (sgn, c) = (if flip { -1.0 } else { 1.0 }, turn.cos());
+        mesh.positions.iter().map(|p| wrapper.at(sgn * (p[0] - anchor[0]) * c, (p[1] - anchor[1]) * c, point.offset).map(|w| [w[0] as f32, w[1] as f32, w[2] as f32])).collect::<Option<Vec<_>>>()
+    } else {
+        None
+    };
+    let place = Place3D { origin, rotation: q, bend, pose };
     let wrapped_degrees = if radius > 0.0 { (width / radius).to_degrees() } else { 0.0 };
     let before = s.garment.panels[index].clone();
     let mut after = before.clone();

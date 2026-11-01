@@ -64,7 +64,15 @@ fn add(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let index = s.garment.index_of(panel_id).ok_or_else(|| missing(format!("no panel with id {panel_id}")))?;
     let mesh = s.mesh.ensure(&s.garment.panels[index], false).built.map_err(|e| CommandError::new("invalid_geometry", e))?;
     let (point, local) = match (numbers::<2>(a, "point")?, a.get("vertex").and_then(Value::as_u64)) {
-        (Some(p), None) => (p, nearest_vertex(&mesh.mesh, p).ok_or_else(|| missing("the panel mesh is empty"))?),
+        (Some(p), None) => {
+            let v = nearest_vertex(&mesh.mesh, p).ok_or_else(|| missing("the panel mesh is empty"))?;
+            let q = mesh.mesh.positions[v];
+            let reach = 2.0 * s.garment.panels[index].particle_distance.max(1.0);
+            if (q[0] - p[0]).hypot(q[1] - p[1]) > reach {
+                return Err(CommandError::new("invalid_geometry", format!("the point lies outside panel {panel_id}; pin.add refuses points farther than two particle distances from the mesh, as button.add does")));
+            }
+            (p, v)
+        }
         (None, Some(v)) => {
             let v = v as usize;
             (*mesh.mesh.positions.get(v).ok_or_else(|| bad(format!("the panel mesh has {} vertices", mesh.mesh.positions.len())))?, v)

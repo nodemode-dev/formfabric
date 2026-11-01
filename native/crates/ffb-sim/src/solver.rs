@@ -236,6 +236,25 @@ impl Solver {
         self.sync_out();
     }
 
+    pub fn push_out(&mut self, margin: f32) -> usize {
+        let offset = f64::from(self.params.skin_offset.max(0.0) + margin);
+        let mut moved = Vec::with_capacity(self.x.len());
+        let mut count = 0;
+        for (i, x) in self.x.iter().enumerate() {
+            let (p, hit) = resolve(&self.colliders, *x, offset);
+            if hit.is_some() && !self.pinned[i] {
+                count += 1;
+                moved.push([p.x as f32, p.y as f32, p.z as f32]);
+            } else {
+                moved.push([x.x as f32, x.y as f32, x.z as f32]);
+            }
+        }
+        if count > 0 {
+            self.set_positions(&moved);
+        }
+        count
+    }
+
     pub fn grab(&mut self, vertex: u32, target: Option<[f32; 3]>) {
         self.grab = match target {
             Some(t) if (vertex as usize) < self.x.len() => Some((vertex, v3(t))),

@@ -10,7 +10,7 @@ fn schema() -> Value {
         json!({
             "panel": ident("Panel to quilt; it keeps the outer layer."),
             "lines": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"type": "integer", "minimum": 1}, "description": "Inner line ids of the panel that become quilting lines. Shape and reference lines turn into flat fold lines."},
-            "pressure": num("Pressure of the outer layer in pascals; the lining gets the opposite value so the cells puff.", -5000.0, 5000.0, Some("Pa")),
+            "pressure": num("Pressure of the outer layer in pascals; the lining gets the opposite value so the cells puff. Default 2 Pa; the solver clamps it to 8 times the fabric weight per area (about 12 Pa for a 150 g/m2 cloth), because larger values blow the cloth apart.", -5000.0, 5000.0, Some("Pa")),
             "gap": num("Distance of the lining behind the outer layer in the 3D placement.", 0.0, 100.0, Some("mm")),
             "edge": {"type": "boolean", "default": true, "description": "Also sew the two outlines together so the cells hold the filling."}
         }),
@@ -38,7 +38,7 @@ fn make(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             return Err(bad(format!("inner line {line} is a dart")));
         }
     }
-    let pressure = number_or(a, "pressure", if source.pressure.abs() > 0.0 { source.pressure } else { 100.0 });
+    let pressure = number_or(a, "pressure", if source.pressure.abs() > 0.0 { source.pressure } else { 2.0 });
     let gap = number_or(a, "gap", 2.0);
     let base = s.garment.next_id();
     let mut lining = Panel {
@@ -63,7 +63,7 @@ fn make(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         let n = q.iter().map(|x| x * x).sum::<f64>().sqrt();
         let q = if n < 1e-12 { [0.0, 0.0, 0.0, 1.0] } else { q.map(|x| x / n) };
         let back = ffb_mesh::layout::rotate(q, [0.0, 0.0, -gap]);
-        lining.place3d = Some(Place3D { origin: [p3.origin[0] + back[0], p3.origin[1] + back[1], p3.origin[2] + back[2]], rotation: p3.rotation, bend: p3.bend, pose: None });
+        lining.place3d = Some(Place3D { origin: [p3.origin[0] + back[0], p3.origin[1] + back[1], p3.origin[2] + back[2]], rotation: p3.rotation, bend: p3.bend, pose: p3.pose.as_ref().map(|pose| pose.iter().map(|p| [p[0] + back[0] as f32, p[1] + back[1] as f32, p[2] + back[2] as f32]).collect()) });
     }
     let mut mapped: Vec<(u32, u32)> = Vec::new();
     for (k, line) in lines.iter().enumerate() {
