@@ -1,0 +1,69 @@
+.ff-an { position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--z-rail); height: 244px; display: flex; flex-direction: column; min-width: 0; background: var(--bg-secondary); border-top: 1px solid var(--border-color); color: var(--text-primary); font-size: var(--fs-11); }
+.ff-an[hidden] { display: none; }
+.ff-an-toggle { flex: none; }
+.ff-an-bar, .ff-an-keys { flex: none; display: flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border-color); }
+.ff-an-bar { height: 32px; }
+.ff-an-keys { height: 30px; }
+.ff-an-bar::-webkit-scrollbar, .ff-an-keys::-webkit-scrollbar { display: none; }
+.ff-an-sep { flex: none; width: 1px; height: 16px; margin: 0 var(--space-1); background: var(--border-color); }
+.ff-an-gap { flex: 1 1 auto; min-width: 0; }
+.ff-an-hint { flex: none; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.ff-an .cv-icon-btn { width: 26px; height: 26px; }
+.ff-an .cv-icon-btn:disabled { opacity: 0.4; cursor: default; }
+.ff-an .cv-icon-btn.is-on { color: var(--accent-color); background: var(--accent-color-dim); }
+.ff-an-rec { color: var(--text-secondary); }
+.ff-an-rec.is-on { color: var(--accent-color); }
+.ff-an-f { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-muted); }
+.ff-an-f .cv-input { height: 22px; box-sizing: border-box; padding: 0 var(--space-1); font-variant-numeric: tabular-nums; }
+.ff-an-bar .ff-an-f .cv-input { width: 44px; }
+.ff-an-bar { gap: 2px; }
+.ff-an-bar .ff-an-f { margin-left: var(--space-1); }
+.ff-an-bar .ff-an-sep { margin: 0 2px; }
+.ff-an-grow { flex: 1 1 120px; min-width: 90px; }
+.ff-an-grow .cv-input { flex: 1 1 auto; min-width: 0; width: 100%; }
+.ff-an-keys select.cv-input { width: 78px; }
+.ff-an-keys .ff-btn { flex: none; height: 22px; display: inline-flex; align-items: center; gap: var(--space-1); }
+.ff-an-job { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); width: 64px; visibility: hidden; }
+.ff-an-job.is-on { visibility: visible; }
+.ff-an-meter { position: relative; flex: 1 1 auto; height: 4px; overflow: hidden; border-radius: 2px; background: var(--accent-color-dim); }
+.ff-an-meter i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--p, 0) * 100%); background: var(--accent-color); }
+.ff-an-job output { flex: none; width: 30px; text-align: right; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.ff-an [data-k="cancel"]:disabled { visibility: hidden; }
+
+.ff-an-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 188px minmax(0, 1fr); }
+.ff-an-list { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border-color); }
+.ff-an-list-head { flex: none; height: 24px; border-bottom: 1px solid var(--border-color); background: var(--bg-secondary); }
+.ff-an-rows { flex: 1 1 auto; min-height: 0; overflow: hidden; background: var(--bg-primary); }
+.ff-an-item { display: flex; align-items: center; gap: var(--space-1); box-sizing: border-box; padding: 0 var(--space-1); cursor: default; }
+.ff-an-item:hover { background: var(--bg-hover); }
+.ff-an-item.is-sel { background: var(--accent-color-dim); }
+.ff-an-item.is-hidden .ff-an-name { color: var(--text-muted); }
+.ff-an-item .cv-icon-btn { width: 20px; height: 20px; }
+.ff-an-item[hidden], .ff-an-item [hidden] { display: none; }
+.ff-an-item.is-active .ff-an-ico { color: var(--accent-color); }
+.ff-an-ico { flex: none; display: inline-flex; width: 12px; color: var(--text-muted); }
+.ff-an-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-an-ren { flex: 1 1 auto; min-width: 0; height: 18px; box-sizing: border-box; padding: 0 var(--space-1); }
+.ff-an-cv { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg-primary); }
+.ff-an-cv canvas { position: absolute; left: 0; top: 0; display: block; touch-action: none; }
+
+.ff-an-menu { position: absolute; left: var(--x, 0); top: var(--y, 0); z-index: var(--z-raised); display: flex; flex-direction: column; min-width: 112px; padding: var(--space-1) 0; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-secondary); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32); }
+.ff-an-menu[hidden] { display: none; }
+.ff-an-menu button { height: 24px; padding: 0 var(--space-3); border: 0; background: transparent; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
+.ff-an-menu button:hover { background: var(--bg-hover); }
+.ff-an-menu button.is-on { color: var(--accent-color); }
+
+.ff-an-pop { position: absolute; left: var(--space-2); bottom: 100%; z-index: var(--z-raised); width: 300px; max-height: 360px; overflow-y: auto; box-sizing: border-box; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-secondary); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32); }
+.ff-an-pop[hidden] { display: none; }
+.ff-an-pop-sec { display: flex; flex-direction: column; gap: var(--space-2); padding-bottom: var(--space-2); }
+.ff-an-pop-sec + .ff-an-pop-sec { padding-top: var(--space-2); border-top: 1px solid var(--border-color); }
+.ff-an-pop h4, .ff-an-pop h5 { margin: 0; color: var(--text-secondary); font-size: var(--fs-11); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.ff-an-pathrow { display: flex; align-items: center; gap: var(--space-1); }
+.ff-an-pathrow .ff-an-row { flex: 1 1 auto; min-width: 0; }
+.ff-an-row.cv-field { display: grid; grid-template-columns: 84px minmax(0, 1fr); column-gap: var(--space-2); align-items: center; min-height: 26px; }
+.ff-an-row > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.ff-an-row .cv-input { width: 100%; box-sizing: border-box; font-variant-numeric: tabular-nums; }
+.ff-an-row .cv-dd-btn { width: 100%; }
+.ff-an-check input { justify-self: start; }
+.ff-an-actions { display: flex; align-items: center; gap: var(--space-1); }
+.ff-an-actions .ff-btn { display: inline-flex; align-items: center; gap: var(--space-1); }
