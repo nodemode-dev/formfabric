@@ -84,12 +84,24 @@ pub struct Raw {
     pub label: Option<String>,
 }
 
+pub(crate) const MAX_FILE_BYTES: u64 = 1 << 30;
+pub(crate) const MAX_VERTICES: usize = 5_000_000;
+pub(crate) const MAX_TRIANGLES: usize = 10_000_000;
+pub(crate) const MAX_JOINTS: usize = 1024;
+
 pub fn extensions() -> &'static [&'static str] {
     &["obj", "glb", "gltf", "fbx"]
 }
 
 pub fn read(path: &str, options: &Options) -> Result<Body, String> {
     let ext = Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let meta = std::fs::metadata(path).map_err(|e| format!("could not read {path}: {e}"))?;
+    if !meta.is_file() {
+        return Err(format!("{path} is not a regular file"));
+    }
+    if meta.len() > MAX_FILE_BYTES {
+        return Err(format!("{path} is larger than the {} MB import limit", MAX_FILE_BYTES >> 20));
+    }
     let bytes = std::fs::read(path).map_err(|e| format!("could not read {path}: {e}"))?;
     let raw = match ext.as_str() {
         "obj" => obj::read(&bytes)?,
@@ -114,6 +126,9 @@ fn read_fbx(_path: &str, _bytes: &[u8]) -> Result<Raw, String> {
 pub fn finish(mut raw: Raw, options: &Options, stem: String) -> Result<Body, String> {
     if raw.positions.is_empty() || raw.triangles.is_empty() {
         return Err("the file holds no triangle mesh".into());
+    }
+    if raw.positions.len() > MAX_VERTICES || raw.triangles.len() > MAX_TRIANGLES || raw.joints.len() > MAX_JOINTS {
+        return Err(format!("the mesh is over the import limits ({MAX_VERTICES} vertices, {MAX_TRIANGLES} triangles, {MAX_JOINTS} joints)"));
     }
     let rot = qnorm(options.up);
     for p in raw.positions.iter_mut() {

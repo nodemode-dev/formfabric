@@ -74,7 +74,7 @@ fn load_default(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         let options = Options { units: Units::Auto, up: math::IDENTITY, ground: true, name: Some(entry.name.clone()) };
         let mut body = import::read(&entry.path.to_string_lossy(), &options).map_err(|e| CommandError::new("import_failed", e))?;
         body.license = entry.license.clone();
-        body.source = Some(entry.path.to_string_lossy().into_owned());
+        body.source = entry.path.file_name().map(|n| n.to_string_lossy().into_owned());
         body
     };
     Ok(add(s, "Load Body", body))
@@ -99,7 +99,7 @@ fn import_body(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     };
     let options = Options { units, up, ground: a.get("ground").and_then(Value::as_bool).unwrap_or(true), name: a.get("name").and_then(Value::as_str).map(str::to_string) };
     let mut body = import::read(path, &options).map_err(|e| CommandError::new("import_failed", e))?;
-    body.source = Some(path.to_string());
+    body.source = std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().into_owned());
     Ok(add(s, "Import Body", body))
 }
 

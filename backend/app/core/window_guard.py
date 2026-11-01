@@ -31,6 +31,19 @@ def window_origins() -> set[str]:
     return {key for key in (exact(o) for o in config.window_origins()) if key is not None}
 
 
+def allowed_hosts() -> set[str]:
+    hosts = set()
+    for origin in window_origins():
+        found = _ORIGIN.match(origin)
+        if found is not None and found.group(2) in ("127.0.0.1", "localhost"):
+            hosts.add(found.group(2) + (f":{found.group(3)}" if found.group(3) else ""))
+    return hosts
+
+
+def host_ok(headers) -> bool:
+    return headers.get("host", "").strip().lower() in allowed_hosts()
+
+
 def _token(headers) -> bool:
     given = headers.get(agents.INAPP_HEADER, "")
     return secrets.compare_digest(given.encode("utf-8"), agents.INAPP_TOKEN.encode("utf-8"))
@@ -48,6 +61,8 @@ def _warn_open() -> None:
 
 
 def from_window(headers, same_origin_read: bool = False, query=None) -> bool:
+    if not host_ok(headers):
+        return False
     if _token(headers):
         return True
     expected = config.window_token()

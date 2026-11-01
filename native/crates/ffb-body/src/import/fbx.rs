@@ -29,6 +29,9 @@ pub fn read(path: &str) -> Result<Raw, String> {
     let deformer = skinned_mesh.and_then(|m| m.skin_deformers.first());
     let mut bone_ids: Vec<u32> = Vec::new();
     if let Some(d) = deformer {
+        if d.clusters.len() > super::MAX_JOINTS {
+            return Err(format!("the FBX skin has more than {} joints", super::MAX_JOINTS));
+        }
         for c in d.clusters.iter() {
             bone_ids.push(c.bone_node.as_ref().map(|n| n.element.element_id).unwrap_or(u32::MAX));
         }
@@ -55,6 +58,9 @@ pub fn read(path: &str) -> Result<Raw, String> {
     let mut buf: Vec<u32> = Vec::new();
     for node in scene.nodes.iter() {
         let Some(mesh) = node.mesh.as_ref() else { continue };
+        if raw.positions.len() + mesh.vertices.len() > super::MAX_VERTICES || raw.triangles.len() + mesh.num_triangles > super::MAX_TRIANGLES {
+            return Err("the FBX mesh is over the vertex or triangle import limit".into());
+        }
         let base = raw.positions.len() as u32;
         let skin = deformer.filter(|d| mesh.skin_deformers.iter().any(|x| x.element.element_id == d.element.element_id));
         let to_world = match skin.and_then(|d| d.clusters.first()) {

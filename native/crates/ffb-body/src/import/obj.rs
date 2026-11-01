@@ -27,10 +27,16 @@ pub fn read(bytes: &[u8]) -> Result<Raw, String> {
                 if v.len() < 3 || v.iter().any(|x| !x.is_finite()) {
                     return Err(format!("line {}: a vertex needs three finite numbers", line_no + 1));
                 }
+                if positions.len() >= super::MAX_VERTICES {
+                    return Err(format!("the OBJ file has more than {} vertices", super::MAX_VERTICES));
+                }
                 positions.push([v[0], v[1], v[2]]);
             }
             "f" => {
                 let ids: Vec<u32> = parts.map(|t| index(t, positions.len())).collect::<Result<_, _>>().map_err(|e| format!("line {}: {e}", line_no + 1))?;
+                if triangles.len() + ids.len() > super::MAX_TRIANGLES {
+                    return Err(format!("the OBJ file has more than {} triangles", super::MAX_TRIANGLES));
+                }
                 for k in 1..ids.len().saturating_sub(1) {
                     triangles.push([ids[0], ids[k], ids[k + 1]]);
                 }

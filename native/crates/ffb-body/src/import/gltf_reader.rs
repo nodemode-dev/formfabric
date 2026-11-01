@@ -80,22 +80,58 @@ fn base64(text: &str) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+const MAX_DATA_URI: usize = 256 << 20;
+const MAX_BUFFER: u64 = 512 << 20;
+const MAX_TOTAL: u64 = 1 << 30;
+
+fn external(dir: &Path, uri: &str) -> Result<Vec<u8>, String> {
+    let name = uri.replace("%20", " ");
+    let refuse = || format!("the glTF buffer URI {uri} is not a plain relative path inside the model folder");
+    if name.is_empty() || name.contains(':') || name.contains('\\') || name.contains('\0') || name.starts_with('/') {
+        return Err(refuse());
+    }
+    let relative = Path::new(&name);
+    if relative.is_absolute() || relative.components().any(|c| !matches!(c, std::path::Component::Normal(_) | std::path::Component::CurDir)) {
+        return Err(refuse());
+    }
+    let root = dir.canonicalize().map_err(|e| format!("could not resolve the model folder: {e}"))?;
+    let full = root.join(relative).canonicalize().map_err(|e| format!("could not read buffer {name}: {e}"))?;
+    if !full.starts_with(&root) {
+        return Err(refuse());
+    }
+    let meta = std::fs::metadata(&full).map_err(|e| format!("could not read buffer {name}: {e}"))?;
+    if !meta.is_file() {
+        return Err(format!("the glTF buffer {name} is not a regular file"));
+    }
+    if meta.len() > MAX_BUFFER {
+        return Err(format!("the glTF buffer {name} is larger than 512 MB"));
+    }
+    std::fs::read(&full).map_err(|e| format!("could not read buffer {name}: {e}"))
+}
+
 fn load_buffers(g: &gltf::Gltf, dir: Option<&Path>) -> Result<Vec<Vec<u8>>, String> {
     let mut out = Vec::new();
+    let mut total = 0u64;
     for b in g.document.buffers() {
         let data = match b.source() {
             gltf::buffer::Source::Bin => g.blob.clone().ok_or("the GLB has no binary chunk")?,
             gltf::buffer::Source::Uri(uri) => {
                 if let Some(rest) = uri.strip_prefix("data:") {
                     let (_, payload) = rest.split_once(',').ok_or("bad data URI")?;
+                    if payload.len() > MAX_DATA_URI {
+                        return Err("a glTF data URI is larger than 256 MB".into());
+                    }
                     base64(payload)?
                 } else {
                     let dir = dir.ok_or("a .gltf with external buffers needs a file path")?;
-                    let name = uri.replace("%20", " ");
-                    std::fs::read(dir.join(&name)).map_err(|e| format!("could not read buffer {name}: {e}"))?
+                    external(dir, uri)?
                 }
             }
         };
+        total += data.len() as u64;
+        if total > MAX_TOTAL {
+            return Err("the glTF buffers are larger than the import limit".into());
+        }
         out.push(data);
     }
     Ok(out)
@@ -132,6 +168,9 @@ pub fn read(bytes: &[u8], dir: Option<&Path>) -> Result<Raw, String> {
     let mut joint_of_node: HashMap<usize, usize> = HashMap::new();
     if let Some(skin) = &skin {
         let nodes: Vec<usize> = skin.joints().map(|n| n.index()).collect();
+        if nodes.len() > super::MAX_JOINTS {
+            return Err(format!("the glTF skin has more than {} joints", super::MAX_JOINTS));
+        }
         for (k, n) in nodes.iter().enumerate() {
             joint_of_node.insert(*n, k);
         }
@@ -167,6 +206,11 @@ pub fn read(bytes: &[u8], dir: Option<&Path>) -> Result<Raw, String> {
         for prim in mesh.primitives() {
             if prim.mode() != gltf::mesh::Mode::Triangles {
                 continue;
+            }
+            let vcount = prim.get(&gltf::Semantic::Positions).map_or(0, |a| a.count());
+            let icount = prim.indices().map_or(vcount, |a| a.count());
+            if raw.positions.len().saturating_add(vcount) > super::MAX_VERTICES || raw.triangles.len().saturating_add(icount / 3) > super::MAX_TRIANGLES {
+                return Err("the glTF mesh is over the vertex or triangle import limit".into());
             }
             let reader = prim.reader(|b| buffers.get(b.index()).map(|v| v.as_slice()));
             let Some(pos) = reader.read_positions() else { continue };

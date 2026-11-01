@@ -94,8 +94,13 @@ def status() -> dict:
 
 @router.get("/mcp/window", dependencies=[Depends(window_guard.require_window_read)])
 def window(since: int = -1) -> dict:
-    agents.seen()
     return {"epoch": engine.epoch(), "changed": engine.epoch() != since, "consent": agents.pending()}
+
+
+@router.post("/mcp/window", dependencies=[Depends(window_guard.require_window)])
+def window_poll(since: int = -1) -> dict:
+    agents.seen()
+    return window(since)
 
 
 @router.post("/mcp/consent", dependencies=[Depends(window_guard.require_window)])

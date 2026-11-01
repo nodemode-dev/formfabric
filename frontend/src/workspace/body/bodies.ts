@@ -51,7 +51,7 @@ export class BodiesSection {
 
   private create(): HTMLElement {
     const node = el('<div class="ff-bd-item" role="option" tabindex="0"><span class="ff-bd-vis-slot"></span><span class="ff-bd-name"></span><span class="ff-bd-tag"></span><span class="ff-bd-del-slot"></span></div>');
-    const vis = el<HTMLButtonElement>(`<button class="cv-icon-btn ff-bd-vis" type="button">${icon('eye', 16)}</button>`);
+    const vis = el<HTMLButtonElement>(`<button class="cv-icon-btn ff-bd-vis" type="button"><span class="ff-bd-eye-on">${icon('eye', 16)}</span><span class="ff-bd-eye-off" hidden>${icon('eyeOff', 16)}</span></button>`);
     vis.dataset.state = 'on';
     this.titleVis(vis);
     const del = iconButton('delete', 'Remove', 'ff-bd-del');
@@ -89,7 +89,8 @@ export class BodiesSection {
     const state = b.visible ? 'on' : 'off';
     if (vis.dataset.state !== state) {
       vis.dataset.state = state;
-      vis.innerHTML = icon(b.visible ? 'eye' : 'eyeOff', 16);
+      setHidden(q(vis, '.ff-bd-eye-on'), !b.visible);
+      setHidden(q(vis, '.ff-bd-eye-off'), b.visible);
       this.titleVis(vis);
     }
   }

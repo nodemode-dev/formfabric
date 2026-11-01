@@ -47,7 +47,7 @@ export class AgentLink {
     if (this.busy) return;
     this.busy = true;
     try {
-      const response = await fetch(this.link.url(`/api/mcp/window?since=${this.epoch}`), { cache: 'no-store' });
+      const response = await fetch(this.link.url(`/api/mcp/window?since=${this.epoch}`), { method: 'POST', cache: 'no-store' });
       if (!response.ok) return;
       const state = (await response.json()) as WindowState;
       if (state.changed && !this.shouldWait()) {
