@@ -35,6 +35,7 @@ pub(crate) struct Core {
     pub shared: Arc<Mutex<Params>>,
     pub closing_done: u32,
     pub closing_over: bool,
+    pub close_total: u32,
 }
 
 fn closing_params(base: &Params, u: f32) -> Params {
@@ -100,6 +101,7 @@ impl Core {
         self.wind_on = false;
         self.stale = false;
         self.closing_done = 0;
+        self.close_total = 0;
         self.closing_over = false;
     }
 
@@ -118,6 +120,7 @@ impl Core {
         self.pinch = None;
         self.wind_on = false;
         self.closing_done = 0;
+        self.close_total = 0;
         self.closing_over = false;
     }
 
@@ -134,8 +137,9 @@ impl Core {
                     stepper.push_out(0.0);
                 }
             }
+            let total = if self.close_total == 0 { base.close_frames } else { self.close_total }.max(1) as f32;
             if !self.closing_over {
-                let u = self.closing_done as f32 / base.close_frames as f32;
+                let u = self.closing_done as f32 / total;
                 stepper.set_params(closing_params(&base, u));
                 stepper.scale_links(closing_links(u));
             }
@@ -150,13 +154,16 @@ impl Core {
             }
             last = stepper.step();
             if !self.closing_over {
-                stepper.damp_velocities(0.5);
+                let before = self.closing_done as f32 / total;
+                stepper.damp_velocities(f64::from(0.5 + 0.5 * ((before - 0.6) / 0.4).clamp(0.0, 1.0)));
                 self.closing_done += 1;
-                let u = self.closing_done as f32 / base.close_frames as f32;
-                if self.closing_done >= base.close_frames || (u >= 0.5 && stepper.max_link_gap() < base.close_gap) {
+                let u = self.closing_done as f32 / total;
+                if u >= 1.0 {
                     self.closing_over = true;
                     stepper.set_params(base);
                     stepper.scale_links(1.0);
+                } else if self.close_total == 0 && (0.5..=0.6).contains(&u) && stepper.max_link_gap() < base.close_gap {
+                    self.close_total = ((self.closing_done as f32 / 0.6).ceil() as u32).max(self.closing_done + 1);
                 }
             }
             self.frame += 1;

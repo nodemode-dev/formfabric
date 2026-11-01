@@ -125,7 +125,7 @@ impl Prepared {
     }
 
     pub fn contact(&self, x: DVec3, offset: f64) -> Option<Contact> {
-        let (sd, n) = self.signed_distance(x, offset.max(1.0e-6))?;
+        let (sd, n) = self.signed_distance(x, offset.max(1.0e-6) + DEEP_REACH)?;
         (sd < offset).then_some(Contact { normal: n, depth: offset - sd })
     }
 
@@ -145,6 +145,7 @@ impl Prepared {
     }
 }
 
+pub const DEEP_REACH: f64 = 40.0;
 pub const CONTACT_STIFFNESS: f64 = 1000.0;
 pub const FRICTION_EPS: f64 = 0.01;
 
@@ -154,6 +155,18 @@ pub fn deepest(colliders: &[Prepared], p: DVec3, offset: f64) -> Option<Contact>
         if let Some(ct) = c.contact(p, offset) {
             if ct.depth > 0.0 && best.is_none_or(|b| b.depth < ct.depth) {
                 best = Some(ct);
+            }
+        }
+    }
+    best
+}
+
+pub fn nearest(colliders: &[Prepared], p: DVec3, range: f64) -> Option<(f64, DVec3)> {
+    let mut best: Option<(f64, DVec3)> = None;
+    for c in colliders {
+        if let Some((sd, n)) = c.signed_distance(p, range) {
+            if best.is_none_or(|b| sd < b.0) {
+                best = Some((sd, n));
             }
         }
     }

@@ -288,6 +288,18 @@ struct Slice {
     start: f64,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct PanelSpan {
+    pub width: f64,
+    pub v_max: f64,
+    pub neck: f64,
+    pub outer: f64,
+    pub share: f64,
+    pub ridge: bool,
+}
+
+type Ridge = [Vec<(f64, V)>; 2];
+
 pub struct Wrapper<'a> {
     positions: Vec<V3>,
     triangles: &'a [[u32; 3]],
@@ -299,9 +311,22 @@ pub struct Wrapper<'a> {
     along: f64,
     cache: HashMap<i64, Option<Slice>>,
     origin: Cell<Option<V>>,
+    span: Option<PanelSpan>,
+    pair: Option<bool>,
+    ridge: Option<Option<Ridge>>,
 }
 
 const WRAP_STEP: f64 = 4.0;
+const RIDGE_BIN: f64 = 6.0;
+const RIDGE_BAND: f64 = 200.0;
+const EASE_LIMIT: f64 = 150.0;
+const RIDGE_REACH: f64 = 20.0;
+const SLEEVE_CLEAR: f64 = 1.0;
+
+fn smooth(t: f64) -> f64 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
 
 impl<'a> Wrapper<'a> {
     pub fn new(rig: &Rig, body: &'a Body, volume: &PlacementVolume, point: &PlacementPoint, up: V) -> Wrapper<'a> {
@@ -311,7 +336,86 @@ impl<'a> Wrapper<'a> {
         let center = add(frame.start, scale(frame.axis, point.along * frame.height));
         let cap = 1.6 * frame.radius[0].max(frame.radius[1]);
         let along = dot(up, frame.axis);
-        Wrapper { positions: skin::posed_positions(body), triangles: &body.triangles, frame, center, cap, want, sign: if along >= 0.0 { 1.0 } else { -1.0 }, along, cache: HashMap::new(), origin: Cell::new(None) }
+        Wrapper { positions: skin::posed_positions(body), triangles: &body.triangles, frame, center, cap, want, sign: if along >= 0.0 { 1.0 } else { -1.0 }, along, cache: HashMap::new(), origin: Cell::new(None), span: None, pair: None, ridge: None }
+    }
+
+    pub fn fit_span(&mut self, span: PanelSpan) {
+        let mean = (self.frame.radius[0] + self.frame.radius[1]) * 0.5;
+        if span.share < 1.5 && span.width >= 0.5 * std::f64::consts::TAU * mean {
+            let reach = self.frame.radius[0].max(self.frame.radius[1]) * SLEEVE_CLEAR;
+            let edge = dot(sub(self.center, self.frame.start), self.frame.axis) - span.v_max;
+            let shift = (reach - edge).clamp(-self.frame.height * 0.25, self.frame.height * 0.5);
+            self.center = add(self.center, scale(self.frame.axis, shift));
+        }
+        if span.ridge && self.along > 0.5 {
+            let reach = dot(sub(self.frame.end, self.center), self.frame.axis) + RIDGE_REACH - span.v_max * self.along;
+            self.center = add(self.center, scale(self.frame.axis, reach));
+        }
+        self.span = Some(span);
+    }
+
+    fn build_ridge(&self, span: &PanelSpan) -> Option<Ridge> {
+        let f = &self.frame;
+        let h_top = span.v_max * self.along;
+        let bins = 90usize;
+        let mut best: [Vec<Option<(f64, V)>>; 2] = [vec![None; bins], vec![None; bins]];
+        for p in &self.positions {
+            let q = sub(v64(*p), self.center);
+            let (x, h, z) = (dot(q, f.side), dot(q, f.axis), dot(q, f.front));
+            if h > h_top + 5.0 || h < h_top - 260.0 || z.abs() > self.cap {
+                continue;
+            }
+            let b = (x.abs() / RIDGE_BIN) as usize;
+            if b >= bins {
+                continue;
+            }
+            let side = usize::from(x < 0.0);
+            if best[side][b].is_none_or(|(bh, _)| h > bh) {
+                best[side][b] = Some((h, [x, h, z]));
+            }
+        }
+        let mut out: Ridge = [Vec::new(), Vec::new()];
+        for side in 0..2 {
+            let mut pts: Vec<V> = best[side].iter().flatten().map(|(_, q)| *q).collect();
+            if pts.len() < 8 {
+                return None;
+            }
+            for _ in 0..3 {
+                let prev = pts.clone();
+                for k in 1..pts.len() - 1 {
+                    pts[k][1] = 0.25 * prev[k - 1][1] + 0.5 * prev[k][1] + 0.25 * prev[k + 1][1];
+                    pts[k][2] = 0.25 * prev[k - 1][2] + 0.5 * prev[k][2] + 0.25 * prev[k + 1][2];
+                }
+            }
+            let start = pts.iter().position(|q| q[0].abs() >= span.neck).unwrap_or(0);
+            let mut acc = 0.0;
+            let mut prev: Option<V> = None;
+            for q in &pts[start..] {
+                if let Some(p) = prev {
+                    acc += length(sub(*q, p));
+                }
+                let world = add(self.center, add(scale(f.side, q[0]), add(scale(f.axis, q[1]), scale(f.front, q[2]))));
+                out[side].push((acc, world));
+                prev = Some(*q);
+            }
+        }
+        Some(out)
+    }
+
+    fn ridge_point(&mut self, side: usize, s: f64) -> Option<V> {
+        let span = self.span?;
+        if self.ridge.is_none() {
+            self.ridge = Some(self.build_ridge(&span));
+        }
+        let line = &self.ridge.as_ref()?.as_ref()?[side];
+        let last = line.len().checked_sub(1)?;
+        let i = line.iter().position(|(a, _)| *a >= s).unwrap_or(last);
+        if i == 0 {
+            return Some(line[0].1);
+        }
+        let ((a0, p0), (a1, p1)) = (line[i - 1], line[i]);
+        let t = ((s - a0) / (a1 - a0).max(1e-9)).clamp(0.0, 1.0);
+        Some(add(p0, scale(sub(p1, p0), t)))
     }
 
     fn build(&self, key: i64, prev: Option<&Slice>) -> Option<Slice> {
@@ -370,10 +474,18 @@ impl<'a> Wrapper<'a> {
             }
             j += dir;
         }
-        let s = self.cache.get(&key)?.as_ref()?;
+        if self.pair.is_none() {
+            let base = self.cache.get(&0).and_then(Option::as_ref).map_or(0.0, |c| c.cum[c.verts.len()] + std::f64::consts::TAU * offset.max(0.0));
+            self.pair = Some(self.span.is_some_and(|sp| sp.share > 1.5 && sp.width < 0.7 * base));        }
+        let pair = self.pair.unwrap_or(false);
+        let span = self.span;        let s = self.cache.get(&key)?.as_ref()?;
         let n = s.verts.len();
         let total = s.cum[n];
-        let off = offset.max(0.0);
+        let mut off = offset.max(0.0);
+        if let Some(sp) = span {
+            let need = if pair { 2.0 * sp.width } else { sp.width };
+            off = off.max(((need - total) / std::f64::consts::TAU).min(offset.max(0.0) + EASE_LIMIT));
+        }
         let k = total / (total + std::f64::consts::TAU * off);
         let arc = (s.start + self.sign * u * k).rem_euclid(total);
         let i = (0..n).rev().find(|i| s.cum[*i] <= arc).unwrap_or(0);
@@ -384,7 +496,20 @@ impl<'a> Wrapper<'a> {
         let tangent = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
         let flat = add(scale(self.frame.side, p[0] - tangent[1] * off), scale(self.frame.front, p[1] + tangent[0] * off));
         let lift = scale(self.frame.axis, v * self.along - key as f64 * WRAP_STEP);
-        Some(add(add(s.center, flat), lift))
+        let ring = add(add(s.center, flat), lift);
+        let Some(sp) = span.filter(|sp| sp.ridge && self.along > 0.5) else { return Some(ring) };
+        let w = smooth((u.abs() - (sp.neck - 25.0)) / 25.0) * smooth((v - (sp.v_max - RIDGE_BAND)) / RIDGE_BAND);
+        if w <= 0.0 {
+            return Some(ring);
+        }
+        let side = usize::from(dot(sub(ring, self.center), self.frame.side) < 0.0);
+        match self.ridge_point(side, (u.abs() - sp.neck).max(0.0)) {
+            Some(r) => {
+                let top = add(r, scale(self.frame.axis, off));
+                Some(add(ring, scale(sub(top, ring), w)))
+            }
+            None => Some(ring),
+        }
     }
 }
 

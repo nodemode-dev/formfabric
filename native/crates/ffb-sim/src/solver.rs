@@ -1,12 +1,14 @@
 use glam::DVec3;
 
-use crate::collide::{contact_force, deepest, max_penetration, pair_friction, resolve, Contact, Prepared};
+use crate::collide::{contact_force, deepest, max_penetration, nearest, pair_friction, resolve, Contact, Prepared};
 use crate::energy::{Acc, HingeEval, NonLinear};
 use crate::model::{Model, KIND_HINGE, KIND_LINK, KIND_TRI};
 use crate::{Cloth, Collider, Params, PinPoint, StepStats};
 
 pub const GRAB_STIFFNESS: f64 = 100.0;
 pub const AIR_RATE: f64 = 10.0;
+pub const APPROACH_CAP: f64 = 0.5;
+pub const APPROACH_ZONE: f64 = 8.0;
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct PinState {
     pub vertex: u32,
@@ -414,6 +416,16 @@ impl Solver {
             for i in 0..n {
                 if self.pinned[i] {
                     continue;
+                }
+                let cap = APPROACH_CAP * offset;
+                if cap > 0.0 && (self.x[i] - self.xn[i]).length_squared() > cap * cap {
+                    let zone = (APPROACH_ZONE * offset).max(20.0);
+                    if let Some((sd, n)) = nearest(&self.colliders, self.xn[i], zone) {
+                        let inward = (self.xn[i] - self.x[i]).dot(n);
+                        if sd < zone && inward > cap {
+                            self.x[i] += n * (inward - cap);
+                        }
+                    }
                 }
                 let moved = (self.x[i] - self.xn[i]).length();
                 if moved > 0.5 * offset.max(0.5) {

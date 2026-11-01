@@ -1,5 +1,5 @@
 use ffb_body::light_copy;
-use ffb_body::place::{cross, rotate, scale, sub, quaternion_from_columns, Rig, Wrapper};
+use ffb_body::place::{cross, rotate, scale, sub, quaternion_from_columns, PanelSpan, Rig, Wrapper};
 use ffb_pattern::Place3D;
 use serde_json::{json, Value};
 
@@ -73,6 +73,11 @@ fn place_panel(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let pose = if radius > 0.0 {
         let mut wrapper = Wrapper::new(&rig, &body, volume, &point, frame.up);
         let (sgn, c) = (if flip { -1.0 } else { 1.0 }, turn.cos());
+        let top = (hi[1] - anchor[1]).abs();
+        let row: Vec<f64> = mesh.positions.iter().filter(|p| hi[1] - p[1] < 0.5).map(|p| (p[0] - anchor[0]).abs()).collect();
+        let share = if body.points.iter().any(|o| o.id != point.id && o.volume == point.volume && ((o.around - point.around).rem_euclid(360.0) - 180.0).abs() < 20.0) { 2.0 } else { 1.0 };
+        let neck = row.iter().copied().fold(f64::MAX, f64::min).min(width);
+        wrapper.fit_span(PanelSpan { width, v_max: top, neck, outer: row.iter().copied().fold(0.0, f64::max), share, ridge: c > 0.0 && share > 1.5 && neck > 0.08 * width });
         mesh.positions.iter().map(|p| wrapper.at(sgn * (p[0] - anchor[0]) * c, (p[1] - anchor[1]) * c, point.offset).map(|w| [w[0] as f32, w[1] as f32, w[2] as f32])).collect::<Option<Vec<_>>>()
     } else {
         None
