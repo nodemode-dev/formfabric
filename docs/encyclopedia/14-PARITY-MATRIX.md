@@ -15,7 +15,7 @@ Chapter column points at the encyclopedia chapter with the behaviour detail.
 | Splash, title bar, menu bar, status bar, settings window | family shell | ui/shell, src-tauri | 1 | S1 |
 | 3D window, 2D window, side panels, docking, maximize window | Workspace with 3D View and Pattern View | ui/workspace | 1, 5 | 01, 12 |
 | Workspace modes (Simulation, Animation, Modular, UV, Sculpt) | Modes: Drape, Animate, Blocks, UV, Retopo | ui/modes | 1 then per phase | 01 |
-| Project file .zprj, garment .zpac | Project `.ffb` (zip container: garment, body, scene, caches, view state) | ffb-io | 2 | 01 |
+| Project file .zprj, garment .zpac | Project `.ffbrc` (zip container: garment, body, scene, caches, view state) | ffb-io | 2 | 01 |
 | Small asset files (.zfab, .sst, .btn, .bth, .pos, .mtn, .arr, .pan) | `.ffab` fabric, `.ffstyle` styles, `.ffpose`, `.ffmotion`, `.ffplace` | ffb-io | 6, 9, 12, 13 | 01 |
 | Command history, undo and redo | History (typed edits, camera per step) | ffb-commands | 2 | 12 |
 | History 3D state snapshots | Snapshots | ffb-commands, ui | 16 | 12 |
