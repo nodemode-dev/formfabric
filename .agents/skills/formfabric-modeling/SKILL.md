@@ -41,7 +41,7 @@ The tool reference below is generated from the engine's command registry by `./f
 ## Tool reference
 
 [ffb-tools:begin]
-Generated from the engine's command registry (formfabric 0.1.0) by `./formfabric agents sync`; do not edit between the markers by hand.
+Generated from the engine's command registry (formfabric 0.3.0) by `./formfabric agents sync`; do not edit between the markers by hand.
 
 - Engine: `system_info`, `system_capabilities`
 - Files: `file_new`, `file_save`, `file_open`

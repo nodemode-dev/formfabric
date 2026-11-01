@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.3.0 · 2026-10-31
+
+Phase 3, the pattern core.
+
+- Pattern View: draw and edit panels on a millimetre grid with ten tools (Transform, Edit, Draw Panel, Rectangle, Ellipse, Inner Shape, Inner Line, Split, Curvature, Measure), Bezier curve points, snapping, rulers and framing.
+- Exact Input for every tool, with arithmetic in numeric fields.
+- Drags preview in the in-page engine and land as one undo step.
+- Inspector for name, position, rotation, grain, particle distance and layer, with perimeter and area.
+- Split workspace with Pattern View, a 3D View floor and a resizable splitter; 2D, split and 3D layouts.
+- 24 pattern commands in the engine, reachable from the window and over MCP.
+- Interface strings translated into 27 languages.
+- Fixes: change events only when the document changes; Mod+Shift shortcuts fire; the installer builds the preview engine.
+
 ## v0.2.0 · 2026-10-31
 
 Phase 2, the engine skeleton.
