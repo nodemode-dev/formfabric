@@ -109,3 +109,14 @@ Living context for the window. What would be comments in `frontend/` lives here,
 - 3D tools: the selection overlay is one canvas (`ff3-select`) created once; the wind arrow and tape labels paint on the existing HUD overlay. The renderer has a `uState` uniform and `PanelBuf.stateKind` (0 none, 1 frozen, 2 disabled). The picker's `hitTri`, `hitU`, `hitV` are public for fold mapping. Tool keys come only from the catalogue `keys`, titled with `formatKeys`.
 - Trims UI: a drawer plus eight Pattern View tools (Shift+B, H, F, Z, S, E, I, A), drawn in the existing canvas pass with no DOM per item. The selected trim item lives in `trims/state.ts`, pruned on `doc.onChange` in `layout.ts`; Selection is untouched. `trims/hook3d.ts` gives the 3D View line and point buffers.
 - Dev ports: Vite's HMR uses the frontend port plus one, so parallel checks must leave a gap of two between frontend ports. A snapshot of `src` served from /tmp avoids reloads while other edits land (needs `server.fs.allow` for the linked node_modules).
+
+### v0.13.0 to v0.15.0
+
+- Timeline dock (`workspace/anim/`): DOM built once, one ruler canvas. Scrubbing is coalesced (latest frame wins, one `anim.set` and one `cache.frame` in flight). Playback prefers the engine's `anim.play`. Cache start and end are 0-based frame indices.
+- Output (`workspace/output/`): the Export dialog renders each format's option schema and remembers it per format. File, Export comes from `app.export.*`. `export.run` takes flat arguments, and synchronous output commands do not poll `job.state`. The UV Editor sends one command per gesture. Retopo guides are drawn on an overlay canvas over the Pattern pane and stored per panel in panel space.
+- Visualization (`workspace/viz/`, view3d): kind-3 scalar frames decode through `engine/stream.ts` `registerKind`. The view3d module has the Maps menu and legend, the stage (lights, one shadow map, HDRI, ground), saved views, 3D measures, fur strands and style lines. Turntable capture pushes each rendered frame with `requestFrame()`.
+- Dock speed:
+  - The chat pane batches tokens per frame, scrolls on requestAnimationFrame with a pinned flag, caps the log at 400 nodes and uses content-visibility on settled messages.
+  - The terminal writes through a frame queue with a debounced fit. The SSE reader parses in one pass with an idle watchdog.
+  - Resizing is two-stage: a CSS stretch while dragging, then one backing-store resize and paint 140 ms after release (`data-ft-dock-drag` on html).
+  - Backend: position-tagged terminal chunks (no replay duplicates), coalesced socket frames, pty backpressure (high water at 48 chunks, 1 s cap), and a cached Claude Code lookup.
