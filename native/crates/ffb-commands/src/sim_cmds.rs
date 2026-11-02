@@ -31,14 +31,17 @@ pub struct SimState {
     pub(crate) seen: HashMap<u32, u64>,
     pub(crate) preset: String,
     pub(crate) device: String,
+    pub(crate) auto_method: bool,
     pub(crate) params: Arc<Mutex<ffb_sim::Params>>,
     pub(crate) live: Mutex<serde_json::Value>,
+    pub(crate) pulse: Arc<runtime::Pulse>,
 }
 
 impl Default for SimState {
     fn default() -> Self {
         let core = runtime::Core::default();
         SimState {
+            pulse: core.pulse.clone(),
             params: core.shared.clone(),
             live: Mutex::new(serde_json::Value::Null),
             core: Arc::new(Mutex::new(core)),
@@ -47,6 +50,7 @@ impl Default for SimState {
             seen: HashMap::new(),
             preset: "normal".into(),
             device: "cpu".into(),
+            auto_method: true,
         }
     }
 }

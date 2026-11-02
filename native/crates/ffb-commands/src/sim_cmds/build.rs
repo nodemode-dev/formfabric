@@ -1,5 +1,6 @@
 use super::assemble::assemble;
 use super::runtime::lock;
+use ffb_sim::Params;
 use crate::{CommandError, Session};
 
 fn build(session: &mut Session, force: bool) -> Result<(), CommandError> {
@@ -13,6 +14,14 @@ fn build(session: &mut Session, force: bool) -> Result<(), CommandError> {
     }
     let Session { garment, mesh, bodies, .. } = session;
     let assembled = assemble(garment, mesh, bodies).map_err(|e| CommandError::new("invalid_geometry", e))?;
+    if session.sim.auto_method {
+        let want = if assembled.cloth.seams.is_empty() { ffb_sim::Method::Implicit } else { ffb_sim::Method::Vbd };
+        let mut shared = session.sim.params.lock().unwrap_or_else(|e| e.into_inner());
+        if shared.method != want {
+            let moved = Params { method: want, ..*shared };
+            *shared = if session.sim.preset == "custom" { moved } else { super::adapter::preset(&session.sim.preset, moved).unwrap_or(moved) };
+        }
+    }
     let mut c = lock(&core);
     c.wind = garment.wind.clone();
     c.install(assembled);

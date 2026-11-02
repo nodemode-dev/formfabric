@@ -86,7 +86,7 @@ pub fn matvec(p: &Pattern, a: &[f64], x: &[f64], y: &mut [f64]) {
     for i in 0..p.n {
         let (s, e) = (p.start[i] as usize, p.start[i + 1] as usize);
         let (mut a0, mut a1, mut a2) = (0.0, 0.0, 0.0);
-        for (b, &c) in a[9 * s..9 * e].chunks_exact(9).zip(&p.cols[s..e]) {
+        for (b, &c) in a[9 * s..9 * e].as_chunks::<9>().0.iter().zip(&p.cols[s..e]) {
             let c = 3 * c as usize;
             let (x0, x1, x2) = (x[c], x[c + 1], x[c + 2]);
             a0 += b[0] * x0 + b[1] * x1 + b[2] * x2;
@@ -102,7 +102,7 @@ pub fn matvec(p: &Pattern, a: &[f64], x: &[f64], y: &mut [f64]) {
 pub fn row_apply(p: &Pattern, a: &[f64], x: &[f64], i: usize) -> [f64; 3] {
     let (s, e) = (p.start[i] as usize, p.start[i + 1] as usize);
     let (mut a0, mut a1, mut a2) = (0.0, 0.0, 0.0);
-    for (b, &c) in a[9 * s..9 * e].chunks_exact(9).zip(&p.cols[s..e]) {
+    for (b, &c) in a[9 * s..9 * e].as_chunks::<9>().0.iter().zip(&p.cols[s..e]) {
         let c = 3 * c as usize;
         let (x0, x1, x2) = (x[c], x[c + 1], x[c + 2]);
         a0 += b[0] * x0 + b[1] * x1 + b[2] * x2;

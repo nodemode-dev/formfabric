@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering as AtomicOrdering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use ffb_pattern::Wind;
@@ -39,6 +39,13 @@ pub(crate) struct Core {
     pub want_gpu: bool,
     pub device_note: String,
     pub on_gpu: bool,
+    pub pulse: Arc<Pulse>,
+}
+
+#[derive(Default)]
+pub(crate) struct Pulse {
+    pub frame: AtomicU64,
+    pub ms: AtomicU32,
 }
 
 fn closing_params(base: &Params, u: f32) -> Params {
@@ -48,10 +55,10 @@ fn closing_params(base: &Params, u: f32) -> Params {
     Params { gravity: base.gravity.map(|g| g * gravity), air_damping: damping, ..*base }
 }
 
-fn closing_links(u: f32) -> f64 {
+fn closing_links(u: f32, boost: f32) -> f64 {
     let up = (u / 0.35).clamp(0.0, 1.0);
     let down = ((u - 0.7) / 0.3).clamp(0.0, 1.0);
-    f64::from(1.0 + 24.0 * up * (1.0 - down))
+    f64::from(1.0 + (boost - 1.0).max(0.0) * up * (1.0 - down))
 }
 
 pub(crate) const MIN_TIME_STEP: f32 = 1.0 / 240.0;
@@ -138,6 +145,7 @@ impl Core {
         self.stepper = Some(stepper);
         self.pins.clone_from(&self.base.pins);
         self.frame = 0;
+        self.pulse.frame.store(0, AtomicOrdering::Relaxed);
         self.stats = Stats::default();
         self.grabbed = None;
         self.pinch = None;
@@ -164,7 +172,7 @@ impl Core {
             if !self.closing_over {
                 let u = self.closing_done as f32 / total;
                 stepper.set_params(closing_params(&base, u));
-                stepper.scale_links(closing_links(u));
+                stepper.scale_links(closing_links(u, base.seam_boost));
             }
             if self.wind.enabled {
                 let time = self.frame as f64 * f64::from(self.params.time_step);
@@ -190,6 +198,8 @@ impl Core {
                 }
             }
             self.frame += 1;
+            self.pulse.frame.store(self.frame, AtomicOrdering::Relaxed);
+            self.pulse.ms.store(last.ms.to_bits(), AtomicOrdering::Relaxed);
         }
         self.stats = last;
         last
@@ -243,7 +253,8 @@ pub(crate) fn spawn(core: Arc<Mutex<Core>>, running: Arc<AtomicBool>, generation
         };
         publish(&sink, &snapshot);
         let period = Duration::from_secs_f32(period.clamp(MIN_TIME_STEP, MAX_TIME_STEP));
-        std::thread::sleep(period.saturating_sub(began.elapsed()).max(Duration::from_millis(1)));
+        let breathe = Duration::from_millis(6).max(began.elapsed() / 8);
+        std::thread::sleep(period.saturating_sub(began.elapsed()).max(breathe));
     };
     std::thread::Builder::new().name("ffb-sim".into()).spawn(body).is_ok()
 }

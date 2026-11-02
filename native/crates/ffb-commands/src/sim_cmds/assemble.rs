@@ -88,7 +88,7 @@ pub(crate) fn assemble(garment: &Garment, mesh: &mut MeshState, bodies: &[ffb_bo
         h.u64(fit_sig);
         let positions: Vec<[f32; 3]> = match panel.place3d.as_ref().and_then(|p| p.pose.as_ref()).filter(|pose| pose.len() == m.positions.len()) {
             Some(pose) => pose.clone(),
-            None => layout::positions_3d(m, panel).chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect(),
+            None => layout::positions_3d(m, panel).as_chunks::<3>().0.to_vec(),
         };
         let (fabric_id, physical) = physical_for(garment, panel.fabric);
         let pressure = if panel.pressure.is_finite() { panel.pressure as f32 } else { 0.0 };
@@ -113,7 +113,7 @@ pub(crate) fn assemble(garment: &Garment, mesh: &mut MeshState, bodies: &[ffb_bo
         cloth.rest.extend(m.positions.iter().map(|p| [if flip { -p[0] as f32 } else { p[0] as f32 }, p[1] as f32]));
         let base = start as u32;
         let tri_start = cloth.triangles.len();
-        cloth.triangles.extend(layout::indices(m, flip).chunks_exact(3).map(|t| [base + t[0], base + t[1], base + t[2]]));
+        cloth.triangles.extend(layout::indices(m, flip).as_chunks::<3>().0.iter().map(|t| [base + t[0], base + t[1], base + t[2]]));
         tri_ranges.insert(panel.id, (tri_start, cloth.triangles.len() - tri_start));
         cloth.triangle_material.resize(cloth.triangles.len(), material as u16);
         cloth.triangle_grain.resize(cloth.triangles.len(), grain.to_radians() as f32);

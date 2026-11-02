@@ -43,7 +43,7 @@ pub(crate) fn current_positions(s: &mut Session, id: u32) -> Result<Vec<[f32; 3]
     let panel = &s.garment.panels[index];
     Ok(match panel.place3d.as_ref().and_then(|p| p.pose.as_ref()).filter(|p| p.len() == n) {
         Some(pose) => pose.clone(),
-        None => layout::positions_3d(&built.mesh, panel).chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect(),
+        None => layout::positions_3d(&built.mesh, panel).as_chunks::<3>().0.to_vec(),
     })
 }
 

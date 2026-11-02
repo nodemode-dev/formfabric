@@ -126,13 +126,14 @@ pub struct Params {
     pub accel: f32,
     pub close_frames: u32,
     pub close_gap: f32,
+    pub seam_boost: f32,
 }
 
 impl Params {
     pub fn preset(name: &str, method: Method) -> Option<Params> {
         let base = Params { method, ..Params::default() };
         let p = match (method, name) {
-            (Method::Vbd, "normal") => Params { substeps: 5, iterations: 10, ..base },
+            (Method::Vbd, "normal") => Params { substeps: 3, iterations: 8, ..base },
             (Method::Vbd, "fast") => Params { substeps: 3, iterations: 6, ..base },
             (Method::Vbd, "quality" | "fine") => Params { substeps: 8, iterations: 15, self_collision: true, collision_thickness: 1.0, ..base },
             (Method::Vbd, "final") => Params { substeps: 12, iterations: 25, self_collision: true, collision_thickness: 0.8, ..base },
@@ -167,6 +168,7 @@ impl Default for Params {
             accel: 0.0,
             close_frames: 60,
             close_gap: 2.0,
+            seam_boost: 25.0,
         }
     }
 }

@@ -71,6 +71,10 @@ pub(super) fn state_json(session: &Session) -> Value {
             if let Some(map) = cached.as_object_mut() {
                 map.insert("running".into(), json!(session.sim.running.load(Ordering::Acquire)));
                 map.insert("busy".into(), json!(true));
+                map.insert("frame".into(), json!(session.sim.pulse.frame.load(Ordering::Relaxed)));
+                if let Some(last) = map.get_mut("last").and_then(Value::as_object_mut) {
+                    last.insert("ms".into(), json!(round(f64::from(f32::from_bits(session.sim.pulse.ms.load(Ordering::Relaxed))), 3)));
+                }
                 return cached;
             }
             json!({"running": session.sim.running.load(Ordering::Acquire), "busy": true})
@@ -103,6 +107,7 @@ fn describe(c: &super::runtime::Core, session: &Session) -> Value {
         "held_vertices": c.extras.hold.iter().map(|f| f.1).sum::<usize>(),
         "preset": session.sim.preset,
         "method": adapter::method_name(&p),
+        "method_auto": session.sim.auto_method,
         "device": session.sim.device,
         "device_active": if c.on_gpu { "gpu" } else { "cpu" },
         "device_note": c.device_note,
@@ -225,7 +230,7 @@ fn settings_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
-            "preset": {"type": "string", "enum": ["fast", "normal", "quality", "final"], "description": "Implicit method: fast 2 substeps, normal 3, quality 4 with self contact, final 6 with 3 Newton iterations and self contact. Block descent: fast 3x6, normal 5x10, quality 8x15 and final 12x25 (substeps x iterations), the last two with self contact. Leave out every field to read the settings."},
+            "preset": {"type": "string", "enum": ["fast", "normal", "quality", "final"], "description": "Implicit method: fast 2 substeps, normal 3, quality 4 with self contact, final 6 with 3 Newton iterations and self contact. Block descent: fast 3x6, normal 3x8, quality 8x15 and final 12x25 (substeps x iterations), the last two with self contact. Leave out every field to read the settings."},
             "time_step": {"type": "number", "minimum": 0.004, "maximum": 0.0667, "unit": "s", "description": "Seconds per frame, from 1/240 to 1/15. The run thread steps at 1 / time_step frames per second."},
             "substeps": {"type": "integer", "minimum": 1, "maximum": 40},
             "iterations": {"type": "integer", "minimum": 1, "maximum": 200, "description": "Solver iterations per substep."},
@@ -235,12 +240,13 @@ fn settings_schema() -> Value {
             "collision_thickness": {"type": "number", "minimum": 0, "maximum": 100, "unit": "mm"},
             "friction": {"type": "number", "minimum": 0, "maximum": 5},
             "self_collision": {"type": "boolean"},
-            "method": {"type": "string", "enum": ["vbd", "implicit"], "description": "Solver method: vbd is vertex block descent, implicit is implicit Euler with conjugate gradient."},
+            "method": {"type": "string", "enum": ["auto", "vbd", "implicit"], "description": "Solver method: vbd is vertex block descent, implicit is implicit Euler with conjugate gradient, auto (the default) uses vbd when the garment has seams or links and implicit otherwise. Naming vbd or implicit pins the choice."},
             "newton": {"type": "integer", "minimum": 1, "maximum": 10, "description": "Newton iterations per substep (implicit method)."},
             "cg_iterations": {"type": "integer", "minimum": 1, "maximum": 2000, "description": "Conjugate gradient iterations per Newton iteration (implicit method)."},
             "cg_tolerance": {"type": "number", "minimum": 0.000001, "maximum": 0.1, "description": "Conjugate gradient relative tolerance (implicit method)."},
             "close_frames": {"type": "integer", "minimum": 0, "maximum": 600, "description": "Seam closing phase at the start of a drape: up to this many frames with stiffened seams, reduced gravity, strong damping and collisions on, then the normal simulation. 0 turns it off. Only applies when the garment has seams or links."},
             "close_gap": {"type": "number", "minimum": 0.1, "maximum": 50, "unit": "mm", "description": "The closing phase may end early once the largest seam gap is under this."},
+            "seam_boost": {"type": "number", "minimum": 1, "maximum": 100, "description": "Peak seam stiffness multiplier during the closing phase (1 keeps the seams at their normal stiffness)."},
             "device": {"type": "string", "enum": ["cpu", "gpu"], "description": "Where the solver runs. gpu needs an engine built with the gpu feature and an adapter; otherwise it is reported unavailable and the simulation stays on the cpu. The gpu path supports the vbd method only."}
         },
         "required": [],
@@ -261,7 +267,7 @@ fn params_json(p: &Params) -> Value {
         "air_damping": p.air_damping, "skin_offset": p.skin_offset, "collision_thickness": p.collision_thickness,
         "friction": p.friction, "self_collision": p.self_collision, "method": adapter::method_name(p),
         "newton": p.newton, "cg_iterations": p.cg_iterations, "cg_tolerance": p.cg_tolerance,
-        "close_frames": p.close_frames, "close_gap": p.close_gap
+        "close_frames": p.close_frames, "close_gap": p.close_gap, "seam_boost": p.seam_boost
     })
 }
 
@@ -312,8 +318,12 @@ fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         manual = true;
     }
     if let Some(name) = a.get("method").and_then(Value::as_str) {
-        if !adapter::set_method(&mut p, name) {
-            return Err(bad("method must be vbd or implicit"));
+        if name == "auto" {
+            s.sim.auto_method = true;
+        } else if adapter::set_method(&mut p, name) {
+            s.sim.auto_method = false;
+        } else {
+            return Err(bad("method must be auto, vbd or implicit"));
         }
         if !manual && preset != "custom" {
             if let Some(q) = preset_params(&preset, p) {
@@ -340,6 +350,10 @@ fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     }
     if let Some(x) = number(a, "close_gap", 0.1, 50.0)? {
         p.close_gap = x;
+        touched = true;
+    }
+    if let Some(x) = number(a, "seam_boost", 1.0, 100.0)? {
+        p.seam_boost = x;
         touched = true;
     }
     let mut requested = s.sim.device.clone();
@@ -379,6 +393,7 @@ fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         "params": params_json(&p),
         "changed": touched,
         "presets": ["fast", "normal", "quality", "final"],
+        "method_auto": s.sim.auto_method,
         "device": {"requested": requested, "active": active, "gpu_available": gpu, "message": message}
     }))
 }

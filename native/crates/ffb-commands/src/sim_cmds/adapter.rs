@@ -113,6 +113,7 @@ pub(crate) fn preset(name: &str, base: Params) -> Option<Params> {
         friction: base.friction,
         close_frames: base.close_frames,
         close_gap: base.close_gap,
+        seam_boost: base.seam_boost,
         ..made
     })
 }

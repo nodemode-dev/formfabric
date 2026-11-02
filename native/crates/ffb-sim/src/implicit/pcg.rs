@@ -94,7 +94,7 @@ fn build_preconditioner(pat: &Pattern, a: &[f64], f: &Filter, pre: &mut [f64]) {
 }
 
 fn apply_pre(pre: &[f64], r: &[f64], z: &mut [f64]) {
-    for ((b, rv), zv) in pre.chunks_exact(9).zip(r.chunks_exact(3)).zip(z.chunks_exact_mut(3)) {
+    for ((b, rv), zv) in pre.as_chunks::<9>().0.iter().zip(r.as_chunks::<3>().0).zip(z.as_chunks_mut::<3>().0) {
         zv[0] = b[0] * rv[0] + b[1] * rv[1] + b[2] * rv[2];
         zv[1] = b[3] * rv[0] + b[4] * rv[1] + b[5] * rv[2];
         zv[2] = b[6] * rv[0] + b[7] * rv[1] + b[8] * rv[2];
