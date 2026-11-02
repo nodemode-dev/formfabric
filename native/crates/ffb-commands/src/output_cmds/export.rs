@@ -114,6 +114,10 @@ fn cache_frames(s: &Session, a: &Value, geos: &[PanelGeo], built: &export::Built
     if count > export::MAX_FRAMES {
         return Err(bad(format!("{count} frames is over the limit of {}; raise step", export::MAX_FRAMES)));
     }
+    let held = count.saturating_mul(built.scene.vertex_count()).saturating_mul(12);
+    if held > export::MAX_BYTES / 2 {
+        return Err(bad(format!("{count} frames of {} vertices need about {} MiB in memory, over the {} MiB limit; raise step or narrow start and end", built.scene.vertex_count(), held >> 20, export::MAX_BYTES >> 21)));
+    }
     let mut list = Vec::with_capacity(count);
     let mut frame = start;
     while frame <= end {
@@ -131,12 +135,25 @@ fn cache_frames(s: &Session, a: &Value, geos: &[PanelGeo], built: &export::Built
 
 pub(super) fn write_files(dir: &std::path::Path, files: &[export::File]) -> Result<Vec<Value>, CommandError> {
     let mut written = Vec::new();
+    let mut texts = Vec::new();
     for f in files {
-        let path = dir.join(&f.name);
-        let text = path.to_str().ok_or_else(|| bad("the path is not valid text"))?.to_string();
-        args::write_atomic(&text, &f.bytes)?;
-        written.push(json!({"path": text, "bytes": f.bytes.len()}));
+        let text = dir.join(&f.name).to_str().ok_or_else(|| bad("the path is not valid text"))?.to_string();
+        texts.push(text);
     }
+    let mut order: Vec<usize> = (0..files.len()).collect();
+    order.sort_by_key(|i| usize::from(texts[*i].ends_with(".obj") || texts[*i].ends_with(".gltf") || texts[*i].ends_with(".glb") || texts[*i].ends_with(".fbx") || texts[*i].ends_with(".usda")));
+    let mut done: Vec<usize> = Vec::new();
+    for i in order {
+        if let Err(e) = args::write_atomic(&texts[i], &files[i].bytes) {
+            for d in done {
+                let _ = std::fs::remove_file(&texts[d]);
+            }
+            return Err(e);
+        }
+        done.push(i);
+        written.push(json!({"path": texts[i], "bytes": files[i].bytes.len()}));
+    }
+    written.sort_by_key(|w| w["path"].as_str().map(str::to_string));
     Ok(written)
 }
 
@@ -207,8 +224,8 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             return Err(CommandError::new("not_found", "there is no quad mesh to export; run quad.remesh first or pass quads false"));
         }
     }
-    let frames = if want_animation { Some(cache_frames(s, a, &geos, &built)?) } else { None };
-    let animation = frames.as_ref().map(|f| Animation { frames: f.list.clone() });
+    let mut frames = if want_animation { Some(cache_frames(s, a, &geos, &built)?) } else { None };
+    let animation = frames.as_mut().map(|f| Animation { frames: std::mem::take(&mut f.list) });
     let options = Options {
         stem,
         scale: common.scale,

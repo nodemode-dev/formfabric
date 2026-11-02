@@ -17,6 +17,10 @@ export function decodeScalars(buffer: ArrayBuffer, view: DataView, head: { frame
   const min = view.getFloat32(20, true);
   const max = view.getFloat32(24, true);
   const map = view.getFloat32(32, true);
+  const component = view.getFloat32(36, true);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) throw new Error('scalars frame range is invalid');
+  const inRange = (v: number): boolean => Number.isInteger(v) && v >= 0 && v <= 7;
+  if (!inRange(map) || !inRange(component)) throw new Error('scalars frame map or component is out of range');
   const extent = max - min;
   const values = new Float32Array(n);
   let at = 44;

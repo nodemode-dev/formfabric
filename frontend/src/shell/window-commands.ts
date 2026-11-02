@@ -1,5 +1,5 @@
 import type { Command, Commands } from '../ui/commands';
-import { promptName } from '../ui/dialogs';
+import { confirmAction, promptName } from '../ui/dialogs';
 import { t } from '../ui/i18n';
 import { textFieldFocused } from '../ui/native-menu';
 import { loadPrefs, updatePrefs, UNITS, type Prefs } from '../ui/prefs';
@@ -79,7 +79,8 @@ export function registerWindowCommands(ctx: WindowCtx): void {
   for (const w of WORKSPACES) list.push({ id: `app.ws_${w.id}`, label: w.label, enabled: () => w.ready, run: () => ctx.workspace(w.id) });
   for (let i = 0; i < 10; i++) list.push({ id: `app.recent.${i}`, label: () => session.recent()[i]?.split(/[\\/]/).pop() ?? '', enabled: () => !!session.recent()[i], run: () => { const p = session.recent()[i]; if (p) ctx.openPath(p); } });
   const openSample = async (name: string, body: string | null): Promise<void> => {
-    const loaded = await commands.call('sample.load', body ? { name, body } : { name });
+    if (session.dirty && !(await confirmAction('Replace the open project?', 'The open project has unsaved changes. Opening a sample replaces the garment and clears the undo history.', 'Replace', true))) return;
+    const loaded = await commands.call('sample.load', body ? { name, body, force: true } : { name, force: true });
     if (!loaded.ran) return;
     session.set(null, false);
     await commands.call('sim.reset', {});

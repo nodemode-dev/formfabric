@@ -31,8 +31,10 @@ pub(crate) fn write_atomic(path: &str, bytes: &[u8]) -> Result<(), CommandError>
     let target = std::path::Path::new(path);
     let folder = target.parent().filter(|p| !p.as_os_str().is_empty()).ok_or_else(|| CommandError::new("bad_args", format!("{path} has no folder")))?;
     let name = target.file_name().and_then(|n| n.to_str()).ok_or_else(|| CommandError::new("bad_args", format!("{path} has no file name")))?;
-    let temp = folder.join(format!(".{name}.{}.tmp", std::process::id()));
-    let written = std::fs::File::create(&temp).and_then(|mut f| f.write_all(bytes).and_then(|_| f.sync_all()));
+    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.subsec_nanos());
+    let temp = folder.join(format!(".{name}.{}.{nanos:x}.{}.tmp", std::process::id(), COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
+    let written = std::fs::OpenOptions::new().write(true).create_new(true).open(&temp).and_then(|mut f| f.write_all(bytes).and_then(|_| f.sync_all()));
     if let Err(e) = written.and_then(|_| std::fs::rename(&temp, target)) {
         let _ = std::fs::remove_file(&temp);
         return Err(io(e));

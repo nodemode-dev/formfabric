@@ -86,7 +86,7 @@
 .ff-md th, .ff-md td { padding: 3px 8px; border: 1px solid var(--border-color); text-align: left; }
 .ff-md th { background: var(--bg-tertiary); font-weight: 600; }
 
-.ff-consent { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; background: rgba(0, 0, 0, 0.45); }
+.ff-consent { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; background: var(--scrim); }
 .ff-consent[hidden] { display: none; }
 .ff-consent-card { width: min(420px, calc(100vw - 32px)); background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); padding: var(--space-5); }
 .ff-consent-card h2 { margin: 0 0 var(--space-2); font-size: 15px; font-weight: 600; }

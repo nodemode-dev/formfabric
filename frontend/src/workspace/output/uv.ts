@@ -20,7 +20,7 @@ interface Gesture {
   grow: number;
 }
 
-interface Colors { bg: string; tile: string; line: string; grid: string; accent: string; dim: string; text: string; muted: string }
+interface Colors { bg: string; tile: string; line: string; grid: string; accent: string; dim: string; text: string; muted: string; off: string }
 
 const MODES: Array<[Mode, string, string, string]> = [
   ['move', 'moveTool', 'G', 'Move'],
@@ -391,6 +391,7 @@ export class UvEditor {
       dim: v('--accent-color-dim', '#f9731633'),
       text: v('--text-primary', '#eee'),
       muted: v('--text-muted', '#717072'),
+      off: v('--uv-island-off', 'transparent'),
     };
     return this.colors;
   }
@@ -442,7 +443,7 @@ export class UvEditor {
         l.forEach((p, n) => { const [sx, sy] = this.toScreen(p[0], p[1]); if (n === 0) g.moveTo(sx, sy); else g.lineTo(sx, sy); });
         g.closePath();
       }
-      g.fillStyle = on ? c.dim : 'rgba(128,128,128,0.18)';
+      g.fillStyle = on ? c.dim : c.off;
       g.fill();
       g.strokeStyle = on ? c.accent : c.muted;
       g.lineWidth = on ? 2 : 1;

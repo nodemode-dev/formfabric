@@ -5,7 +5,7 @@ mod info;
 use ffb_pattern::Place3D;
 use serde_json::{json, Value};
 
-use crate::{dispatch, Command, CommandError, Edit, Group, Session, READ, WRITE};
+use crate::{dispatch, Command, CommandError, Edit, Group, Session, DESTROY, READ};
 
 use draft::{Draft, SpanRef};
 
@@ -29,7 +29,8 @@ fn load_schema() -> Value {
         "type": "object",
         "properties": {
             "name": {"type": "string", "enum": ["tshirt", "skirt", "dress"], "description": "Sample garment, as listed by sample.list."},
-            "body": {"type": ["integer", "string"], "description": "Body id in the project, or the name of a library body to load (MPFB2 Female or MPFB2 Male). Defaults to the first body, or MPFB2 Female when the project has none."}
+            "body": {"type": ["integer", "string"], "description": "Body id in the project, or the name of a library body to load (MPFB2 Female or MPFB2 Male). Defaults to the first body, or MPFB2 Female when the project has none."},
+            "force": {"type": "boolean", "default": false, "description": "Replace a project that has unsaved edits. Without it the call fails with the code unsaved_changes so the caller can ask the user to confirm."}
         },
         "required": ["name"],
         "additionalProperties": false
@@ -95,6 +96,10 @@ fn load(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     if !NAMES.iter().any(|n| n.0 == name) {
         return Err(bad(format!("no sample named {name}; sample.list shows them")));
     }
+    let force = a.get("force").and_then(Value::as_bool).unwrap_or(false);
+    if !force && !s.garment.panels.is_empty() && s.history.can_undo() {
+        return Err(CommandError::new("unsaved_changes", "the open project has edits that a sample would replace together with its undo history; save it first, or call again with force true to replace it"));
+    }
     let bi = pick_body(s, a)?;
     let info = info::Info::new(&s.bodies[bi]).ok_or_else(|| CommandError::new("invalid_geometry", "this body has no skeleton with arms and a neck, so a sample cannot be drafted on it"))?;
     let draft = match name {
@@ -147,9 +152,10 @@ fn load(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     }
     let after = s.garment.clone();
     s.record(Edit::Garment { label: "Place Sample".into(), before: Box::new(before), after: Box::new(after) });
+    s.history = Default::default();
     let cuffs: Vec<Value> = (0..draft.panels.len()).filter_map(|pi| fitter.cuff_axial(pi)).map(|c| json!(c)).collect();
     let marks = json!({"body": info.name, "floor": info.y_floor, "crotch": info.y_crotch, "chest": info.y_chest, "waist": info.y_waist, "hip": info.y_hip, "armpit": info.y_armpit, "neck": info.y_neck, "knee": info.y_knee, "shoulder_top": info.y_sp});
-    Ok(json!({"sample": name, "title": draft.title, "body": s.bodies[bi].id, "body_name": s.bodies[bi].name, "panels": counts, "seams": seams, "draft": draft.report, "landmarks": marks, "cuff_axial": cuffs}))
+    Ok(json!({"history_cleared": true, "sample": name, "title": draft.title, "body": s.bodies[bi].id, "body_name": s.bodies[bi].name, "panels": counts, "seams": seams, "draft": draft.report, "landmarks": marks, "cuff_axial": cuffs}))
 }
 
 pub(crate) fn commands() -> Vec<Command> {
@@ -170,9 +176,9 @@ pub(crate) fn commands() -> Vec<Command> {
             mcp: "sample_load",
             group: Group::File,
             label: "Open Sample",
-            description: "Replace the garment with a sample drafted on the given or current body: the pattern panels are drawn from the body measurements, sewn, and placed around the body, ready for sim.reset and sim.run. Keeps the body and discards the previous garment.",
+            description: "Replace the garment with a sample drafted on the given or current body: the pattern panels are drawn from the body measurements, sewn, and placed around the body, ready for sim.reset and sim.run. Keeps the body and discards the previous garment and the whole undo history (the result says history_cleared). Fails with the code unsaved_changes when the open project has edits, unless force is true.",
             keys: &[],
-            hints: WRITE,
+            hints: DESTROY,
             schema: load_schema,
             run: load,
         },

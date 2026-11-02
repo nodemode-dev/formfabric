@@ -24,17 +24,3 @@ pub(crate) fn compare_obj(g: &mut Garment) -> &mut Map<String, Value> {
     }
     g.viz.compare.as_object_mut().expect("object just set")
 }
-
-pub(crate) fn set_compare(g: &mut Garment, pair: Option<(&str, &str)>) {
-    let obj = compare_obj(g);
-    match pair {
-        Some((a, b)) => {
-            obj.insert("a".into(), json!(a));
-            obj.insert("b".into(), json!(b));
-        }
-        None => {
-            obj.remove("a");
-            obj.remove("b");
-        }
-    }
-}

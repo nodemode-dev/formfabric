@@ -5,11 +5,11 @@ use serde_json::{json, Value};
 
 use super::maps::{self, Component, Kind};
 use super::scene::{self, Scene};
-use super::store;
 use crate::{args, Command, CommandError, FrameSink, Group, Session, READ, SET, WRITE};
 
 const MAX_SNAPSHOTS: usize = 32;
 const PERIOD_MS: u64 = 33;
+const IDLE_MS: u64 = 120;
 
 pub(crate) struct Snapshot {
     pub name: String,
@@ -57,11 +57,13 @@ pub struct VizState {
     shared: Arc<Shared>,
     version: u64,
     snapshots: Vec<Arc<Snapshot>>,
+    map_name: Option<String>,
+    compared: Option<(String, String)>,
 }
 
 impl Default for VizState {
     fn default() -> Self {
-        VizState { shared: Arc::new(Shared::default()), version: 0, snapshots: Vec::new() }
+        VizState { shared: Arc::new(Shared::default()), version: 0, snapshots: Vec::new(), map_name: None, compared: None }
     }
 }
 
@@ -137,7 +139,7 @@ fn clear(sink: &dyn FrameSink, shared: &Shared) {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn follow(shared: Arc<Shared>, sink: Arc<dyn FrameSink>, fetch: Fetch) {
+fn follow(shared: Arc<Shared>, sink: Arc<dyn FrameSink>, fetch: Fetch, frame_now: Box<dyn Fn() -> u64 + Send>) {
     let mut last: Option<(u64, u64, u64)> = None;
     loop {
         if shared.stop.load(Ordering::Acquire) {
@@ -153,17 +155,19 @@ fn follow(shared: Arc<Shared>, sink: Arc<dyn FrameSink>, fetch: Fetch) {
             continue;
         }
         let scene = lock(&shared.scene).clone();
+        let mut idle = true;
         if let Some(scene) = scene {
-            let frames = fetch(&scene);
-            let stamp = (frames.frame, scene.version, shared.serial.load(Ordering::Acquire));
-            if last != Some(stamp) {
-                last = Some(stamp);
+            let cheap = (frame_now(), scene.version, shared.serial.load(Ordering::Acquire));
+            if last != Some(cheap) {
+                idle = false;
+                let frames = fetch(&scene);
+                last = Some((frames.frame, scene.version, cheap.2));
                 if let Some(done) = evaluate(&job, &scene, &frames) {
                     emit(sink.as_ref(), &shared, &scene, &job, &done);
                 }
             }
         }
-        std::thread::sleep(std::time::Duration::from_millis(PERIOD_MS));
+        std::thread::sleep(std::time::Duration::from_millis(if idle { IDLE_MS } else { PERIOD_MS }));
     }
 }
 
@@ -175,8 +179,10 @@ fn ensure_thread(s: &Session) {
         return;
     }
     let fetch = fetcher(s);
+    let core = s.sim.core.clone();
+    let frame_now: Box<dyn Fn() -> u64 + Send> = Box::new(move || core.lock().unwrap_or_else(|e| e.into_inner()).frame);
     let again = shared.clone();
-    if std::thread::Builder::new().name("ffb-viz-map".into()).spawn(move || follow(shared, sink, fetch)).is_err() {
+    if std::thread::Builder::new().name("ffb-viz-map".into()).spawn(move || follow(shared, sink, fetch, frame_now)).is_err() {
         again.alive.store(false, Ordering::Release);
     }
 }
@@ -217,6 +223,12 @@ fn deactivate(s: &mut Session) {
 const QUIET: [&str; 7] = ["light.", "stage.", "view.", "fur.", "measure3d.", "compare.", "map."];
 
 pub(crate) fn after_change(s: &mut Session, command: &str) {
+    if command.starts_with("file.") && !matches!(*lock(&s.viz.shared.job), Job::None) {
+        deactivate(s);
+        s.viz.map_name = None;
+        s.viz.compared = None;
+        return;
+    }
     if QUIET.iter().any(|p| command.starts_with(p)) || matches!(*lock(&s.viz.shared.job), Job::None) {
         return;
     }
@@ -270,7 +282,7 @@ fn parse_range(a: &Value) -> Result<Option<[f32; 2]>, CommandError> {
 }
 
 fn set_map_name(s: &mut Session, name: Option<&str>) {
-    s.garment.viz.map = name.map(str::to_string);
+    s.viz.map_name = name.map(str::to_string);
 }
 
 fn show(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
@@ -377,22 +389,22 @@ fn compare_set(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let values = maps::distance(&positions_of(&sa, &scene, &frames), &positions_of(&sb, &scene, &frames));
     let range = given.unwrap_or_else(|| maps::auto_range(&values, Kind::Compare));
     activate(s, &scene, Job::Compare { a: sa, b: sb, range });
-    store::set_compare(&mut s.garment, Some((&an, &bn)));
+    s.viz.compared = Some((an.clone(), bn.clone()));
     set_map_name(s, Some("compare"));
     Ok(json!({"a": an, "b": bn, "unit": "mm", "map_id": Kind::Compare.id(), "range": range, "stats": maps::stats(&scene, &values)}))
 }
 
 fn compare_clear(s: &mut Session, _: &Value) -> Result<Value, CommandError> {
     deactivate(s);
-    store::set_compare(&mut s.garment, None);
+    s.viz.compared = None;
     set_map_name(s, None);
     Ok(json!({"cleared": true}))
 }
 
 fn compare_get(s: &mut Session, _: &Value) -> Result<Value, CommandError> {
     Ok(json!({
-        "a": s.garment.viz.compare.get("a").cloned().unwrap_or(Value::Null),
-        "b": s.garment.viz.compare.get("b").cloned().unwrap_or(Value::Null),
+        "a": s.viz.compared.as_ref().map_or(Value::Null, |p| json!(p.0)),
+        "b": s.viz.compared.as_ref().map_or(Value::Null, |p| json!(p.1)),
         "snapshots": s.viz.snapshots.iter().map(|x| x.name.clone()).collect::<Vec<_>>(),
         "active": !matches!(*lock(&s.viz.shared.job), Job::None)
     }))
@@ -442,7 +454,7 @@ pub(crate) fn commands() -> Vec<Command> {
             mcp: "compare_set",
             group: Group::View,
             label: "Compare States",
-            description: "Stream the per-vertex distance in mm between two states (live, placed or snapshot names) as a map (id 7). Panels whose vertex counts differ between the states show no data. The names are kept in Garment.viz.compare.",
+            description: "Stream the per-vertex distance in mm between two states (live, placed or snapshot names) as a map (id 7). Panels whose vertex counts differ between the states show no data. The names are kept in the session only (not in the document, not an undo step).",
             keys: &[],
             hints: SET,
             schema: set_schema,

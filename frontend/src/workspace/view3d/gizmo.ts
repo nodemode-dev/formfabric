@@ -5,7 +5,12 @@ export interface Handle {
   axis: 0 | 1 | 2;
 }
 
-const AXIS_CSS = ['#dc5252', '#66c761', '#528ce6'];
+const axisColors = (): string[] => {
+  const cs = getComputedStyle(document.documentElement);
+  return ['--axis-x', '--axis-y', '--axis-z'].map((n) => cs.getPropertyValue(n).trim() || 'currentColor');
+};
+let axisCache: string[] | null = null;
+const axisColor = (a: number): string => (axisCache ??= axisColors())[a] ?? 'currentColor';
 const RING_STEPS = 48;
 const ARROW_PX = 96;
 const RING_FRAC = 0.78;
@@ -71,7 +76,7 @@ export class Gizmo {
       const hotRing = this.is('rotate', a);
       const hotMove = this.is('move', a);
       const n = this.buildRing(f, a);
-      ctx.strokeStyle = AXIS_CSS[a];
+      ctx.strokeStyle = axisColor(a);
       ctx.globalAlpha = hotRing ? 1 : 0.7;
       ctx.lineWidth = (hotRing ? 3 : 2) * dpr;
       if (n > 1) {

@@ -8,6 +8,8 @@ use super::scene::{bad, collect, effective_islands, number, tile_count, PanelGeo
 use crate::{args, Command, CommandError, Group, Session, EXTERNAL};
 
 const MAX_WORK: f64 = 6.0e8;
+const MAX_PIXEL_WORK: f64 = 1.5e9;
+const MAX_WALL: std::time::Duration = std::time::Duration::from_secs(90);
 
 fn schema() -> Value {
     json!({
@@ -133,30 +135,36 @@ struct Layer {
 }
 
 fn dilate(layer: &mut Layer, size: usize, passes: usize) {
+    let mut fill: Vec<(usize, usize)> = Vec::new();
     for _ in 0..passes {
-        let covered = layer.covered.clone();
-        let (normal, ao, disp) = (layer.normal.clone(), layer.ao.clone(), layer.disp.clone());
+        fill.clear();
         for y in 0..size {
             for x in 0..size {
                 let i = y * size + x;
-                if covered[i] {
+                if layer.covered[i] {
                     continue;
                 }
-                'search: for (dx, dy) in [(-1i32, 0i32), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
+                for (dx, dy) in [(-1i32, 0i32), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
                     let (nx, ny) = (x as i32 + dx, y as i32 + dy);
                     if nx < 0 || ny < 0 || nx >= size as i32 || ny >= size as i32 {
                         continue;
                     }
                     let j = ny as usize * size + nx as usize;
-                    if covered[j] {
-                        layer.normal[i * 3..i * 3 + 3].copy_from_slice(&normal[j * 3..j * 3 + 3]);
-                        layer.ao[i] = ao[j];
-                        layer.disp[i] = disp[j];
-                        layer.covered[i] = true;
-                        break 'search;
+                    if layer.covered[j] {
+                        fill.push((i, j));
+                        break;
                     }
                 }
             }
+        }
+        if fill.is_empty() {
+            break;
+        }
+        for &(i, j) in &fill {
+            layer.normal.copy_within(j * 3..j * 3 + 3, i * 3);
+            layer.ao[i] = layer.ao[j];
+            layer.disp[i] = layer.disp[j];
+            layer.covered[i] = true;
         }
     }
 }
@@ -184,6 +192,11 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     if want_ao && (size * size * tiles) as f64 * f64::from(samples) > MAX_WORK {
         return Err(bad("size, tiles and samples ask for too many rays; lower the size or the samples"));
     }
+    let pixel_work = (size * size * tiles) as f64 * (1.0 + padding as f64 + maps.len() as f64);
+    if pixel_work > MAX_PIXEL_WORK {
+        return Err(bad("size, tiles, padding and maps ask for too much work; lower the size or the padding, or use fewer UDIM tiles"));
+    }
+    let started = cfg!(not(target_arch = "wasm32")).then(std::time::Instant::now);
     let panels: Vec<Panel> = geos.iter().zip(&islands).map(|(g, i)| prepare(g, i, passes)).collect();
     let (mut occluder, mut bvh) = (Mesh::default(), None);
     if want_ao {
@@ -202,7 +215,7 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         bvh = Some(Bvh::build(&occluder));
     }
     let max_disp = panels.iter().flat_map(|p| p.disp.iter()).fold(0.0f32, |m, d| m.max(d.abs())).max(1e-3);
-    let mut written = Vec::new();
+    let mut pending: Vec<(String, usize, String, Vec<u8>)> = Vec::new();
     let location = std::path::Path::new(&path);
     let stem = location.file_stem().and_then(|x| x.to_str()).unwrap_or("bake").to_string();
     let dir = location.parent().ok_or_else(|| bad("path has no folder"))?;
@@ -217,6 +230,9 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
                 continue;
             }
             for t in panel.indices.chunks_exact(3) {
+                if started.is_some_and(|t| t.elapsed() > MAX_WALL) {
+                    return Err(bad("the bake ran longer than 90 seconds; lower the size, samples or padding"));
+                }
                 let ids = [t[0] as usize, t[1] as usize, t[2] as usize];
                 let p: Vec<[f32; 2]> = ids.iter().map(|i| [(panel.uv[*i][0] - tile as f32) * size as f32, panel.uv[*i][1] * size as f32]).collect();
                 let (min_x, max_x) = (p.iter().map(|q| q[0]).fold(f32::MAX, f32::min), p.iter().map(|q| q[0]).fold(f32::MIN, f32::max));
@@ -282,9 +298,20 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             let bytes = png::encode(size as u32, size as u32, channels, &data).map_err(|e| CommandError::new("export_failed", e))?;
             let file = dir.join(format!("{stem}_{map}{suffix}.png"));
             let text = file.to_str().ok_or_else(|| bad("the path is not valid text"))?.to_string();
-            args::write_atomic(&text, &bytes)?;
-            written.push(json!({"map": map, "tile": tile, "path": text, "bytes": bytes.len()}));
+            pending.push((map.clone(), tile, text, bytes));
         }
+    }
+    let mut written = Vec::new();
+    let mut done: Vec<String> = Vec::new();
+    for (map, tile, text, bytes) in pending {
+        if let Err(e) = args::write_atomic(&text, &bytes) {
+            for d in done {
+                let _ = std::fs::remove_file(d);
+            }
+            return Err(e);
+        }
+        written.push(json!({"map": map, "tile": tile, "path": text, "bytes": bytes.len()}));
+        done.push(text);
     }
     let coverage = covered_total as f64 / (size * size * tiles) as f64;
     Ok(json!({

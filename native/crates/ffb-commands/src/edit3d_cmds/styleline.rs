@@ -9,6 +9,7 @@ use crate::{Command, CommandError, Edit, Group, Session, READ, SET, WRITE};
 
 const MAX_POINTS: usize = 2000;
 const MAX_SAMPLES: usize = 4000;
+const MAX_LINES: usize = 256;
 
 fn fx_props() -> Value {
     json!({
@@ -139,6 +140,9 @@ fn add(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let closed = closed_arg(a)?.unwrap_or(false);
     check_shape(&points, closed)?;
     let fxv = apply_fx(a, LineFx::default())?;
+    if s.garment.style_lines.len() >= MAX_LINES {
+        return Err(bad(format!("a garment holds at most {MAX_LINES} style lines; remove some first")));
+    }
     let before = Box::new(s.garment.clone());
     let id = s.garment.style_lines.iter().map(|l| l.id).max().unwrap_or(0) + 1;
     let line = StyleLine { id, panel, points, closed };

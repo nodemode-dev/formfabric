@@ -215,10 +215,14 @@ export class StageGL {
   private async loadSky(path: string): Promise<void> {
     const gl = this.gl;
     try {
-      const direct = /^(https?:|blob:|data:)/.test(path);
-      const res = await fetch(direct ? path : serviceUrl(`/api/files/image?path=${encodeURIComponent(path)}`), { cache: 'no-store' });
+      if (path.length > 1024 || (/^[a-z][a-z0-9+.-]+:/i.test(path) && !/^[a-z]:[\\/]/i.test(path))) throw new Error('only local file paths are accepted');
+      const res = await fetch(serviceUrl(`/api/files/image?path=${encodeURIComponent(path)}`), { cache: 'no-store' });
       if (!res.ok) throw new Error(String(res.status));
       const bmp = await createImageBitmap(await res.blob(), { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+      if (bmp.width * bmp.height > 8192 * 4096) {
+        bmp.close();
+        throw new Error('the image is too large');
+      }
       if (path !== this.skyUrl) {
         bmp.close();
         return;

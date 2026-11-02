@@ -47,13 +47,13 @@
 .ff-an-cv { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg-primary); }
 .ff-an-cv canvas { position: absolute; left: 0; top: 0; display: block; touch-action: none; }
 
-.ff-an-menu { position: absolute; left: var(--x, 0); top: var(--y, 0); z-index: var(--z-raised); display: flex; flex-direction: column; min-width: 112px; padding: var(--space-1) 0; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-secondary); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32); }
+.ff-an-menu { position: absolute; left: var(--x, 0); top: var(--y, 0); z-index: var(--z-raised); display: flex; flex-direction: column; min-width: 112px; padding: var(--space-1) 0; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-secondary); box-shadow: var(--shadow-md); }
 .ff-an-menu[hidden] { display: none; }
 .ff-an-menu button { height: 24px; padding: 0 var(--space-3); border: 0; background: transparent; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
 .ff-an-menu button:hover { background: var(--bg-hover); }
 .ff-an-menu button.is-on { color: var(--accent-color); }
 
-.ff-an-pop { position: absolute; left: var(--space-2); bottom: 100%; z-index: var(--z-raised); width: 300px; max-height: 360px; overflow-y: auto; box-sizing: border-box; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-secondary); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32); }
+.ff-an-pop { position: absolute; left: var(--space-2); bottom: 100%; z-index: var(--z-raised); width: 300px; max-height: 360px; overflow-y: auto; box-sizing: border-box; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-secondary); box-shadow: var(--shadow-md); }
 .ff-an-pop[hidden] { display: none; }
 .ff-an-pop-sec { display: flex; flex-direction: column; gap: var(--space-2); padding-bottom: var(--space-2); }
 .ff-an-pop-sec + .ff-an-pop-sec { padding-top: var(--space-2); border-top: 1px solid var(--border-color); }

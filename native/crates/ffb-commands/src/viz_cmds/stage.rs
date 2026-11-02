@@ -71,6 +71,10 @@ fn stage_set(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         Some(Value::Null) => Some(None),
         Some(Value::String(t)) => {
             args::clean_name("hdri", t)?;
+            let lower = t.to_ascii_lowercase();
+            if t.len() > 1024 || ["http:", "https:", "data:", "blob:", "file:", "ftp:"].iter().any(|p| lower.starts_with(p)) {
+                return Err(bad("hdri must be a local file path of at most 1024 bytes; URLs are not accepted"));
+            }
             Some(Some(t.clone()))
         }
         Some(_) => return Err(bad("hdri must be a string or null")),
