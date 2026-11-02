@@ -3,7 +3,7 @@ use std::sync::mpsc;
 
 use bytemuck::{Pod, Zeroable};
 use ffb_sim::collide::Prepared;
-use ffb_sim::{Cloth, Collider, Params, PinPoint, StepStats};
+use ffb_sim::{Cloth, Collider, Params, PinPoint, Solver, StepStats};
 use glam::DVec3;
 
 use crate::colliders::{pack, Packed};
@@ -81,6 +81,7 @@ struct Pipelines {
     begin_b: wgpu::ComputePipeline,
     solve: wgpu::ComputePipeline,
     finish: wgpu::ComputePipeline,
+    hinge_eval: wgpu::ComputePipeline,
     bgl0: wgpu::BindGroupLayout,
     bgl1: wgpu::BindGroupLayout,
 }
@@ -100,6 +101,7 @@ pub struct GpuSolver {
     col: wgpu::Buffer,
     cidx: wgpu::Buffer,
     outb: wgpu::Buffer,
+    hst: wgpu::Buffer,
     staging: wgpu::Buffer,
     sub_u: wgpu::Buffer,
     sub_cap: u32,
@@ -123,6 +125,8 @@ pub struct GpuSolver {
     prepared: std::cell::OnceCell<Vec<Prepared>>,
     col_cap: u64,
     cidx_cap: u64,
+    cloth_copy: Cloth,
+    twin: std::cell::RefCell<Option<Solver>>,
 }
 
 fn storage_entry(binding: u32, read_only: bool) -> wgpu::BindGroupLayoutEntry {
@@ -147,7 +151,7 @@ fn make_pipelines(device: &wgpu::Device) -> Pipelines {
     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("vbd"), source: wgpu::ShaderSource::Wgsl(include_str!("vbd.wgsl").into()) });
     let bgl0 = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("vbd0"),
-        entries: &[storage_entry(0, false), storage_entry(1, true), storage_entry(2, true), storage_entry(3, true), storage_entry(4, true), storage_entry(5, true), storage_entry(6, false)],
+        entries: &[storage_entry(0, false), storage_entry(1, true), storage_entry(2, true), storage_entry(3, true), storage_entry(4, true), storage_entry(5, true), storage_entry(6, false), storage_entry(7, false)],
     });
     let bgl1 = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some("vbd1"), entries: &[uniform_entry(0), uniform_entry(1)] });
     let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("vbd"), bind_group_layouts: &[Some(&bgl0), Some(&bgl1)], immediate_size: 0 });
@@ -161,7 +165,7 @@ fn make_pipelines(device: &wgpu::Device) -> Pipelines {
             cache: None,
         })
     };
-    Pipelines { begin_a: make("begin_a"), begin_b: make("begin_b"), solve: make("solve"), finish: make("finish"), bgl0, bgl1 }
+    Pipelines { begin_a: make("begin_a"), begin_b: make("begin_b"), solve: make("solve"), finish: make("finish"), hinge_eval: make("hinge_eval"), bgl0, bgl1 }
 }
 
 fn storage_buffer(device: &wgpu::Device, label: &str, size: u64, extra: wgpu::BufferUsages) -> wgpu::Buffer {
@@ -188,6 +192,7 @@ impl GpuSolver {
         let elem = storage_buffer(&device, "elem", model.elem.len() as u64 * 16, wgpu::BufferUsages::empty());
         let idx = storage_buffer(&device, "idx", model.idx.len() as u64 * 4, wgpu::BufferUsages::empty());
         let outb = storage_buffer(&device, "out", n as u64 * 32, wgpu::BufferUsages::COPY_SRC);
+        let hst = storage_buffer(&device, "hst", model.hinge_count as u64 * 144, wgpu::BufferUsages::empty());
         let staging = device.create_buffer(&wgpu::BufferDescriptor { label: Some("staging"), size: n as u64 * 32, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         queue.write_buffer(&elem, 0, bytemuck::cast_slice(&model.elem));
         queue.write_buffer(&idx, 0, bytemuck::cast_slice(&model.idx));
@@ -203,7 +208,7 @@ impl GpuSolver {
             cu[c * STRIDE as usize..c * STRIDE as usize + 16].copy_from_slice(bytemuck::cast_slice(&rec));
         }
         queue.write_buffer(&col_u, 0, &cu);
-        let bg0 = Self::group0(&device, &pipes, &vs, &vinfo, &elem, &idx, &col, &cidx, &outb);
+        let bg0 = Self::group0(&device, &pipes, &vs, &vinfo, &elem, &idx, &col, &cidx, &outb, &hst);
         let bg1 = Self::group1(&device, &pipes, &sub_u, &col_u);
         let mut s = GpuSolver {
             _instance: instance,
@@ -227,6 +232,8 @@ impl GpuSolver {
             prepared: std::cell::OnceCell::new(),
             col_cap: 0,
             cidx_cap: 0,
+            cloth_copy: cloth.clone(),
+            twin: std::cell::RefCell::new(None),
             model,
             n,
             vs,
@@ -236,6 +243,7 @@ impl GpuSolver {
             col,
             cidx,
             outb,
+            hst,
             staging,
             sub_u,
             sub_cap,
@@ -253,11 +261,11 @@ impl GpuSolver {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn group0(device: &wgpu::Device, pipes: &Pipelines, vs: &wgpu::Buffer, vinfo: &wgpu::Buffer, elem: &wgpu::Buffer, idx: &wgpu::Buffer, col: &wgpu::Buffer, cidx: &wgpu::Buffer, outb: &wgpu::Buffer) -> wgpu::BindGroup {
+    fn group0(device: &wgpu::Device, pipes: &Pipelines, vs: &wgpu::Buffer, vinfo: &wgpu::Buffer, elem: &wgpu::Buffer, idx: &wgpu::Buffer, col: &wgpu::Buffer, cidx: &wgpu::Buffer, outb: &wgpu::Buffer, hst: &wgpu::Buffer) -> wgpu::BindGroup {
         fn e(binding: u32, b: &wgpu::Buffer) -> wgpu::BindGroupEntry<'_> {
             wgpu::BindGroupEntry { binding, resource: b.as_entire_binding() }
         }
-        device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("g0"), layout: &pipes.bgl0, entries: &[e(0, vs), e(1, vinfo), e(2, elem), e(3, idx), e(4, col), e(5, cidx), e(6, outb)] })
+        device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("g0"), layout: &pipes.bgl0, entries: &[e(0, vs), e(1, vinfo), e(2, elem), e(3, idx), e(4, col), e(5, cidx), e(6, outb), e(7, hst)] })
     }
 
     fn group1(device: &wgpu::Device, pipes: &Pipelines, sub_u: &wgpu::Buffer, col_u: &wgpu::Buffer) -> wgpu::BindGroup {
@@ -284,7 +292,7 @@ impl GpuSolver {
         self.queue.write_buffer(&self.col, 0, bytemuck::cast_slice(&self.packed.col));
         self.queue.write_buffer(&self.cidx, 0, bytemuck::cast_slice(&self.packed.cidx));
         if rebind {
-            self.bg0 = Self::group0(&self.device, &self.pipes, &self.vs, &self.vinfo, &self.elem, &self.idx, &self.col, &self.cidx, &self.outb);
+            self.bg0 = Self::group0(&self.device, &self.pipes, &self.vs, &self.vinfo, &self.elem, &self.idx, &self.col, &self.cidx, &self.outb, &self.hst);
         }
     }
 
@@ -358,6 +366,17 @@ impl GpuSolver {
         for s in self.speed.iter_mut() {
             *s *= keep as f32;
         }
+    }
+
+    pub fn self_intersections(&self) -> Vec<(u32, u32)> {
+        let mut slot = self.twin.borrow_mut();
+        let twin = slot.get_or_insert_with(|| {
+            let mut cloth = self.cloth_copy.clone();
+            cloth.pins.clear();
+            Solver::new(cloth, self.params)
+        });
+        twin.set_positions(&self.out);
+        twin.self_intersections()
     }
 
     pub fn kinetic_energy(&self) -> f32 {
@@ -520,7 +539,7 @@ impl GpuSolver {
                 p0: [(s + 1) as f32 / substeps as f32, damp, self.params.skin_offset.max(0.0), self.params.friction.max(0.0)],
                 p1: [if self.params.nonlinear { 1.0 } else { 0.0 }, self.params.stiffening, self.link_scale, if s == 0 { keep } else { 1.0 }],
                 tg: [gt[0], gt[1], gt[2], 0.0],
-                u0: [self.n as u32, self.packed.count, gi, 0],
+                u0: [self.n as u32, self.packed.count, gi, self.model.hinge_count as u32],
                 u1: [self.model.tri_off, self.model.hinge_off, self.model.link_off, 0],
                 u2: [self.model.order_off, self.model.hdr_off, self.model.adj_off, 0],
                 sc0: [base, reach, margin, cell],
@@ -543,8 +562,13 @@ impl GpuSolver {
                 pass.dispatch_workgroups(groups, 1, 1);
                 pass.set_pipeline(&self.pipes.begin_b);
                 pass.dispatch_workgroups(groups, 1, 1);
-                pass.set_pipeline(&self.pipes.solve);
                 for _ in 0..iters {
+                    if self.model.hinge_count > 0 {
+                        pass.set_bind_group(1, &self.bg1, &[so, 0]);
+                        pass.set_pipeline(&self.pipes.hinge_eval);
+                        pass.dispatch_workgroups((self.model.hinge_count as u32).div_ceil(WG), 1, 1);
+                    }
+                    pass.set_pipeline(&self.pipes.solve);
                     for (c, (_, count)) in self.model.colors.iter().enumerate() {
                         pass.set_bind_group(1, &self.bg1, &[so, (c as u64 * STRIDE) as u32]);
                         pass.dispatch_workgroups(count.div_ceil(WG), 1, 1);

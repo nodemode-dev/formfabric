@@ -127,7 +127,7 @@ impl AnyStepper {
     pub fn self_intersections(&self) -> Option<Vec<(u32, u32)>> {
         match self {
             AnyStepper::Cpu(s) => Some(s.self_intersections()),
-            AnyStepper::Gpu(_) => None,
+            AnyStepper::Gpu(s) => Some(s.self_intersections()),
         }
     }
 

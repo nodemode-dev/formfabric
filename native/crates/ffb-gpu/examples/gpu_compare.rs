@@ -127,7 +127,8 @@ fn main() {
     }
     if which == 0 || which == 2 {
         let radius = 200.0;
-        let (cloth, _) = grid(spacing, &|s, t| [s - 500.0, radius + 40.0, t - 500.0]);
+        let drop = arg("drop", 40.0);
+        let (cloth, _) = grid(spacing, &|s, t| [s - 500.0, radius + drop, t - 500.0]);
         let colliders = vec![Collider::Sphere { center: [0.0, 0.0, 0.0], radius }, Collider::Plane { point: [0.0, -radius, 0.0], normal: [0.0, 1.0, 0.0] }];
         run("sphere drape", cloth, colliders, params, frames);
     }

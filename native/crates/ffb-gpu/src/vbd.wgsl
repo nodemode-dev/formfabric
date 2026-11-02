@@ -37,6 +37,7 @@ struct ColU {
 @group(0) @binding(4) var<storage, read> colu: array<vec4<u32>>;
 @group(0) @binding(5) var<storage, read> cidx: array<u32>;
 @group(0) @binding(6) var<storage, read_write> outb: array<vec4<f32>>;
+@group(0) @binding(7) var<storage, read_write> hs: array<vec4<f32>>;
 @group(1) @binding(0) var<uniform> su: SubU;
 @group(1) @binding(1) var<uniform> cu: ColU;
 
@@ -44,6 +45,9 @@ const COMPRESSION: f32 = 0.05;
 const CONTACT_K: f32 = 1000.0;
 const FRICTION_EPS: f32 = 0.01;
 const GRAB_K: f32 = 100.0;
+const APPROACH_CAP: f32 = 0.5;
+const APPROACH_ZONE: f32 = 8.0;
+const DEEP_REACH: f32 = 40.0;
 const PI: f32 = 3.14159265358979;
 const TAU: f32 = 6.28318530717959;
 
@@ -141,7 +145,8 @@ fn tri_contrib(base: u32, slot: u32, ih: f32) {
     G = G + g;
 }
 
-fn hinge_contrib(base: u32, slot: u32, ih: f32) {
+fn hinge_eval_store(base: u32, hid: u32) {
+    let hb = hid * 9u;
     let h0 = elemu[base];
     let h1 = f4(elemu[base + 1u]);
     let h2 = f4(elemu[base + 2u]);
@@ -159,7 +164,16 @@ fn hinge_contrib(base: u32, slot: u32, ih: f32) {
     let n2v = cross(p0 - p1, p3 - p1);
     let l1 = dot(n1v, n1v);
     let l2 = dot(n2v, n2v);
+    hs[hb + 4u] = vec4<f32>(p0, 0.0);
+    hs[hb + 5u] = vec4<f32>(p1, 0.0);
+    hs[hb + 6u] = vec4<f32>(p2, 0.0);
+    hs[hb + 7u] = vec4<f32>(p3, 0.0);
     if (le < 1.0e-9 || l1 < 1.0e-18 || l2 < 1.0e-18) {
+        hs[hb] = vec4<f32>(0.0);
+        hs[hb + 1u] = vec4<f32>(0.0);
+        hs[hb + 2u] = vec4<f32>(0.0);
+        hs[hb + 3u] = vec4<f32>(0.0);
+        hs[hb + 8u] = vec4<f32>(0.0);
         return;
     }
     let eh = e / le;
@@ -195,8 +209,31 @@ fn hinge_contrib(base: u32, slot: u32, ih: f32) {
     if (h2.x > 0.0 && compress > 0.0) {
         f = 1.0 - (1.0 - h2.y) * min(compress * h2.x / 0.05, 1.0);
     }
-    let c = h1.x * f;
-    let ds = dot(g0, p0 - vs[q0].xn.xyz) + dot(g1, p1 - vs[q1].xn.xyz) + dot(g2, p2 - vs[q2].xn.xyz) + dot(g3, p3 - vs[q3].xn.xyz);
+    hs[hb] = vec4<f32>(g0, 0.0);
+    hs[hb + 1u] = vec4<f32>(g1, 0.0);
+    hs[hb + 2u] = vec4<f32>(g2, 0.0);
+    hs[hb + 3u] = vec4<f32>(g3, 0.0);
+    hs[hb + 8u] = vec4<f32>(h1.x * f, d, 0.0, 0.0);
+}
+
+fn hinge_contrib(base: u32, slot: u32, ih: f32, hid: u32) {
+    let hb = hid * 9u;
+    let cd = hs[hb + 8u];
+    if (cd.x == 0.0) {
+        return;
+    }
+    let h0 = elemu[base];
+    let h2 = f4(elemu[base + 2u]);
+    let q0 = ub(h0.x);
+    let q1 = ub(h0.y);
+    let q2 = ub(h0.z);
+    let q3 = ub(h0.w);
+    let g0 = hs[hb].xyz;
+    let g1 = hs[hb + 1u].xyz;
+    let g2 = hs[hb + 2u].xyz;
+    let g3 = hs[hb + 3u].xyz;
+    let tl = cd.y + dot(g0, vs[q0].x.xyz - hs[hb + 4u].xyz) + dot(g1, vs[q1].x.xyz - hs[hb + 5u].xyz) + dot(g2, vs[q2].x.xyz - hs[hb + 6u].xyz) + dot(g3, vs[q3].x.xyz - hs[hb + 7u].xyz);
+    let ds = dot(g0, vs[q0].x.xyz - vs[q0].xn.xyz) + dot(g1, vs[q1].x.xyz - vs[q1].xn.xyz) + dot(g2, vs[q2].x.xyz - vs[q2].xn.xyz) + dot(g3, vs[q3].x.xyz - vs[q3].xn.xyz);
     var gs = g0;
     if (slot == 1u) {
         gs = g1;
@@ -206,8 +243,8 @@ fn hinge_contrib(base: u32, slot: u32, ih: f32) {
         gs = g3;
     }
     let r = h2.z * ih;
-    G = G + gs * (c * (d + r * ds));
-    H = H + outer(gs, gs) * (c * (1.0 + r));
+    G = G + gs * (cd.x * (tl + r * ds));
+    H = H + outer(gs, gs) * (cd.x * (1.0 + r));
 }
 
 fn link_contrib(base: u32, slot: u32) {
@@ -493,7 +530,10 @@ fn is_mesh(ci: u32) -> bool {
 }
 
 fn contact_at(ci: u32, x: vec3<f32>, offset: f32) -> Ct {
-    let range = max(offset, 1.0e-6);
+    return contact_range(ci, x, offset, max(offset, 1.0e-6));
+}
+
+fn contact_range(ci: u32, x: vec3<f32>, offset: f32, range: f32) -> Ct {
     let hb = ci * 3u;
     let kind = colu[hb].x;
     let sd = signed_dist(ci, x, range);
@@ -607,6 +647,15 @@ fn begin_b(@builtin(global_invocation_id) gid: vec3<u32>) {
 }
 
 @compute @workgroup_size(64)
+fn hinge_eval(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let k = gid.x;
+    if (k >= su.u0.w) {
+        return;
+    }
+    hinge_eval_store(su.u1.y + k * 3u, k);
+}
+
+@compute @workgroup_size(64)
 fn solve(@builtin(global_invocation_id) gid: vec3<u32>) {
     let k = gid.x;
     if (k >= cu.r.y) {
@@ -638,7 +687,7 @@ fn solve(@builtin(global_invocation_id) gid: vec3<u32>) {
     p = p + nt;
     for (var j = 0u; j < nh; j++) {
         let en = idx[p + j];
-        hinge_contrib(su.u1.y + (en >> 2u) * 3u, en & 3u, ih);
+        hinge_contrib(su.u1.y + (en >> 2u) * 3u, en & 3u, ih, en >> 2u);
     }
     p = p + nh;
     for (var j = 0u; j < nl; j++) {
@@ -693,7 +742,28 @@ fn finish(@builtin(global_invocation_id) gid: vec3<u32>) {
     var s = vs[i];
     var x = s.x.xyz;
     var flag = 0.0;
+    var pre = x;
+    var bn = vec3<f32>(0.0);
+    var bestd = 0.0;
     if (info.m.z < 0.5 && su.u0.y > 0u) {
+        let cap = APPROACH_CAP * offset;
+        if (cap > 0.0 && dot(x - s.xn.xyz, x - s.xn.xyz) > cap * cap) {
+            let zone = max(APPROACH_ZONE * offset, 20.0);
+            var nsd = 1.0e30;
+            var nn = vec3<f32>(0.0);
+            for (var c = 0u; c < su.u0.y; c++) {
+                let sd = signed_dist(c, s.xn.xyz, zone);
+                if (dot(sd.yzw, sd.yzw) > 0.5 && sd.x < nsd) {
+                    nsd = sd.x;
+                    nn = sd.yzw;
+                }
+            }
+            let inward = dot(s.xn.xyz - x, nn);
+            if (nsd < zone && inward > cap) {
+                x = x + nn * (inward - cap);
+            }
+        }
+        pre = x;
         let moved = length(x - s.xn.xyz);
         if (moved > 0.5 * max(offset, 0.5)) {
             for (var c = 0u; c < su.u0.y; c++) {
@@ -705,16 +775,16 @@ fn finish(@builtin(global_invocation_id) gid: vec3<u32>) {
                 }
             }
         }
-        var bestd = 0.0;
         for (var rp = 0u; rp < 2u; rp++) {
             var any_moved = false;
             for (var c = 0u; c < su.u0.y; c++) {
-                let ct = contact_at(c, x, offset);
-                if (ct.ok && ct.depth > 1.0e-4) {
+                let ct = contact_range(c, x, offset, max(offset, 1.0e-6) + DEEP_REACH);
+                if (ct.ok && ct.depth > 1.0e-5) {
                     x = x + ct.n * ct.depth;
                     any_moved = true;
                     if (ct.depth > bestd) {
                         bestd = ct.depth;
+                        bn = ct.n;
                     }
                     flag = 1.0;
                 }
@@ -724,8 +794,15 @@ fn finish(@builtin(global_invocation_id) gid: vec3<u32>) {
             }
         }
     }
-    let nv = (x - s.xn.xyz) / h;
-    s.a = vec4<f32>((nv - s.v.xyz) / h, 0.0);
+    var nv = (x - s.xn.xyz) / h;
+    if (flag > 0.5) {
+        nv = (pre - s.xn.xyz) / h;
+        let vn = dot(nv, bn);
+        if (vn < 0.0) {
+            nv = nv - bn * vn;
+        }
+    }
+    s.a =vec4<f32>((nv - s.v.xyz) / h, 0.0);
     s.v = vec4<f32>(nv, 0.0);
     s.x = vec4<f32>(x, 0.0);
     vs[i] = s;
