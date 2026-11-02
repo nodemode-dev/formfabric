@@ -105,7 +105,10 @@ pub(crate) fn gpu_available() -> bool {
 
 pub(crate) fn preset(name: &str, base: Params) -> Option<Params> {
     let made = Params::preset(name, base.method)?;
+    let light = name == "normal" && std::env::var("FFB_SC_NORMAL_OFF").is_err();
     Some(Params {
+        self_collision: made.self_collision || light,
+        collision_thickness: if light { 1.0 } else { made.collision_thickness },
         time_step: base.time_step,
         gravity: base.gravity,
         air_damping: base.air_damping,
