@@ -287,7 +287,10 @@ export class AnimDock {
 
   private record(): void {
     const a = this.store.anim;
-    void this.store.record(a.start, a.end, `Rec ${a.caches.length + 1}`);
+    const s = Math.round(Number(this.f.start.value));
+    const e = Math.round(Number(this.f.end.value));
+    const ok = Number.isFinite(s) && Number.isFinite(e) && s >= 0 && e > s;
+    void this.store.record(ok ? s : a.start, ok ? e : a.end, `Rec ${a.caches.length + 1}`);
   }
 
   private trackOf(id: number | null): { id: number; target: string } | undefined {

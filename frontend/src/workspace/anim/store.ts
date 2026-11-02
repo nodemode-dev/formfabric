@@ -33,6 +33,7 @@ export class AnimStore {
   private poll = 0;
   private jobTimer = 0;
   private seenRunning = false;
+  private finishing = false;
   private jobStart = 0;
 
   constructor(private readonly engine: EngineApi, private readonly fail: (message: string) => void) {
@@ -274,10 +275,16 @@ export class AnimStore {
   }
 
   private finishJob(): void {
+    if (this.finishing) return;
+    this.finishing = true;
     window.clearInterval(this.jobTimer);
-    this.job = { running: false, progress: 0, text: '', failed: '', playing: false, playFrame: null };
-    this.emit('job');
-    void this.refresh();
+    void (async () => {
+      if (this.has('job.harvest')) await this.run('job.harvest', {}, true);
+      this.job = { running: false, progress: 0, text: '', failed: '', playing: false, playFrame: null };
+      this.emit('job');
+      this.finishing = false;
+      await this.refresh();
+    })();
   }
 
   async cancel(): Promise<void> {
