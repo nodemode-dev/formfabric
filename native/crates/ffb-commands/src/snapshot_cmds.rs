@@ -7,6 +7,7 @@ const PREFIX: &str = "snapshot/";
 const MAX_SNAPSHOTS: usize = 64;
 const MAX_ENTRY: usize = 15 * 1024 * 1024;
 const MAX_TOTAL: usize = 256 * 1024 * 1024;
+const MAX_PROJECT: usize = 1024 * 1024 * 1024 - 64 * 1024 * 1024;
 const FORMAT: &str = "formfabric-snapshot";
 
 fn bad(message: impl Into<String>) -> CommandError {
@@ -72,7 +73,7 @@ fn save(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     if existing.len() >= MAX_SNAPSHOTS {
         return Err(CommandError::new("limit", format!("a project keeps at most {MAX_SNAPSHOTS} snapshots; remove one first")));
     }
-    let id = existing.last().copied().unwrap_or(0) + 1;
+    let id = existing.last().copied().unwrap_or(0).checked_add(1).filter(|n| *n < u32::MAX / 2).or_else(|| (1..=u32::MAX / 2).find(|n| existing.binary_search(n).is_err())).ok_or_else(|| CommandError::new("limit", "no free snapshot id; remove a snapshot first"))?;
     let name = match a.get("name").and_then(Value::as_str) {
         Some(n) => {
             args::clean_name("name", n)?;
@@ -98,6 +99,10 @@ fn save(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     if total + body.len() > MAX_TOTAL {
         return Err(CommandError::new("limit", "the snapshots of this project would exceed 256 MiB; remove some first"));
     }
+    let held: usize = s.unknown.iter().filter(|(n, _)| *n != json_name(id) && *n != png_name(id)).map(|(_, d)| d.len()).sum();
+    if held.saturating_add(body.len()).saturating_add(png.as_ref().map_or(0, Vec::len)) > MAX_PROJECT {
+        return Err(CommandError::new("limit", "the project would exceed the 1 GiB project limit and could no longer be opened; remove snapshots or motions first"));
+    }
     let bytes = body.len();
     put(s, json_name(id), body);
     if let Some(png) = png {
@@ -110,7 +115,10 @@ fn save(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
 fn list_schema() -> Value {
     json!({
         "type": "object",
-        "properties": {"thumbnails": {"type": "boolean", "default": false, "description": "Include each thumbnail as base64 PNG in thumbnail_png."}},
+        "properties": {
+            "thumbnails": {"type": "boolean", "default": false, "description": "Include each thumbnail as base64 PNG in thumbnail_png. Pair with ids to fetch one at a time."},
+            "ids": {"type": "array", "items": {"type": "integer", "minimum": 1}, "maxItems": 64, "description": "Only these snapshots."}
+        },
         "required": [],
         "additionalProperties": false
     })
@@ -118,8 +126,12 @@ fn list_schema() -> Value {
 
 fn list(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let with = a.get("thumbnails").and_then(Value::as_bool).unwrap_or(false);
+    let only: Option<Vec<u64>> = a.get("ids").and_then(Value::as_array).map(|l| l.iter().filter_map(Value::as_u64).collect());
     let mut items = Vec::new();
     for id in ids(s) {
+        if only.as_ref().is_some_and(|o| !o.contains(&u64::from(id))) {
+            continue;
+        }
         let Some(data) = entry(s, &json_name(id)) else { continue };
         let Ok(v) = serde_json::from_slice::<Value>(data) else { continue };
         let png = entry(s, &png_name(id));

@@ -110,12 +110,28 @@ export async function roots(): Promise<string[]> {
   return Array.isArray(r) ? r.map((x) => (typeof x === 'string' ? x : str(obj(x).path))).filter(Boolean) : [];
 }
 
-export const setRoots = (paths: string[]): Promise<unknown> => run('library.set_roots', { paths });
+export const setRoots = (paths: string[]): Promise<unknown> => run('library.set_roots', { paths, confirmed: true });
+
+const snapThumbs = new Map<string, unknown>();
 
 export async function snapshots(): Promise<SnapItem[] | undefined> {
   if (!hasCommand('snapshot.list')) return undefined;
-  const r = await quiet<unknown>('snapshot.list', { thumbnails: true });
-  return r === undefined ? undefined : rowsOf(r, 'snapshots').map(toSnap);
+  const r = await quiet<unknown>('snapshot.list', {});
+  if (r === undefined) return undefined;
+  const rows = rowsOf(r, 'snapshots');
+  const live = new Set<string>();
+  for (const row of rows) {
+    const key = `${str(row.id)}:${str(row.created)}`;
+    live.add(key);
+    if (row.thumbnail !== true) continue;
+    if (!snapThumbs.has(key)) {
+      const one = await quiet<unknown>('snapshot.list', { thumbnails: true, ids: [Number(row.id)] });
+      snapThumbs.set(key, rowsOf(one, 'snapshots')[0]?.thumbnail_png ?? '');
+    }
+    row.thumbnail_png = snapThumbs.get(key);
+  }
+  for (const key of Array.from(snapThumbs.keys())) if (!live.has(key)) snapThumbs.delete(key);
+  return rows.map(toSnap);
 }
 
 export async function components(): Promise<CompItem[] | undefined> {

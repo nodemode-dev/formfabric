@@ -272,7 +272,7 @@ export class LibraryTab {
   async insert(id: string): Promise<void> {
     if (!hasCommand('library.insert')) return;
     const done = await run('library.insert', { id });
-    if (done !== undefined) toast(`${tr('Inserted')}${this.items.find((i) => i.id === id)?.name ?? id}`, 'info');
+    if (done !== undefined) toast(`${tr('Inserted')} ${this.items.find((i) => i.id === id)?.name ?? id}`, 'info');
   }
 
   private async add(): Promise<void> {

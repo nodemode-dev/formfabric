@@ -58,11 +58,11 @@ pub struct Join {
 }
 
 pub fn next_component_id(garment: &Garment) -> u32 {
-    garment.components.iter().map(|c| c.id).max().unwrap_or(0) + 1
+    garment.components.iter().map(|c| c.id).max().unwrap_or(0).saturating_add(1)
 }
 
 pub fn next_join_id(garment: &Garment) -> u32 {
-    garment.joins.iter().map(|j| j.id).max().unwrap_or(0) + 1
+    garment.joins.iter().map(|j| j.id).max().unwrap_or(0).saturating_add(1)
 }
 
 impl Garment {

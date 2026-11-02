@@ -1,10 +1,10 @@
-mod store;
+pub(crate) mod store;
 
 use ffb_anim::clip::Clip;
 use ffb_pattern::{Style, StyleKind};
 use serde_json::{json, Map, Value};
 
-use crate::{args, b64, dispatch, Command, CommandError, Group, Session, DESTROY, EXTERNAL, READ, SET, WRITE};
+use crate::{args, b64, dispatch, Command, CommandError, Group, Session, DESTROY, EXTERNAL, READ, WRITE};
 use store::Kind;
 
 const KINDS: [&str; 7] = ["fabric", "trim", "style", "component", "garment", "pose", "motion"];
@@ -52,13 +52,19 @@ fn roots_run(_: &mut Session, _: &Value) -> Result<Value, CommandError> {
 fn set_roots_schema() -> Value {
     json!({
         "type": "object",
-        "properties": {"paths": {"type": "array", "items": {"type": "string"}, "maxItems": 8, "description": "Absolute folders. The first one receives new items. An empty list returns to the default [data dir]/library."}},
-        "required": ["paths"],
+        "properties": {
+            "paths": {"type": "array", "items": {"type": "string"}, "maxItems": 8, "description": "Absolute folders chosen by the user. The first one receives new items. System folders, the filesystem root and the home folder are refused. An empty list returns to the default [data dir]/library."},
+            "confirmed": {"type": "boolean", "description": "Must be true, and only after the user has chosen and confirmed these folders."}
+        },
+        "required": ["paths", "confirmed"],
         "additionalProperties": false
     })
 }
 
 fn set_roots_run(_: &mut Session, a: &Value) -> Result<Value, CommandError> {
+    if a.get("confirmed").and_then(Value::as_bool) != Some(true) {
+        return Err(CommandError::new("confirmation_required", "library folders change only after the user chose and confirmed them; send confirmed true then"));
+    }
     let paths: Vec<String> = a.get("paths").and_then(Value::as_array).ok_or_else(|| bad("paths must be an array of folders"))?.iter().filter_map(|v| v.as_str().map(String::from)).collect();
     if paths.len() != a["paths"].as_array().map_or(0, Vec::len) {
         return Err(bad("paths must hold strings"));
@@ -313,6 +319,9 @@ pub(crate) fn write_component(name: &str, tags: Vec<String>, bytes: &[u8], thumb
     let Some(path) = path else { return store::add_bytes(Kind::Component, name, tags, bytes, thumb) };
     let target = std::path::PathBuf::from(args::file_path(&json!({"p": path}), "p", Some(Kind::Component.extension()))?);
     let folder = target.parent().ok_or_else(|| bad("path has no folder"))?;
+    if !store::would_be_inside_roots(folder) {
+        return Err(CommandError::new("outside_library", format!("{path} is not inside a library folder")));
+    }
     std::fs::create_dir_all(folder).map_err(|e| CommandError::new("io", format!("{}: {e}", folder.display())))?;
     let (root, canon_folder) = store::inside_roots(folder).ok_or_else(|| CommandError::new("outside_library", format!("{path} is not inside a library folder")))?;
     let file = target.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
@@ -391,9 +400,9 @@ pub(crate) fn commands() -> Vec<Command> {
             mcp: "library_set_roots",
             group: Group::File,
             label: "Set Library Folders",
-            description: "Set the library folders (absolute paths, created when missing, at most 8). The first receives new items. The list is stored in [data dir]/library_roots.json. An empty list returns to the default folder.",
+            description: "Set the library folders (absolute paths the user chose and confirmed, at most 8; created when missing after the checks). System folders, the filesystem root, the home folder and any folder holding the data folder are refused. The first receives new items. The list is stored in [data dir]/library_roots.json. An empty list returns to the default folder.",
             keys: &[],
-            hints: SET,
+            hints: DESTROY,
             schema: set_roots_schema,
             run: set_roots_run,
         },

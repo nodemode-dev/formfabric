@@ -12,6 +12,11 @@ const FORMAT: &str = "ffcomponent";
 const MAX_PANELS: usize = 500;
 const MAX_SEAMS: usize = 5000;
 const MAX_PORTS: usize = 64;
+const MAX_FILE: u64 = 16 * 1024 * 1024;
+const MAX_OUTLINE: usize = 2000;
+const MAX_INNER: usize = 200;
+const MAX_SPANS: usize = 256;
+const MAX_COORD: f64 = 100_000.0;
 
 pub(crate) struct ComponentFile {
     pub name: String,
@@ -52,7 +57,55 @@ pub(crate) fn encode_component(g: &Garment, id: u32) -> Result<Vec<u8>, CommandE
     serde_json::to_vec(&body).map_err(|e| CommandError::new("save_failed", e.to_string()))
 }
 
+fn finite_in(x: f64, lo: f64, hi: f64) -> bool {
+    x.is_finite() && x >= lo && x <= hi
+}
+
+fn point_ok(p: &ffb_pattern::Point) -> bool {
+    let ok = |v: [f64; 2]| finite_in(v[0], -MAX_COORD, MAX_COORD) && finite_in(v[1], -MAX_COORD, MAX_COORD);
+    ok(p.p) && p.h_in.is_none_or(ok) && p.h_out.is_none_or(ok)
+}
+
+fn check_numbers(panels: &[Panel], seams: &[Seam], ports: &[Port]) -> Result<(), CommandError> {
+    for p in panels {
+        if p.outline.len() < 3 || p.outline.len() > MAX_OUTLINE || p.inner.len() > MAX_INNER || p.notches.len() > MAX_OUTLINE || p.tags.len() > 64 || p.outline.iter().any(|q| !point_ok(q)) {
+            return Err(broken(format!("panel {} has an invalid outline, inner shapes or notches", p.id)));
+        }
+        if p.inner.iter().any(|i| i.points.len() > MAX_OUTLINE || i.points.iter().any(|q| !point_ok(q)) || !finite_in(i.fold_angle, 0.0, 360.0) || !finite_in(i.fold_strength, 0.0, 20.0)) {
+            return Err(broken(format!("panel {} has an invalid inner shape", p.id)));
+        }
+        let ok = p.position.iter().all(|v| finite_in(*v, -MAX_COORD, MAX_COORD))
+            && finite_in(p.rotation, -3600.0, 3600.0)
+            && finite_in(p.grain, -3600.0, 3600.0)
+            && finite_in(p.particle_distance, 0.8, 700.0)
+            && finite_in(p.pressure, -1000.0, 1000.0)
+            && (-1000..=1000).contains(&p.layer)
+            && p.grain_line.is_none_or(|g| g.iter().flatten().all(|v| finite_in(*v, -MAX_COORD, MAX_COORD)));
+        if !ok {
+            return Err(broken(format!("panel {} has a number out of range", p.id)));
+        }
+        ffb_pattern::dart::validate_outline(&p.outline).map_err(|e| broken(format!("panel {}: {e}", p.id)))?;
+    }
+    for (i, s) in seams.iter().enumerate() {
+        let ok = finite_in(s.ratio, 0.05, 20.0) && finite_in(s.tension, 0.0, 20.0) && finite_in(s.fold_angle, 0.0, 360.0) && finite_in(s.fold_strength, 0.0, 20.0);
+        let ends_ok = !s.a.is_empty() && !s.b.is_empty() && s.a.len() <= MAX_SPANS && s.b.len() <= MAX_SPANS && s.a.iter().chain(s.b.iter()).all(|e| finite_in(e.t0, 0.0, 1.0) && finite_in(e.t1, 0.0, 1.0));
+        if !ok || !ends_ok || seams[..i].iter().any(|o| o.id == s.id) {
+            return Err(broken(format!("seam {} has a number out of range, no sides or a repeated id", s.id)));
+        }
+    }
+    for p in ports {
+        let groups_ok = p.groups.len() <= p.spans.len() && p.groups.iter().try_fold(0usize, |a, n| a.checked_add(*n)).is_some_and(|n| p.groups.is_empty() || n == p.spans.len());
+        if p.spans.len() > MAX_SPANS || !groups_ok || !finite_in(p.length_mm, 0.0, 1.0e6) || !finite_in(p.tolerance_mm, 0.0, 1000.0) || p.spans.iter().any(|e| !finite_in(e.t0, 0.0, 1.0) || !finite_in(e.t1, 0.0, 1.0)) {
+            return Err(broken(format!("port {} has a number out of range or too many spans", p.name)));
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn decode(bytes: &[u8]) -> Result<ComponentFile, CommandError> {
+    if bytes.len() as u64 > MAX_FILE {
+        return Err(CommandError::new("too_large", format!("a component file holds at most {} MiB", MAX_FILE / 1024 / 1024)));
+    }
     let v: Value = serde_json::from_slice(bytes).map_err(|e| broken(format!("not a component file: {e}")))?;
     if v.get("format").and_then(Value::as_str) != Some(FORMAT) {
         return Err(broken("not a component file"));
@@ -68,6 +121,7 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<ComponentFile, CommandError> {
     if panels.is_empty() || panels.len() > MAX_PANELS || seams.len() > MAX_SEAMS || ports.len() > MAX_PORTS {
         return Err(broken("the component holds no panels or too many panels, seams or ports"));
     }
+    check_numbers(&panels, &seams, &ports)?;
     let tmp = Garment { panels: panels.clone(), ..Garment::default() };
     let ids: Vec<u32> = panels.iter().map(|p| p.id).collect();
     for (i, id) in ids.iter().enumerate() {

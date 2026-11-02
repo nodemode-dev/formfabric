@@ -45,6 +45,8 @@ struct Shared {
     scene: Mutex<Option<Arc<LinkScene>>>,
     config: Mutex<Option<Arc<Config>>>,
     status: Mutex<Status>,
+    writing: Mutex<()>,
+    last_sync: Mutex<Option<std::time::Instant>>,
 }
 
 #[derive(Default)]
@@ -106,10 +108,40 @@ fn write_layer(scene: &LinkScene, config: &Config, raw: &[[f32; 3]]) -> Result<u
     }
     let files = export::write(Format::Usd, &layer, None, &scene.options)?;
     let file = files.into_iter().find(|f| f.name.ends_with(".usda")).ok_or("the exporter wrote no usda file")?;
-    let target = config.path();
-    let text = target.to_str().ok_or("the folder path is not valid text")?;
-    args::write_atomic(text, &file.bytes).map_err(|e| e.message)?;
+    replace_file(&config.path(), &file.bytes).map_err(|e| format!("could not write {}: {e}", config.path().display()))?;
     Ok(file.bytes.len())
+}
+
+fn replace_file(target: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let name = target.file_name().and_then(|n| n.to_str()).unwrap_or("layer");
+    let temp = target.with_file_name(format!(".{name}.link.tmp"));
+    let written = std::fs::OpenOptions::new().write(true).create(true).truncate(true).open(&temp).and_then(|mut f| f.write_all(bytes));
+    let mut result = written;
+    if result.is_ok() {
+        for attempt in 0..5 {
+            result = std::fs::rename(&temp, target);
+            if result.is_ok() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10 * (attempt + 1)));
+        }
+    }
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp);
+    }
+    result
+}
+
+fn sync_layer(shared: &Shared, force: bool) {
+    let mut last = lock(&shared.last_sync);
+    if !force && last.is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(1)) {
+        return;
+    }
+    *last = Some(std::time::Instant::now());
+    if let Some(config) = lock(&shared.config).clone() {
+        let _ = std::fs::File::open(config.path()).and_then(|f| f.sync_all());
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -150,10 +182,13 @@ fn follow(shared: Arc<Shared>, mine: u64, fetch: Fetch, frame_now: FrameNow) {
             let due = version != last_version || frame < written || frame >= written + config.every || (dirty && moved_at.elapsed().as_millis() >= SETTLE_MS);
             if due {
                 let raw = fetch(&scene);
+                let gate = lock(&shared.writing);
                 if shared.generation.load(Ordering::Acquire) != mine {
                     break;
                 }
                 record(&shared, frame, write_layer(&scene, &config, &raw));
+                sync_layer(&shared, false);
+                drop(gate);
                 last_version = version;
                 written = frame;
                 dirty = false;
@@ -163,11 +198,30 @@ fn follow(shared: Arc<Shared>, mine: u64, fetch: Fetch, frame_now: FrameNow) {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn guarded(shared: Arc<Shared>, mine: u64, fetch: Fetch, frame_now: FrameNow) {
+    let again = shared.clone();
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || follow(shared, mine, fetch, frame_now)));
+    if let Err(payload) = outcome {
+        let text = payload.downcast_ref::<&str>().map(|t| (*t).to_string()).or_else(|| payload.downcast_ref::<String>().cloned()).unwrap_or_else(|| "unknown cause".into());
+        if again.generation.load(Ordering::Acquire) == mine {
+            again.generation.fetch_add(1, Ordering::AcqRel);
+            again.running.store(false, Ordering::Release);
+            let mut st = lock(&again.status);
+            st.last_error = Some(format!("the link thread stopped after an internal error: {text}"));
+            st.stopped = Some("internal error".into());
+        }
+    }
+}
+
 fn halt(shared: &Shared, reason: Option<&str>) {
     shared.generation.fetch_add(1, Ordering::AcqRel);
+    let gate = lock(&shared.writing);
     if shared.running.swap(false, Ordering::AcqRel) {
         lock(&shared.status).stopped = reason.map(str::to_string);
+        sync_layer(shared, true);
     }
+    drop(gate);
 }
 
 fn report(shared: &Shared) -> Value {
@@ -246,14 +300,28 @@ fn start(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         "z_up" => true,
         other => return Err(bad(format!("axis must be y_up or z_up, got {other}"))),
     };
-    std::fs::create_dir_all(&folder).map_err(|e| CommandError::new("io", format!("could not create {folder}: {e}")))?;
-    let shared = s.link.shared.clone();
-    halt(&shared, None);
     let scene = Arc::new(link_scene(s, &file, thickness, z_up)?);
-    let config = Arc::new(Config { folder: PathBuf::from(&folder), file, every, thickness, z_up });
+    let wanted = PathBuf::from(&folder);
+    let resolved = crate::library_cmds::store::future_path(&wanted)?;
+    crate::library_cmds::store::refuse_folder(&resolved)?;
+    if !wanted.exists() {
+        std::fs::create_dir_all(&wanted).map_err(|e| CommandError::new("io", format!("could not create {folder}: {e}")))?;
+    }
+    let canon = wanted.canonicalize().map_err(|e| CommandError::new("io", format!("{folder}: {e}")))?;
+    crate::library_cmds::store::refuse_folder(&canon)?;
+    if !canon.is_dir() {
+        return Err(bad(format!("{folder} is not a folder")));
+    }
+    let shared = s.link.shared.clone();
+    let config = Arc::new(Config { folder: canon, file, every, thickness, z_up });
     let (fetch, frame_now) = fetcher(s);
     let frame = frame_now();
-    let bytes = write_layer(&scene, &config, &fetch(&scene)).map_err(|e| CommandError::new("export_failed", e))?;
+    let first = {
+        let _gate = lock(&shared.writing);
+        write_layer(&scene, &config, &fetch(&scene)).map_err(|e| CommandError::new("export_failed", e))?
+    };
+    halt(&shared, None);
+    let bytes = first;
     *lock(&shared.status) = Status { writes: 1, last_frame: frame, last_bytes: bytes, last_error: None, stopped: None };
     *lock(&shared.scene) = Some(scene);
     *lock(&shared.config) = Some(config);
@@ -263,7 +331,7 @@ fn start(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     {
         let mine = shared.generation.load(Ordering::Acquire);
         let thread_shared = shared.clone();
-        if let Err(e) = std::thread::Builder::new().name("ffb-link".into()).spawn(move || follow(thread_shared, mine, fetch, frame_now)) {
+        if let Err(e) = std::thread::Builder::new().name("ffb-link".into()).spawn(move || guarded(thread_shared, mine, fetch, frame_now)) {
             shared.running.store(false, Ordering::Release);
             return Err(CommandError::new("internal", format!("could not start the link thread: {e}")));
         }
