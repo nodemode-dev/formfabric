@@ -2,7 +2,7 @@ use ffb_pattern::output::MeshKind;
 use ffb_pattern::Garment;
 use serde_json::{json, Value};
 
-use super::out::{density_of, now_ms, pure_flag, quad_meshes, round, run, seam_report, summary};
+use super::out::{density_of, now_ms, pure_flag, quad_meshes, regularize_flag, round, run, seam_report, summary};
 use crate::{Command, CommandError, Edit, Group, Session, READ, SET, WRITE};
 
 fn bad(message: impl Into<String>) -> CommandError {
@@ -46,7 +46,8 @@ fn remesh_schema() -> Value {
         "properties": {
             "panels": panels_schema(),
             "density": {"type": "number", "minimum": 0.1, "maximum": 8, "description": "Quad density relative to each panel's particle distance: the target quad edge is particle_distance divided by density, so 1 keeps the simulation resolution and 2 halves the edge. Leave out to reuse the stored density (1 when none)."},
-            "pure_quads": {"type": "boolean", "default": false, "description": "Split every triangle and quad once so the result holds only quads (edge counts double, seams stay matched). Needed for thick export."}
+            "pure_quads": {"type": "boolean", "default": false, "description": "Split every triangle and quad once so the result holds only quads (edge counts double, seams stay matched). Needed for thick export."},
+            "regularize": {"type": "boolean", "default": false, "description": "Run the integer edge regularity pass (a min-cost flow over lattice offsets) before quad extraction; falls back to the plain extraction when the flow is not full. Leave out to reuse the stored setting."}
         },
         "required": [],
         "additionalProperties": false
@@ -63,8 +64,13 @@ fn remesh(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         None => density_of(s),
     };
     let pure = a.get("pure_quads").and_then(Value::as_bool).unwrap_or_else(|| pure_flag(s));
+    let regular = a.get("regularize").and_then(Value::as_bool).unwrap_or_else(|| regularize_flag(s));
     let before = s.garment.clone();
     let start = now_ms();
+    if !s.garment.output.retopo.is_object() {
+        s.garment.output.retopo = json!({});
+    }
+    s.garment.output.retopo["regularize"] = json!(regular);
     let rows = run(s, &ids, density, pure);
     if rows.iter().all(|r| !r["error"].is_null()) {
         let first = rows.first().and_then(|r| r["error"].as_str()).unwrap_or("remesh failed").to_string();

@@ -42,11 +42,12 @@ pub(crate) fn guides_of(garment: &Garment, panel: u32) -> Guides {
     out
 }
 
-pub(crate) fn key_of(panel: &Panel, density: f64, pure: bool, counts: &BTreeMap<usize, usize>, guides: &Guides) -> u64 {
+pub(crate) fn key_of(panel: &Panel, density: f64, pure: bool, regular: bool, counts: &BTreeMap<usize, usize>, guides: &Guides) -> u64 {
     let mut h = Fnv::default();
     h.u64(panel_key(panel, &MeshOptions::default()));
     h.f64(density);
     h.u64(u64::from(pure));
+    h.u64(u64::from(regular));
     for (s, c) in counts {
         h.u64(*s as u64);
         h.u64(*c as u64);

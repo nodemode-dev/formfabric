@@ -40,6 +40,10 @@ pub(crate) fn pure_flag(s: &Session) -> bool {
     s.garment.output.retopo.get("pure_quads").and_then(Value::as_bool).unwrap_or(false)
 }
 
+pub(crate) fn regularize_flag(s: &Session) -> bool {
+    s.garment.output.retopo.get("regularize").and_then(Value::as_bool).unwrap_or(false)
+}
+
 pub(crate) fn density_of(s: &Session) -> f64 {
     let d = f64::from(s.garment.output.quad_density);
     if d.is_finite() && d > 0.0 {
@@ -95,11 +99,12 @@ pub(crate) fn run(s: &mut Session, ids: &[u32], density: f64, pure: bool) -> Vec
         params.counts = counts.clone();
         params.guides = guides.clone();
         params.pure_quads = pure;
+        params.regularize = regularize_flag(s);
         let start = now_ms();
         match remesh_panel(&panel, &params) {
             Ok(mesh) => {
                 let metrics = measure(&mesh);
-                let entry = Entry { key: key_of(&panel, density, pure, &counts, &guides), mesh, metrics, ms: now_ms() - start };
+                let entry = Entry { key: key_of(&panel, density, pure, params.regularize, &counts, &guides), mesh, metrics, ms: now_ms() - start };
                 rows.push(summary(*id, &entry));
                 s.remesh.meshes.insert(*id, entry);
             }
@@ -128,7 +133,7 @@ fn base_3d(s: &mut Session, id: u32) -> Option<Base> {
         Some(pose) => pose.iter().flat_map(|p| p.iter().copied()).collect(),
         None => layout::positions_3d(&built.mesh, panel),
     };
-    let values: Vec<[f64; 3]> = flat.chunks_exact(3).map(|c| [f64::from(c[0]), f64::from(c[1]), f64::from(c[2])]).collect();
+    let values: Vec<[f64; 3]> = flat.as_chunks::<3>().0.iter().map(|c| [f64::from(c[0]), f64::from(c[1]), f64::from(c[2])]).collect();
     Some(Base { positions: built.mesh.positions.clone(), triangles: built.mesh.triangles.clone(), values, flip: layout::mirrored_flat(panel) })
 }
 
@@ -138,16 +143,26 @@ pub(crate) fn lifted(s: &mut Session, id: u32) -> Option<(Vec<[f64; 3]>, bool)> 
     Some((ffb_remesh::lift(&base.positions, &base.triangles, &base.values, &entry.mesh.positions), base.flip))
 }
 
+pub(crate) fn lift_points(s: &mut Session, id: u32, points: &[[f64; 2]]) -> Option<(Vec<[f64; 3]>, bool)> {
+    let base = base_3d(s, id)?;
+    Some((ffb_remesh::lift(&base.positions, &base.triangles, &base.values, points), base.flip))
+}
+
+fn replaced(s: &Session) -> Vec<u32> {
+    super::topo::modes(&s.garment).into_iter().filter(|m| m.1 == ffb_remesh::topology::Mode::Replace).map(|m| m.0).collect()
+}
+
 fn fresh(s: &mut Session) {
     if s.garment.output.mesh != MeshKind::Quad {
         return;
     }
-    let (density, pure) = (density_of(s), pure_flag(s));
+    let (density, pure, regular) = (density_of(s), pure_flag(s), regularize_flag(s));
     let seam = counts_for(s, density);
     let mut stale: Vec<u32> = Vec::new();
-    for panel in &s.garment.panels {
+    let skip = replaced(s);
+    for panel in s.garment.panels.iter().filter(|p| !skip.contains(&p.id)) {
         let counts = seam.get(&panel.id).cloned().unwrap_or_default();
-        let key = key_of(panel, density, pure, &counts, &guides_of(&s.garment, panel.id));
+        let key = key_of(panel, density, pure, regular, &counts, &guides_of(&s.garment, panel.id));
         if s.remesh.meshes.get(&panel.id).is_none_or(|e| e.key != key) {
             stale.push(panel.id);
         }
@@ -166,7 +181,8 @@ pub fn quad_meshes(s: &mut Session) -> Vec<QuadPanel> {
     }
     let ids: Vec<u32> = s.garment.panels.iter().map(|p| p.id).collect();
     let mut out = Vec::new();
-    for id in ids {
+    let skip = replaced(s);
+    for id in ids.into_iter().filter(|id| !skip.contains(id)) {
         let Some((points, flip)) = lifted(s, id) else { continue };
         let Some(entry) = s.remesh.meshes.get(&id) else { continue };
         let name = s.garment.panels.iter().find(|p| p.id == id).map(|p| p.name.clone()).unwrap_or_default();
@@ -183,6 +199,7 @@ pub fn quad_meshes(s: &mut Session) -> Vec<QuadPanel> {
             boundary: m.rim.iter().map(|r| (r.vertex, r.segment, r.index, r.count)).collect(),
         });
     }
+    out.extend(super::topo::topology_panels(s));
     out
 }
 

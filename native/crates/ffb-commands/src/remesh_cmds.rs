@@ -1,6 +1,7 @@
 mod ops;
 mod out;
 mod state;
+mod topo;
 
 pub use out::{quad_meshes, QuadPanel};
 pub use state::RemeshState;
@@ -13,5 +14,7 @@ pub(crate) fn after_change(session: &mut Session, _command: &str) {
 }
 
 pub(crate) fn commands() -> Vec<Command> {
-    ops::commands()
+    let mut all = ops::commands();
+    all.extend(topo::commands());
+    all
 }

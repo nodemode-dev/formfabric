@@ -12,7 +12,9 @@ import { recall, remember } from './files';
 import { GuideLayer } from './guides';
 import { OutputStore } from './store';
 import { UvEditor } from './uv';
-import { bar, button, label, selectRow, slideRow, titled, toggleRow } from './widgets';
+import { currentView3D } from '../view3d';
+import { TopologyTool } from '../view3d/topology';
+import { bar, button, label, numRow, selectRow, slideRow, titled, toggleRow } from './widgets';
 import type { Metric } from './types';
 
 const OPEN_KEY = 'formfabric.output.open';
@@ -20,6 +22,7 @@ const OPEN_KEY = 'formfabric.output.open';
 const SECTIONS: Array<[string, string, string]> = [
   ['export', 'Export', 'exportFile'],
   ['quad', 'Quad Mesh', 'quadMesh'],
+  ['retopo', 'Retopo', 'quadMesh'],
   ['thick', 'Thickness', 'layers'],
   ['tools', 'UV and maps', 'uvEditor'],
 ];
@@ -62,6 +65,22 @@ export class OutputPanel {
   private readonly quadHint = el('<p class="ou-hint"></p>');
   private readonly guideCount = el('<span class="ou-count"></span>');
 
+  private readonly topoDraw = button('Draw topology');
+  private readonly topoClose = button('Close face');
+  private readonly topoFinish = button('Finish line');
+  private readonly topoCancel = button('Cancel shape');
+  private readonly topoMerge = button('Merge points');
+  private readonly topoDivide = button('Divide edge');
+  private readonly topoCount = numRow('Divisions', '', '1', 2, 32);
+  private readonly topoDist = numRow('Merge distance', 'mm', '0.1', 0.01, 1000);
+  private readonly topoMergeAll = button('Merge all');
+  private readonly topoMode = selectRow('Remesh mode', [['replace', 'Replace'], ['duplicate', 'Duplicate']]);
+  private readonly topoRemesh = button('Remesh from topology', 'primary');
+  private readonly topoClear = button('Clear topology');
+  private readonly topoStatus = el('<p class="ou-status"></p>');
+  private readonly topoHint = el('<p class="ou-hint"></p>');
+  private readonly topo: TopologyTool;
+
   private readonly thickOn = toggleRow('Thickness');
   private readonly thickAmount = slideRow('Amount', 0.1, 10, 0.1, () => this.commitThickness());
   private readonly thickSides = toggleRow('Both sides');
@@ -103,6 +122,15 @@ export class OutputPanel {
     const runRow = el('<div class="ou-btnrow"></div>');
     runRow.append(this.remesh, this.clear);
     part('quad').append(this.density.el, runRow, guideRow, this.progress.el, this.status, this.metrics, this.quadHint);
+    const drawRow = el('<div class="ou-btnrow"></div>');
+    drawRow.append(this.topoDraw, this.topoCancel);
+    const shapeRow = el('<div class="ou-btnrow"></div>');
+    shapeRow.append(this.topoClose, this.topoFinish);
+    const editRow = el('<div class="ou-btnrow"></div>');
+    editRow.append(this.topoMerge, this.topoDivide);
+    const remeshRow = el('<div class="ou-btnrow"></div>');
+    remeshRow.append(this.topoRemesh, this.topoClear);
+    part('retopo').append(drawRow, shapeRow, this.topoStatus, editRow, this.topoCount.el, this.topoDist.el, this.topoMergeAll, this.topoMode.el, remeshRow, this.topoHint);
     part('thick').append(this.thickOn.el, this.thickAmount.el, this.thickSides.el, this.thickHint);
     const toolsRow = el('<div class="ou-btnrow ou-col"></div>');
     toolsRow.append(this.uvBtn, this.bakeBtn, this.gameBtn);
@@ -111,6 +139,24 @@ export class OutputPanel {
     this.guides = new GuideLayer(q(root, '[data-k="pane2d"]'), view, doc, this.store, (on) => this.paint(on));
     this.uv = new UvEditor(q(root, '[data-k="pane2d"]'), deps, this.store, this.uvToggle, (on) => { if (on) this.guides.set(false); this.paint(); });
 
+    this.topo = new TopologyTool(this.store, {
+      view: () => currentView3D(),
+      notify: (m, k) => deps.toast(m, k),
+      onEngine: (cb) => { deps.engine.onEngineChanged((e) => cb(e.name)); },
+      changed: () => this.paint(),
+    });
+    this.topoCount.set(2);
+    this.topoDist.set(1);
+    this.topoDraw.addEventListener('click', () => { this.topo.set(!this.topo.active); this.topoDraw.blur(); });
+    this.topoClose.addEventListener('click', () => { void this.topo.act('topology.close'); });
+    this.topoFinish.addEventListener('click', () => { void this.topo.act('topology.finish'); });
+    this.topoCancel.addEventListener('click', () => { void this.topo.act('topology.cancel'); });
+    this.topoMerge.addEventListener('click', () => { void this.runTopoPair('topology.merge', {}); });
+    this.topoDivide.addEventListener('click', () => { void this.runTopoPair('topology.divide', { count: Math.max(2, Math.round(this.topoCount.get())) }); });
+    this.topoMergeAll.addEventListener('click', () => { void this.topo.act('topology.merge_all', { distance: Math.max(0.01, this.topoDist.get()) }); });
+    this.topoRemesh.addEventListener('click', () => { void this.runTopoRemesh(); });
+    this.topoClear.addEventListener('click', () => { void this.topo.act('topology.clear'); });
+    window.addEventListener('ffb:output-section', (e) => this.showSection((e as CustomEvent<{ section?: string }>).detail?.section));
     this.exportBtn.addEventListener('click', () => { void this.showExport(this.format.get()); });
     this.remesh.addEventListener('click', () => { void this.runRemesh(); });
     this.clear.addEventListener('click', () => { void this.runClear(); });
@@ -156,6 +202,7 @@ export class OutputPanel {
       { id: 'app.output.panel', label: 'Output Panel', icon: 'exportFile', checked: () => this.isOpen, run: () => this.setOpen(!this.isOpen) },
       { id: 'app.output.uv', label: 'UV Editor', icon: 'uvEditor', checked: () => this.uv.isOpen, run: () => this.uv.setOpen(!this.uv.isOpen) },
       { id: 'app.output.guides', label: 'Retopo Guides', enabled: () => this.store.has('retopo.set'), checked: () => this.guides.active, run: () => { this.setOpen(true); this.guides.set(!this.guides.active); } },
+      { id: 'app.output.topology', label: 'Topology Tool', enabled: () => this.store.has('topology.add_point'), checked: () => this.topo.active, run: () => { this.setOpen(true); this.topo.set(!this.topo.active); } },
       { id: 'app.output.bake', label: 'Bake Maps...', enabled: () => this.store.has('bake.run'), run: () => { this.bakeBtn.click(); } },
       { id: 'app.output.gameready', label: 'Game-Ready...', enabled: () => this.store.has('gameready.run'), run: () => { this.gameBtn.click(); } },
     ];
@@ -188,6 +235,30 @@ export class OutputPanel {
     this.toggle.setAttribute('aria-expanded', String(on));
     setHidden(this.drawer, !on);
     if (on) { void this.store.loadRetopo(); this.paintThickness(); this.paint(); }
+  }
+
+  private showSection(section: string | undefined): void {
+    const key = section === 'uv' || section === 'bake' ? 'tools' : section === 'retopo' ? 'retopo' : section === 'export' ? 'export' : '';
+    if (!key) return;
+    this.setOpen(true);
+    const d = this.drawer.querySelector<HTMLDetailsElement>(`details[data-s="${key}"]`);
+    if (!d) return;
+    if (!d.open) d.open = true;
+    d.scrollIntoView({ block: 'nearest' });
+  }
+
+  private async runTopoPair(command: string, extra: object): Promise<void> {
+    const p = this.topo.picked;
+    if (p.length !== 2) { this.deps.toast(t('Shift-click two topology points first'), 'info'); return; }
+    const [a, b] = p;
+    if (command === 'topology.divide') await this.topo.act(command, { edge: { panel: a.panel, a: a.index, b: b.index }, ...extra });
+    else await this.topo.act(command, { panel: a.panel, a: a.index, b: b.index, ...extra });
+  }
+
+  private async runTopoRemesh(): Promise<void> {
+    const ok = await this.topo.act('topology.remesh', { mode: this.topoMode.get() });
+    if (ok) setText(this.topoStatus, t('Topology remeshed.'));
+    await this.store.loadRetopo();
   }
 
   private selectedPanels(): number[] {
@@ -275,6 +346,29 @@ export class OutputPanel {
       update: (n, m) => { setText(n.firstElementChild, m.label); setText(n.lastElementChild, m.value); },
     });
     setHidden(this.metrics, s.retopo.metrics.length === 0);
+
+    const canTopo = s.has('topology.add_point');
+    const st = this.topo.state;
+    const open = st.open?.points.length ?? 0;
+    const faces = st.panels.reduce((n, p) => n + p.faces.length, 0);
+    const points = st.panels.reduce((n, p) => n + p.points.length, 0);
+    const pairOk = this.topo.picked.length === 2;
+    const gate = (b: HTMLButtonElement, off: boolean): void => { if (b.disabled !== off) b.disabled = off; };
+    gate(this.topoDraw, !canTopo);
+    setClass(this.topoDraw, 'is-on', this.topo.active);
+    gate(this.topoClose, !canTopo || open < 3 || open > 4);
+    gate(this.topoFinish, !canTopo || open < 2);
+    gate(this.topoCancel, !canTopo || open === 0);
+    gate(this.topoMerge, !canTopo || !pairOk);
+    gate(this.topoDivide, !canTopo || !pairOk);
+    gate(this.topoMergeAll, !canTopo || points < 2);
+    gate(this.topoRemesh, !canTopo || faces === 0);
+    gate(this.topoClear, !canTopo || points === 0);
+    this.topoCount.disable(!canTopo);
+    this.topoDist.disable(!canTopo);
+    this.topoMode.disable(!canTopo);
+    setText(this.topoStatus, canTopo ? `${faces} ${t('faces')}, ${points} ${t('points')}, ${st.ghosts.length} ${t('ghost points')}${open ? `, ${open} ${t('in the open shape')}` : ''}` : '');
+    hint(this.topoHint, miss(['topology.add_point', 'topology.close', 'topology.remesh', 'topology.list']));
 
     const canThick = s.has('thickness.set');
     this.thickOn.disable(!canThick);

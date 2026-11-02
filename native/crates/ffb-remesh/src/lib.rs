@@ -3,13 +3,19 @@ pub mod decimate;
 pub mod lift;
 pub mod metrics;
 pub mod pipeline;
+pub mod topo_ghost;
+pub mod topology;
 pub mod types;
 
 mod band;
 mod cleanup;
+mod edges;
 mod extract;
+mod extract_regular;
 mod fields;
 mod geom;
+mod mcf;
+mod regular;
 
 pub use decimate::{decimate, DecimateOptions, Decimated};
 pub use lift::lift;

@@ -259,6 +259,17 @@ export class View3D {
 
   get available(): boolean { return this.gl !== null; }
 
+  toolbox(): { frame: Frame; scene: Scene; pane: HTMLElement; canvas: HTMLCanvasElement } {
+    this.ensureFrame();
+    return { frame: this.frame, scene: this.scene, pane: this.pane, canvas: this.canvas };
+  }
+
+  pickAt(x: number, y: number): { panel: number; tri: number; u: number; v: number } | null {
+    this.ensureFrame();
+    const id = this.picker.pick(this.frame, this.scene, x, y);
+    return id < 0 || this.picker.hitTri < 0 ? null : { panel: id, tri: this.picker.hitTri, u: this.picker.hitU, v: this.picker.hitV };
+  }
+
   private applyViz(): void {
     if (this.vizSource !== this.doc.garment) {
       this.vizSource = this.doc.garment;
@@ -905,6 +916,7 @@ export class View3D {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const sky = !still && !!sg?.hasSky;
     const ground = !still && !!sg?.groundOn;
+    if (!still && !sky && sg?.hasBackdrop) sg.drawBackdrop(pw, ph);
     if (sky && sg) sg.drawSky(f, fx);
     if (ground && sg) {
       sg.floor.set([Math.pow(p.bg[0] * 0.6 + p.line[0] * 0.25, 2.2), Math.pow(p.bg[1] * 0.6 + p.line[1] * 0.25, 2.2), Math.pow(p.bg[2] * 0.6 + p.line[2] * 0.25, 2.2)]);
