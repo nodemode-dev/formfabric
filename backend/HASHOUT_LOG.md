@@ -44,3 +44,14 @@ Living context for the FastAPI engine service. What would be comments in `backen
 
 - Pins follow formsculpt: fastapi 0.141.1, uvicorn[standard] 0.53.0, python-multipart 0.0.32, maturin 1.11.5, ptyprocess 0.7.0, pywinpty 3.0.5 on Windows, pyinstaller 6.22.3 for the desktop freeze. pydantic and websockets come in transitively, unpinned, as in formsculpt.
 - PyInstaller is GPL-2.0 with the bootloader exception: a build tool, never distributed as a library, the same arrangement as the rest of the family.
+
+### v0.16.0 to v1.0.0
+
+- Recovery:
+  - `services/recovery.py` keeps a crash journal: the last autosave plus every mutating command since, recorded by the dispatch path in `services/engine.py` and cut at each autosave (`autosave.save_now(force)`).
+  - `main.py` opens the journal at startup and closes it cleanly at shutdown.
+  - `GET /api/recovery` reports a journal left by an unclean exit; `POST /api/recovery/restore` opens the autosave and replays the log; `discard` clears it.
+- Plugins: `scripting.resolve_args` fills PARAMS defaults and validates (`bad_args`); `ScriptError` carries a code and the command; `Ffb.call` takes an optional dict of arguments; `try_call` and `commands` are added. An unavailable engine inside a plugin answers 503. `backend/plugins/drape_and_export.py` is the sample.
+- The frozen engine honours `mcp` (stdio MCP) and `agents` as its first argument, because the packaged desktop program passes both. The freeze bundles `backend/plugins` and `.claude/skills`.
+- `setup/version.py` and `VERSION` compare ten version sites and the changelog heading; `build_app --dry-run` runs it.
+- Python API: `python/formfabric` generates one function per command from `catalogue.json` (refresh it with `./formfabric py -m formfabric snapshot` after command changes), with an in-process backend and an HTTP backend that sends `x-ffb-window` from the environment.

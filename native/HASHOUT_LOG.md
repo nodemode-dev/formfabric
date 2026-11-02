@@ -162,3 +162,17 @@ Living context for the Rust engine. What would be comments in the crates lives h
 - Export: `ffb-io/src/export` writes OBJ and MTL, glTF and GLB (metres, Y up always), FBX 7.4 ASCII and binary, usda, MDD and PC2; Alembic is deferred. UV islands use shelf packing with UDIM tiles; thickness is an extrusion at export; bake writes normal, AO and displacement maps; the `quads` option writes the quad remesh to OBJ, FBX and USD. New dependency `png` 0.17.
 - Remesh: `ffb-remesh` prescribes boundary samples so both sides of a seam match, then fills from 4-RoSy orientation and position fields, pairs a border band into quads and cleans up; `decimate` (quadric) and `lift` are public; `Session.remesh` and `quad_meshes()` feed exporters. The QuadriFlow min-cost-flow step is not implemented.
 - Visualization: ffb-stream frame kind 3 carries per-vertex scalars (u16 over the header min and max, 65535 for no data, map id and component in the scale fields); a follower thread re-streams maps while the sim runs. Measures live under `Garment.viz.compare["measures"]`; Style Line and Fit Shell settings under `Garment.selection["edit3d2"]`, both until they get real fields. Schematic export has its own SVG and PDF writers.
+
+### v0.16.0 to v1.0.0
+
+- Solver threads: ffb-sim's `rayon` feature is on by default for non-wasm targets (a target-gated optional dependency, absent from wasm32). Block descent's state evaluation, colour sweeps and end-of-substep collision, and the implicit assembly, preconditioner build and SpMV run in parallel; `RAYON_NUM_THREADS` limits them. Vertices farther than offset plus edge plus 2 min(edge, 10) mm from every collider skip collider queries. `Solver::vbd_profile()` gives phase timers.
+- Self contact (`contact.rs`):
+  - The push is limited to 1,200 mm/s per substep and never enters the velocity.
+  - Three rings around each vertex are excluded.
+  - `guard_self_contact`, called from `end_substep`, rolls back moves that create a new intersection.
+- Components (PATENT_NOTES 2.6, never "block"): `ffb-pattern/src/component.rs` has Component, Port, PortRef and Join; `Garment.components` and `Garment.joins`. Joins become real seams, and checks compare port names and lengths only. A port whose segment is split is marked invalid, not remapped.
+- New command modules:
+  - `snapshot_cmds`: snapshots are `snapshot/<id>.json` entries with optional PNG thumbnails.
+  - `library_cmds`: a user library of new `.ffstyle`, `.ffpose`, `.ffmotion` and `.ffcomp` JSON formats with an index, read only inside configured roots.
+  - `component_cmds`, plus `b64.rs`.
+  - `link_cmds`: Live Link writes a usda by atomic replace when the sim frame advances by `every_frames` or the document changes.

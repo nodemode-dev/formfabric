@@ -120,3 +120,18 @@ Living context for the window. What would be comments in `frontend/` lives here,
   - The terminal writes through a frame queue with a debounced fit. The SSE reader parses in one pass with an idle watchdog.
   - Resizing is two-stage: a CSS stretch while dragging, then one backing-store resize and paint 140 ms after release (`data-ft-dock-drag` on html).
   - Backend: position-tagged terminal chunks (no replay duplicates), coalesced socket frames, pty backpressure (high water at 48 chunks, 1 s cap), and a cached Claude Code lookup.
+
+### v0.16.0 to v1.0.0
+
+- Library drawer (`workspace/library/`):
+  - Three tabs: Library, Snapshots and Components.
+  - The thumbnail grid is virtualized over pooled cells.
+  - Snapshots carry a 3D thumbnail rendered through the capture path.
+  - Components pick ports as edge spans in the Pattern View (`components/pick.ts`).
+- Shell:
+  - `layouts.ts` holds saved layouts (six defaults) in prefs.
+  - `settings-io.ts` exports and imports prefs, shortcuts and layouts. On the web it uses download and upload, with no `plugin-fs`.
+  - `keyhints.ts` is the Key Hints overlay, shown when you hold the modifier.
+  - `recovery.ts` is the start-up recovery dialog.
+- `ui/commands.ts` keeps a list per key combo with `scopeOf`, `scopesCollide` and `conflicts`, so the Shortcut Editor detects conflicts per scope.
+- One-region hooks into `workspace/layout.ts`, `view3d/index.ts` (the thumbnail render) and `app.ts`.
