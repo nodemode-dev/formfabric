@@ -40,6 +40,27 @@ What the research could not verify from primary sources, and how formfabric deci
 | 13b | FAST formulas and KES bending formula | partly unverified | Fabric Lab ships with its formulas cited once verified |
 | 13, 13b | QuadriFlow license: chapter 13 lists MIT, chapter 13b read the license file and found BSD-3 with the same grant-back clause as Instant Meshes | conflicting, 13b is the primary read | treat both as BSD-3 plus grant-back until the owner decides |
 
+## Open build gaps at v0.16.0
+
+What formfabric itself does not yet do, as recorded in CHANGELOG.md, DEV_PLAN.md and BUILD_NOTES.md. Each row names where its parity-matrix status is kept.
+
+| Area | Gap | State | Where recorded |
+| --- | --- | --- | --- |
+| Solver speed | CPU drape is 15 to 22 ms per frame at 676 vertices (target 8 ms) and 200 to 260 ms at 5,000 (target 50 ms); the 30k vertex shirt at 30 fps is unmeasured | in progress v0.16.0 (sim-speed); next ideas in BUILD_NOTES: exact hinge gradients with caching, an f32 SIMD path, a substep-first preset | DEV_PLAN Phase 10, BUILD_NOTES v0.12.0 and v0.15.0 |
+| Self contact in motion | The T-shirt walk shows cloth intersecting itself in 92 of 120 frames (max 66 pairs); Quality's self contact is unstable on sewn cloth (177 mm moves, 51 mm seams); the skirt moves up to 72 mm in 9 frames | in progress v0.16.0 (sim-contact) | CHANGELOG v0.15.0, BUILD_NOTES |
+| GPU bugs | wind pushes the wrong way; layered contact interpenetrates 7 to 9 mm; no self contact; VBD only; opt-in and not the default; drift of 24 mm from the CPU after contact was measured at v0.12.0 | in progress v0.16.0 (gpu-fix) | BUILD_NOTES v0.15.0 |
+| GPU measurements | The 30 fps check on a 30k vertex shirt and the 3 mm CPU match need a real GPU (the sandbox has none) | owner run | DEV_PLAN Phase 10 exit |
+| Alembic | Export (an Ogawa writer) and body import are deferred; USD, glTF, MDD, PC2, FBX and OBJ sequence cover the same pipelines | deferred | CHANGELOG v0.15.0, export.formats note |
+| QuadriFlow regularity | The min-cost-flow regularity step of the quad remesh is not implemented; the field-aligned remesh ships without it | open | DEV_PLAN Phase 14 |
+| Refit | Refit leaves cloth inside the new body (22.3 mm at v0.12.0) | open | BUILD_NOTES v0.12.0 |
+| Seam Side layer rank | The layer rank between sublayers is not built, by the PATENT_NOTES constraint | open by design | DEV_PLAN Phase 8 |
+| Parity gaps recorded in the matrix | Body soft body and divide mesh, Skive, FBX trims, Cache Layers cut, merge, move, lock and override, auto key, keyed pins and tacks, bake of diffuse, metal, roughness and opacity, export weld, ASTM and AI pattern files, a single Asset Browser, settings file export and import, Animate and Render workspace tabs | open | 14-PARITY-MATRIX |
+| Deferred audit items | Key scoping per layout (needs a design change); id reuse after delete (needs a persisted counter); the `sim.positions` id cast; id counter not persisted for animation; the cache header parsed on every `anim.get`; a second in-memory copy of cache bytes; folder fsync after atomic writes; a draft built in place; two colour fallbacks in `viz/stage.ts`; the `ffb-gpu/examples` and `ffb-sim/examples` harnesses kept as measurement tools | open | BUILD_NOTES v0.12.0 and v0.15.0, auditfix notes |
+| Untested in the app | Unreal Live Link (USD Stage reload) has not been run against Unreal; FBX motion import (BVH and glTF motions are exercised, FBX motion is not) has not been tried in the app; USD and FBX import were checked in Blender 5.2 only; the 60 fps orbit at 200k triangles needs real GPU hardware; the `desktop dev` splash exit needs a display | owner run | BUILD_NOTES, DEV_PLAN Phases 1, 5 and 17 |
+| Unmeasured fabric values | 8 of 15 presets are provisional until measured data is found; Fabric Lab formulas not yet cited from verified sources | open | DEV_PLAN Phase 6, row 13b above |
+| Phase 15 capture | The strain map and turntable were captured from a jacket draped before the drape fixes; a re-capture on a drafted sample is due | v0.16.0 exit | DEV_PLAN Phase 15 |
+| External builds | formcompiler and formportal builds need the pushed repo and only the owner can run them | owner run | BUILD_CONTRACTS_v0.16.0 |
+
 ## Patents to respect
 
 Granted CLO Virtual Fashion patents found by the research (chapter 13b): US 10,810,794; US 11,280,036; US 12,371,830; US 10,789,774. They claim workflows (layered sewing, automatic sewing from a pattern database, transfer of patterns between avatars). formfabric's design for seams, auto seam and refit is to be reviewed against their claims before those phases build. This is not legal advice; the owner decides whether counsel reviews it.
