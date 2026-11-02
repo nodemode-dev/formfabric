@@ -16,7 +16,7 @@ SITES = [
     ("frontend/src/version.ts", r"VERSION = '([^']+)'"),
     ("python/formfabric/__init__.py", r'__version__ = "([^"]+)"'),
     ("python/pyproject.toml", r'^version = "([^"]+)"'),
-    ("README.md", r"badge/version-([0-9][0-9A-Za-z.]*?)-f97316"),
+    ("README.md", r"badge/version-v?([0-9][0-9A-Za-z.]*?)-f97316"),
 ]
 
 

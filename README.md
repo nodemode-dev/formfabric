@@ -1,152 +1,130 @@
-# formfabric
+<p align="center">
+  <img src="assets/formfabric_icon.png" alt="formfabric logo" width="160" />
+</p>
 
-**Garment pattern design and cloth simulation, in the NodeMode style**
+<h1 align="center">formfabric</h1>
 
-![version](https://img.shields.io/badge/version-0.23.1-f97316) ![status](https://img.shields.io/badge/status-in%20development-f97316) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
+<p align="center"><b>The garment studio of the form family: draw sewing patterns, sew them, drape them on a body w/ a real cloth simulation, animate & export.</b></p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-v0.23.1-f97316" alt="version v0.23.1" />
+  <img src="https://img.shields.io/badge/Node.js-20.19%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 20.19+" />
+  <img src="https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white" alt="Python 3.12+" />
+  <img src="https://img.shields.io/badge/Rust-1.99-000000?logo=rust&logoColor=white" alt="Rust 1.99" />
+  <img src="https://img.shields.io/badge/license-Apache--2.0-555555" alt="license Apache-2.0" />
+</p>
 
 ## What it is
 
-formfabric is the form family's garment app: draw sewing patterns in 2D, sew them, drape them on bodies with a cloth simulation (CPU by default, GPU opt-in), animate them & export them. It aims at feature parity with the reference garment tools (see the parity matrix), built in the open under Apache-2.0. Every action is one engine command, so the window, a Python script & an AI agent all drive the same document.
+formfabric is a desktop garment studio for macOS, Linux & Windows, built in the image of its siblings formvis (image) & formsculpt (sculpting). You draft flat pattern pieces in the Pattern View, sew them edge to edge, & drape them on a body in the 3D View, where a native cloth solver settles the fabric under gravity, contact & seams. Garments animate on a walk, export to every common 3D format w/ their UVs & caches, & save as `.ffbrc` projects. Every action is one engine command, so the window, a Python script & an AI agent over MCP all drive the same document.
 
-Stack · Rust engine (`native/`, one Cargo workspace of 14 crates, wgpu compute solver) · vanilla TypeScript & Vite (`frontend/`) · Python & FastAPI (`backend/`) · Tauri 2 (`src-tauri/`) · 255 engine commands. Desktop builds for macOS, Windows & Linux come from formcompiler; formportal lists & connects the app.
+**Stack:** Rust engine (14 crates) · vanilla TypeScript + Vite · Python + FastAPI · Tauri 2 · **Scale:** 255 engine commands, every interface string in 30 languages
+
+## Highlights
+
+- **Pattern drafting** panels, rectangles, ellipses, inner shapes & lines, curve tools, exact numeric input w/ arithmetic, snapping, darts, slash & spread, seam allowance, notches, grain lines, mirror & linked instances, unfold, measure & match lengths
+- **Pattern exchange** DXF-AAMA import & export in the ASTM D6673 dialect, round trip within 0.05 mm
+- **Sewing** seams, free & multi seams, seam side, fold angle & tension, tack, pleats, gather, a live seam check that shows mismatches in millimetres
+- **Real cloth** a native solver (block descent & implicit) w/ orthotropic stretch, directional bending, seams, body collision w/ skin offset & friction, stable self contact, pins, wind, pressure & shrink; fast, normal, quality & final presets; an opt-in GPU path on Metal, Vulkan & DX12
+- **Bodies** CC0 MPFB2 female & male bodies & the Basic Form, measured & resized, posed, imported from OBJ, glTF, FBX & Alembic; placement volumes & points, Auto Seam proposals
+- **3D editing** grab, pinch, pins, fold place, freeze, stiffen, hold shape, body tape, style lines, fit shell, refit to a new body & re-drape
+- **Fabrics** physical values in SI units, 15 presets, a Fabric Lab that turns test measurements into parameters, PBR looks front, back & side, colorways, `.ffab` files
+- **Trims & details** zippers, buttons & buttonholes, topstitch, piping, binding, elastic, press, tape, bond, skive, prints, quilting, rigid trims from OBJ & FBX
+- **Animation** a timeline w/ motion import & retargeting, recorded caches in layers you can cut, merge, move & lock, keys w/ auto key, keyable wind, fabric values & pins
+- **Export** OBJ, FBX, glTF & GLB, USD, Alembic, MDD, PC2 & OBJ sequences, weld or unweld, thick or thin, quad remesh w/ seam-matched borders, retopology drawing w/ ghost points across seams, texture baking & game-ready export
+- **Visualization** strain & fit maps, 3D measures, overlay compare, a Stage w/ lights, HDRI, shadows & a background image, saved views, snapshots up to ten views at any ppi, video & transparent turntables
+- **Workspace** a Library of fabrics, trims, poses, motions, arrangements & garment Components, an Object Browser, snapshots, named layouts, crash recovery from autosave & a command journal, settings export
+- **Agents & scripting** every command is an MCP tool; a standard-library Python package w/ plugins; a Live Link that streams a USD layer to Unreal; drafted sample garments to start from
+- **The form family shell** the same splash & reveal, title bar, menus, Home screen, Preferences & status bar as formvis, w/ 28 shared themes & zero flash on load
+
+## Quick Start
+
+### Requirements
+
+Node 20.19+ (22 recommended), Python 3.12+, Rust (the version pinned by `rust-toolchain.toml`, installed by `rustup`). Desktop builds on Linux also need the Tauri 2 system packages. `./formfabric doctor` checks them.
+
+### macOS & Linux
+
+```shell
+chmod +x formfabric_oc_install formfabric
+./formfabric_oc_install
+./formfabric
+```
+
+Desktop app:
+
+```shell
+./formfabric desktop dev
+./formfabric desktop build
+```
+
+First drape: File, Open Sample, T-shirt, pick a body, then press Space.
+
+### Windows
+
+```shell
+formfabric_oc_install.bat
+formfabric.bat
+```
+
+### Ports
+
+| Service | URL | Notes |
+|---|---|---|
+| Frontend | http://127.0.0.1:5280 | Vite dev server, `server.host` false, proxies `/api/*` to the backend |
+| Backend | http://127.0.0.1:8280 | FastAPI/uvicorn, local only; the desktop app picks a free port |
+| Frame stream | 127.0.0.1, OS-assigned port | binary WebSocket from the native engine, token required |
+
+## Configuration
+
+| Variable | Purpose |
+|---|---|
+| `FFB_PORT` | the backend port (desktop app: 0, a free port) |
+| `FFB_FRONTEND_PORT` | the frontend port the backend accepts the window from |
+| `FFB_WINDOW_TOKEN` | the window's proof for the backend, 32 or more characters (the desktop app makes one per launch) |
+| `FORMFABRIC_DATA_DIR` | where the engine keeps autosaves, recovery, the Library & settings (default: the platform's app data folder) |
+| `FFB_AUTOSAVE_SECONDS` | the autosave interval (default 180) |
+| `FFB_PLUGIN_DIR` | an extra folder of Python plugins |
+| `FFB_ENGINE_URL` | the Python package's HTTP target when it is not run in process |
+
+Set them in the shell. No `.env` is read or committed.
+
+## Architecture
+
+```
+formfabric/
+├── native/                the engine: one Cargo workspace of 14 crates
+│   ├── crates/ffb-pattern/    panels, seams, trims, components, the garment document
+│   ├── crates/ffb-sim/        the cloth solver: block descent, implicit, contact, untangle
+│   ├── crates/ffb-gpu/        the opt-in wgpu compute solver
+│   ├── crates/ffb-body/       bodies, skeletons, placement, body import
+│   ├── crates/ffb-io/         the .ffbrc project, DXF-AAMA, every exporter, Alembic
+│   ├── crates/ffb-commands/   the one command registry behind menus, MCP & Python
+│   └── crates/ffb-stream/     the binary frame stream to the 3D View
+├── frontend/              the interface (vanilla TS + Vite): shell, dock, Pattern View, 3D View, drawers
+├── backend/               the engine service (FastAPI): dispatch, events, MCP, autosave & recovery, plugins
+├── python/                the formfabric Python package
+├── src-tauri/             the desktop shell (Tauri 2): splash, reveal, title bar, engine sidecar
+├── setup/                 install, boot, build, freeze, version & agent scripts behind ./formfabric
+├── docs/integration/      drafts for formcompiler, formportal, GoF & the Unreal Live Link
+├── .docs/wiki/            the GitHub wiki pages
+├── .github/workflows/     CI: frontend build, engine check & clippy, service selfcheck, desktop shell check
+├── build_app              the desktop build, start to finish
+└── assets/                the app icon, bodies & sample garments
+```
 
 ## Status
 
-Phases 1 to 23 have landed (release v0.23.0). The gate to v1.0.0 is the owner's sign-off of the deferrals: of 125 parity rows, 115 are landed, 1 is partial (the quad remesh regularity pass, off by default) & 9 are deferred, 6 of them pending owner sign-off. The scope: the family window shell, the Rust engine, pattern drafting with DXF-AAMA exchange, meshing & the 3D View, fabrics, cloth simulation, sewing, bodies with placement, 3D editing, trims, animation w/ cache layers & auto key, export w/ UV, weld, Alembic & quad remeshing, retopology drawing, visualization, the workspace (Library, Object Browser, snapshots, Components, crash recovery, layouts), & agents with family integration (Python API, plugins, Live Link, GoF hand-off). The status of every feature is in the Status column of [14-PARITY-MATRIX.md](docs/encyclopedia/14-PARITY-MATRIX.md).
-
-You can:
-- Open a drafted T-shirt, skirt or dress from File, Open Sample, or draft & sew your own.
-- Drape it on a CC0 body or formfabric's own Basic Form.
-- Edit it in 3D: pinch, pin, freeze, stiffen & refit.
-- Add trims: zippers, buttons, topstitch, edge finishes, prints & quilting.
-- Animate it: import a walk, record a cache, cut, merge, move & lock cache layers, auto key wind, pins & fabric values, & play it back.
-- Export to OBJ, glTF, FBX, USD, Alembic, MDD or PC2, welded or not. Exports open in Blender with UVs, materials & the animation (Alembic is checked against our own reader only).
-- Draw retopology points & faces on a panel, w/ ghost points mirrored across seams.
-- Look at strain & fit maps, & capture snapshots, multi-view sheets & turntables w/ a transparent background.
-- Keep reusable fabrics, trims, poses, motions, placements & Components in a Library, browse styles in the Object Browser, save whole-garment snapshots, & recover after a crash.
-- Script it from Python or let an agent draft patterns through MCP.
-
-Open gaps, as recorded in [15-OPEN-GAPS.md](docs/encyclopedia/15-OPEN-GAPS.md):
-- Self contact in motion: the opt-in Untangle pass does not reliably remove the pairs a recorded walk shows, so zero pairs is not reached.
-- CPU solver speed misses its targets (676 vertices in 8 ms, 5,000 in 50 ms); the 30k vertex case is unmeasured.
-- The GPU solver is opt-in & was never run on a real GPU here.
-- Alembic is written & read by our own Ogawa code & not yet opened in Blender (an owner check); the quad regularity pass is off by default, w/ flip repair & the multi-resolution hierarchy not built.
-- Retopology drawing lacks drag select, Patch Topology & a second OBJ object for duplicate mode.
-- Unreal Live Link, FBX motion import & the 60 fps orbit at 200k triangles are untested in the app; 8 of 15 fabric presets are provisional.
-- Deferred, pending owner sign-off: layer rank between sublayers, body soft body & divide mesh, AI & PDF pattern files, speed & GPU targets, provisional presets, the GoF contract & the Unreal run. Deferred by decision: AI Studio, the CONNECT marketplace & proprietary files.
-
-See BUILD_NOTES (planning sidecar) & the parity matrix for details.
-
-## Features by area
-
-| Area | What it does | Wiki |
-| --- | --- | --- |
-| Pattern drafting | panels as Bezier outlines, inner lines & shapes, notches, grain lines, seam allowance, darts, slash & spread, mirror & instance links, exact input, DXF-AAMA import & export | [Pattern drafting](.docs/wiki/Pattern-Drafting.md) |
-| Sewing | segment, free, multi-span & automatic seams from notches, pleats, gathers, tacks, rip & mend, length checks | [Sewing](.docs/wiki/Sewing.md) |
-| Bodies & placement | Basic Form, two CC0 bodies, OBJ, glTF, FBX & Alembic import, resize to measurements, poses, placement volumes & points | [Bodies and placement](.docs/wiki/Bodies-and-Placement.md) |
-| Fabrics | SI fabric properties, presets, Fabric Lab from bench numbers, colorways, `.ffab` files | [Fabrics](.docs/wiki/Fabrics.md) |
-| Draping | vertex block descent & implicit solvers, Fast to Final presets, seam closing, self contact, wind, pins, grab, pinch, optional GPU | [Draping and the solver](.docs/wiki/Draping-and-the-Solver.md) |
-| 3D editing | pinch, pin box & lasso, fold, freeze, stiffen, Style Lines, Fit Shell, Refit w/ a deep push | [3D editing](.docs/wiki/3D-Editing.md) |
-| Trims | buttons, buttonholes, zippers, topstitch, puckering, fray, piping, binding, elastic, skive, prints, quilting, OBJ & FBX trims | [Trims](.docs/wiki/Trims.md) |
-| Animation | BVH, glTF & FBX motion with retargeting, key tracks, body morph, recorded cache layers (cut, merge, move, lock), auto key, pin keys, timeline | [Animation](.docs/wiki/Animation.md) |
-| Export & UV | OBJ, glTF, GLB, FBX, USD, Alembic, MDD, PC2 w/ weld; UV layout with UDIM, thickness, baked look & detail maps, quad remesh, topology drawing, game-ready | [Export and UV](.docs/wiki/Export-and-UV.md) |
-| Visualization | strain, stress, pressure, fit, contact & thickness maps, compare, measures, lights, background image, fur, schematic, multi-view capture | [Visualization and capture](.docs/wiki/Visualization-and-Capture.md) |
-| Workspace | Library, Object Browser, snapshots, Components, crash recovery, saved layouts, Key Hints, settings file, Animate & Render tabs | [Library, snapshots and components](.docs/wiki/Library-Snapshots-and-Components.md) |
-| Agents & scripts | MCP over stdio, agent skills, Python API, Python plugins, Live Link to Unreal through USD, GoF hand-off | [Agents and MCP](.docs/wiki/Agents-and-MCP.md) |
-
-## MCP & Python API
-
-All 255 engine commands are MCP tools (`./formfabric mcp`, wired for Claude Code by `.mcp.json`, for Codex by `.codex/config.toml` & for Cursor by `.cursor/mcp.json`; `./formfabric agents install` registers it outside this folder). The skill `.claude/skills/formfabric-modeling` carries the generated tool reference, refreshed by `./formfabric agents sync`.
-
-The Python package in `python/` (standard library only) has one checked function per command plus a hand API (`Garment`, `Panel`, `Sim`, `Link`, `gof.send`). It runs in process against the `ffb_engine` module or over HTTP against the running service. See [python/README.md](python/README.md) & the wiki page [Python API and plugins](.docs/wiki/Python-API-and-Plugins.md).
-
-## Family integration
-
-| With | How |
-| --- | --- |
-| formcompiler | builds the desktop app from `main` or a `compile_v*` branch through the launcher verbs `install`, `install-desktop` & `desktop build`; `./build_app --dry-run` checks the contract |
-| formportal | lists the app from the catalogue entry & connects the MCP server; drafts are in `docs/integration/` |
-| formsculpt, formsurface | GoF hand-off bundle written by `formfabric.gof.send` (a proposal, no format change) |
-| Unreal | Live Link writes a USD layer that Unreal's USD Stage reloads (untested against Unreal) |
-
-formcompiler & formportal are GPL-3.0; formfabric meets them through contracts only & contains none of their code. Pushing the repository, cutting `compile_v*` branches & the external builds are an owner run.
-
-## Quick start
-
-```bash
-./formfabric_oc_install      # frontend packages, backend venv, engine module
-./formfabric boot            # service on 127.0.0.1:8280, window on 127.0.0.1:5280
-./formfabric desktop dev     # the desktop app with the splash
-./formfabric desktop build   # the installable desktop app (or ./build_app for the whole chain)
-```
-
-Requirements: Node 22, Python 3.12 or later, Rust (pinned by `rust-toolchain.toml`), & on Linux the Tauri 2 system packages. `./formfabric doctor` checks the toolchain, installs & ports.
-
-First drape, in the window: File, Open Sample, T-shirt, then a body (Current body, MPFB2 Female or MPFB2 Male); press Space to start or stop the drape. Window, Layouts, Drape gives a layout made for it.
-
-First drape from a script:
-
-```bash
-./formfabric py -c "import formfabric as ff; g = ff.Garment.sample('tshirt'); g.sim.drape(60); g.export_glb('/tmp/tshirt.glb')"
-```
-
-| Service | Address | Notes |
-| --- | --- | --- |
-| Window (Vite) | http://127.0.0.1:5280 | bound to localhost only |
-| Engine service | http://127.0.0.1:8280 | FastAPI, API under `/api`; the desktop app picks a free port |
-| Frame stream | 127.0.0.1, OS-assigned port | binary WebSocket from the native engine, token required |
-
-## Commands
-
-| Command | Does |
-| --- | --- |
-| `./formfabric engine build` | builds the Rust engine and the `ffb_engine` Python module |
-| `./formfabric engine wasm` | builds the in-page preview engine |
-| `./formfabric mcp` | serves every engine command over MCP's stdio transport |
-| `./formfabric agents sync` | regenerates the agent skill's tool reference from the engine |
-| `./formfabric desktop build` | builds the installable app; forwards `--config FILE` to Tauri |
-| `./formfabric py script.py` | runs Python with the `formfabric` package importable |
-| `./formfabric agents install` | registers the MCP server with Claude Code, Codex & Cursor |
-| `./formfabric i18n check` | checks every language table against the English strings |
-| `./formfabric doctor` | checks the toolchain, installs & ports |
-| `./build_app --dry-run` | checks the compile contract (files, launcher verbs, CI trigger, version sites) without building |
-| `./formfabric help` | every verb |
-
-Configuration is by environment variable, never committed: `FFB_PORT` & `FFB_FRONTEND_PORT` (ports), `FFB_WINDOW_TOKEN` (32 or more characters, the window's proof for the service), `FFB_AUTOSAVE_SECONDS` (default 180), `FFB_PLUGIN_DIR` (extra plugin folder), `FFB_ENGINE_URL` (the Python client's HTTP target).
-
-## Layout
-
-| Folder | Holds |
-| --- | --- |
-| `native/` | Rust workspace of 14 crates: `ffb-core`, `ffb-pattern`, `ffb-fabric`, `ffb-mesh`, `ffb-sim`, `ffb-gpu`, `ffb-body`, `ffb-anim`, `ffb-remesh`, `ffb-io`, `ffb-commands`, `ffb-stream`, `ffb-py`, `ffb-wasm` |
-| `backend/` | FastAPI engine service, MCP servers, autosave & recovery, plugins, terminal & Claude Code services |
-| `frontend/` | the window: shell, dock, workspace with Pattern View, 3D View & the drawers |
-| `python/` | the `formfabric` Python package |
-| `src-tauri/` | Tauri 2 desktop shell |
-| `setup/` | install, boot, build, freeze, version & agent scripts |
-| `docs/encyclopedia/` | the behaviour specification formfabric is built against |
-| `docs/integration/` | drafts & notes for formcompiler, formportal, GoF & the Unreal Live Link |
-| `.docs/wiki/` | the wiki source, published to the GitHub wiki |
-| `.claude/`, `.agents/` | agent skills (harness & modeling) |
-
-## The encyclopedia
-
-`docs/encyclopedia/` documents what Marvelous Designer does and how each feature behaves, from primary sources only, as the specification formfabric is built against.
-
-| Start here | |
-| --- | --- |
-| [00-INDEX.md](docs/encyclopedia/00-INDEX.md) | chapter list and reading order |
-| [14-PARITY-MATRIX.md](docs/encyclopedia/14-PARITY-MATRIX.md) | every feature mapped to a formfabric module, name and phase |
-| [15-OPEN-GAPS.md](docs/encyclopedia/15-OPEN-GAPS.md) | what could not be verified and how formfabric decides it |
-
-## Trademarks
-
-Marvelous Designer and CLO are trademarks of CLO Virtual Fashion Inc., named here only to describe compatibility and the reference studied. formfabric is not affiliated with or endorsed by CLO Virtual Fashion.
+Phases 1 to 23 of the plan have landed: the family shell, the Rust engine & command registry, pattern drafting & exchange, meshing & the 3D View, fabrics, the cloth solver, sewing, bodies & placement, 3D editing, trims, animation w/ cache layers, export w/ weld, Alembic & retopology, visualization, the workspace, & agents w/ the Python API, plugins & Live Link. v1.0.0 follows the owner's sign-off of the items still deferred (the GPU path & solver speed on real hardware, the Unreal run, body soft body, and a few others). The Linux build is checked here; the macOS & Windows desktop builds come from formcompiler.
 
 ## Development
 
-Read `CLAUDE.md` (or `AGENTS.md`) first, then the HASHOUT_LOG of the side you edit. Commands are declared only in `native/crates/ffb-commands`; after a change run `./formfabric engine build` & `./formfabric agents sync`. Checks: `./formfabric engine check`, `python3 setup/i18n.py check`, `python3 setup/version.py check`, `./build_app --dry-run`. Branch model in [.docs/BRANCHING.md](.docs/BRANCHING.md); docs live in [.docs/wiki/](.docs/wiki/Home.md) (source of truth, published to the GitHub wiki) & `docs/`. Edits are single-region hand edits; no emoji, no em dashes in markdown, no GPL code.
+Changes follow the family's rules: single-region hand edits, zero DOM flash, tokens only, no emoji, decisions & removed code in `frontend/HASHOUT_LOG.md`, `backend/HASHOUT_LOG.md` & `native/HASHOUT_LOG.md`. Commands are declared once, in `native/crates/ffb-commands`; `./formfabric agents sync` refreshes the agent tool reference after a change. Commits are Conventional Commits as `nodemode-ai <mackin@nodemode.ai>` w/o attribution trailers.
 
-## License
+## Contributors
 
-Apache-2.0, see `LICENSE`. Copyright 2026 NodeAgentc, Inc. Every distributed third-party dependency, with its licence, is listed in `NOTICE.md`; nothing copyleft is linked into the engine, the Python module or the desktop shell (MPL-2.0 file-level crates are noted there).
+- nodemode-ai · owner
+
+## Licensing
+
+Apache-2.0, see `LICENSE` & `NOTICE.md`. Bodies are MPFB2 (CC0). Marvelous Designer & CLO are trademarks of CLO Virtual Fashion Inc. & are named for comparison only; formfabric contains none of their code, artwork or text.
