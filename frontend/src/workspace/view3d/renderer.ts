@@ -1,3 +1,4 @@
+import { previewUrl } from '../fabric/files';
 import { SHADOW_GLSL, type Fx } from './fx';
 import type { Frame } from './frame';
 import type { ViewStyle } from './model';
@@ -267,7 +268,8 @@ export class MeshRenderer {
       this.textures.set(url, tex);
       this.onTexture();
     };
-    img.src = url;
+    if (/^(https?:|blob:|data:)/.test(url)) img.src = url;
+    else void previewUrl(url).then((src) => { if (src) img.src = src; });
     return null;
   }
 
