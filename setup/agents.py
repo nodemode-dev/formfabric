@@ -37,6 +37,8 @@ def say(text: str) -> None:
 
 
 def from_module() -> dict | None:
+    if os.environ.get("FFB_CATALOGUE_BIN"):
+        return None
     for site in glob.glob(str(ROOT / "backend" / "venv" / "lib" / "python*" / "site-packages")) + [str(ROOT / "backend" / "venv" / "Lib" / "site-packages")]:
         if os.path.isdir(site) and site not in sys.path:
             sys.path.insert(0, site)
@@ -48,6 +50,9 @@ def from_module() -> dict | None:
 
 
 def from_binary() -> dict | None:
+    chosen = os.environ.get("FFB_CATALOGUE_BIN")
+    if chosen:
+        return json.loads(subprocess.run([chosen], check=True, capture_output=True, text=True).stdout)
     names = ("ffb-catalogue", "ffb-catalogue.exe")
     found = [Path(p) for n in names for p in glob.glob(str(ROOT / "native" / "target" / "*" / n))]
     found += [Path(p) for n in names for p in glob.glob(str(ROOT / "native" / "target" / "*" / "*" / n))]
@@ -168,7 +173,7 @@ def sync(check: bool) -> int:
 
 
 def install(dry: bool, targets: list[str]) -> int:
-    command = str(ROOT / "formfabric")
+    command = os.environ.get("FORMFABRIC_LAUNCHER") or str(ROOT / "formfabric")
     targets = targets or ["claude", "codex", "cursor"]
     if "claude" in targets:
         if shutil.which("claude"):

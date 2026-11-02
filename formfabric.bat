@@ -18,6 +18,7 @@ if /i "%CMD%"=="engine" goto :engine
 if /i "%CMD%"=="help" ( call :usage & set "RC=0" & goto :done )
 if /i "%CMD%"=="serve" goto :bashonly
 if /i "%CMD%"=="mcp" goto :bashonly
+if /i "%CMD%"=="py" goto :bashonly
 if /i "%CMD%"=="agents" goto :bashonly
 if /i "%CMD%"=="i18n" goto :bashonly
 if /i "%CMD%"=="doctor" goto :bashonly

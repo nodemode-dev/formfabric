@@ -1,6 +1,6 @@
 ---
 name: formfabric-modeling
-description: Draft garment sewing patterns in formfabric, the pattern and cloth simulation app, by asking in plain language through its MCP server. Use whenever the person wants a pattern, panel, bodice, sleeve, skirt or other flat piece drawn or changed, points moved, curves adjusted, inner lines or shapes added, panels measured, mirrored, duplicated or renamed, units changed, a project saved or opened, or a step undone, and the formfabric tools (pattern_get, pattern_draw_panel and the rest) are available or the person mentions formfabric. Covers reading the document, working in millimetres, building outlines as point lists, curve handles, checking measurements and recovering from tool errors. Not for editing formfabric's own source code (use formfabric-harness for that).
+description: Draft garment sewing patterns in formfabric, the pattern and cloth simulation app, by asking in plain language through its MCP server. Use whenever the person wants a pattern, panel, bodice, sleeve, skirt or other flat piece drawn or changed, points moved, curves adjusted, inner lines or shapes added, panels measured, mirrored, duplicated or renamed, units changed, a project saved or opened, or a step undone, and the formfabric tools (pattern_get, pattern_draw_panel and the rest) are available or the person mentions formfabric. Also covers sewing seams, draping a sample or a pattern on a body, fabrics, exporting the draped garment, the Live Link that streams it to Unreal as USD, and scripting formfabric from Python. Covers reading the document, working in millimetres, building outlines as point lists, curve handles, checking measurements and recovering from tool errors. Not for editing formfabric's own source code (use formfabric-harness for that).
 license: Apache-2.0
 ---
 
@@ -38,22 +38,42 @@ The tool reference below is generated from the engine's command registry by `./f
 - A 503 or "engine module is not built": tell the person to run `./formfabric engine build`.
 - Anything that goes wrong after several edits: `history_list`, then `history_undo` back to the last good step.
 
+## Sewing and draping
+
+1. Fastest start: `sample_list`, then `sample_load` with `name` tshirt, skirt or dress and `force` true (it replaces an unsaved project; ask first). It drafts the panels, sews them, loads the default body and places the panels.
+2. Own patterns: draft the panels, then `sew_segment` (one outline segment to another), `sew_multi` or `sew_auto`; `sew_check` reports length mismatches before the drape. Assign a fabric with `fabric_presets`, `fabric_create` and `fabric_assign`; `body_load_default` brings a body and `place_panel` or `arrange_place` puts panels around it.
+3. Drape: `sim_reset` (frame zero, placed state), then `sim_step` with `frames` (about 60 to 120 settles a sample) or `sim_start` and `sim_stop` for a background run; `sim_state` reports the frame, vertex count and seam gap. Pins (`pin_add`) hold points; `sim_settings` with `preset` fast, normal, quality or final trades speed for accuracy.
+4. Look at it: `map_show` streams strain, stress, pressure, fit or thickness maps; `map_stats` returns numbers without changing the display.
+5. Every change from the window or an agent shares the one document, so tell the person before `sample_load` with `force` replaces it.
+
+## Exporting and the Live Link
+
+1. `export_formats` lists obj, gltf, glb, fbx, usd, mdd and pc2. `export_run` writes the draped garment to an absolute `path` whose extension matches `format`; `animation` true writes a recorded cache layer (`anim_record` first).
+2. `link_start` with an absolute `folder` and `every_frames` writes `[folder]/garment.usda` at once and replaces it atomically every N simulation frames, after edits and when the simulation settles; point Unreal's USD Stage at that file (`docs/integration/unreal-live-link.md`, untested against Unreal). `link_state` shows writes and any error; `link_stop` ends it, and so does any `file_new` or `file_open`.
+3. To hand a garment to another Form app, the Python helper `formfabric.gof.send` writes a GoF-compatible bundle (`docs/integration/gof-handoff.md`).
+
+## Scripting from Python
+
+- `./formfabric py script.py` runs Python with the `formfabric` package: `formfabric.commands` has one checked function per command, `Garment`, `Sim` and `Link` wrap the common steps, and an in-process or HTTP backend is chosen for you (`python/README.md`).
+- A plugin is a `.py` file in `backend/plugins` with a `PARAMS` dict and `run(ffb, args)`; `drape_and_export` is the sample (drape a sample, export a GLB). Run it with `POST /api/plugins/run`.
+- Outside agents reach the same commands through `.mcp.json` (stdio, `./formfabric mcp`) or `POST /api/mcp`, which asks the person in the window once before the first change.
+
 ## Tool reference
 
 [ffb-tools:begin]
 Generated from the engine's command registry (formfabric 0.15.0) by `./formfabric agents sync`; do not edit between the markers by hand.
 
 - Engine: `system_info`, `system_capabilities`
-- Files: `file_new`, `file_save`, `file_open`, `sample_list`, `sample_load`, `exchange_import_dxf`, `exchange_export_dxf`
+- Files: `file_new`, `file_save`, `file_open`, `sample_list`, `sample_load`, `exchange_import_dxf`, `exchange_export_dxf`, `snapshot_save`, `snapshot_list`, `snapshot_restore`, `snapshot_remove`, `library_list`, `library_add`, `library_insert`, `library_remove`, `library_roots`, `library_set_roots`, `component_save`
 - History: `history_undo`, `history_redo`, `history_list`
 - Viewing: `view_units`, `mesh_get`, `mesh_stats`, `map_show`, `map_stats`, `compare_snapshot`, `compare_set`, `compare_clear`, `compare_get`, `measure3d_add`, `measure3d_remove`, `measure3d_list`, `viz_get`, `stage_set`, `light_add`, `light_set`, `light_remove`, `view_save`, `view_remove`, `fur_add`, `fur_set`, `fur_remove`
-- Pattern: `pattern_get`, `pattern_select`, `pattern_measure`, `pattern_snap`, `pattern_draw_panel`, `pattern_rectangle`, `pattern_ellipse`, `pattern_inner_shape`, `pattern_inner_line`, `pattern_move_point`, `pattern_set_handle`, `pattern_add_point`, `pattern_split_line`, `pattern_delete_point`, `pattern_set_point_kind`, `pattern_curvature`, `pattern_smooth`, `pattern_transform`, `pattern_duplicate`, `pattern_delete`, `pattern_rename`, `pattern_set_props`, `pattern_begin_drag`, `pattern_end_drag`, `pattern_seam_allowance`, `pattern_offset_outline`, `pattern_notch_add`, `pattern_notch_set`, `pattern_notch_delete`, `pattern_grain_line`, `pattern_set_inner`, `pattern_segment_lengths`, `pattern_match_length`, `pattern_dart`, `pattern_slash_spread`, `pattern_unfold`, `pattern_spiral`, `pattern_trace`, `pattern_mirror_link`, `pattern_instance`, `pattern_unlink`, `panel_state`, `styleline_add`, `styleline_set`, `styleline_remove`, `styleline_list`, `styleline_list3d`, `style_create`, `style_update`, `style_delete`, `style_list`, `print_add`, `print_set`, `print_delete`
+- Pattern: `pattern_get`, `pattern_select`, `pattern_measure`, `pattern_snap`, `pattern_draw_panel`, `pattern_rectangle`, `pattern_ellipse`, `pattern_inner_shape`, `pattern_inner_line`, `pattern_move_point`, `pattern_set_handle`, `pattern_add_point`, `pattern_split_line`, `pattern_delete_point`, `pattern_set_point_kind`, `pattern_curvature`, `pattern_smooth`, `pattern_transform`, `pattern_duplicate`, `pattern_delete`, `pattern_rename`, `pattern_set_props`, `pattern_begin_drag`, `pattern_end_drag`, `pattern_seam_allowance`, `pattern_offset_outline`, `pattern_notch_add`, `pattern_notch_set`, `pattern_notch_delete`, `pattern_grain_line`, `pattern_set_inner`, `pattern_segment_lengths`, `pattern_match_length`, `pattern_dart`, `pattern_slash_spread`, `pattern_unfold`, `pattern_spiral`, `pattern_trace`, `pattern_mirror_link`, `pattern_instance`, `pattern_unlink`, `panel_state`, `styleline_add`, `styleline_set`, `styleline_remove`, `styleline_list`, `styleline_list3d`, `style_create`, `style_update`, `style_delete`, `style_list`, `print_add`, `print_set`, `print_delete`, `component_create`, `component_list`, `component_insert`, `component_swap`, `component_join`, `component_check`, `component_remove`, `component_sample`
 - Simulation: `mesh_build`, `arrange_place`, `arrange_reset`, `sim_start`, `sim_stop`, `sim_toggle`, `sim_step`, `sim_reset`, `sim_settings`, `sim_state`, `sim_positions`, `sim_compare`, `pin_add`, `pin_remove`, `pin_clear`, `sim_grab`, `sim_apply`, `sim_pinch`, `refit`, `place_panel`, `place_reset`, `wind_set`, `pin_box`, `pin_lasso`, `fold_place`, `body_tape`, `fitshell_set`, `fitshell_get`
 - Fabrics: `fabric_presets`, `fabric_list`, `fabric_create`, `fabric_update`, `fabric_duplicate`, `fabric_delete`, `fabric_assign`, `fabric_set_default`, `fabric_lab`, `fabric_export`, `fabric_import`, `colorway_create`, `colorway_update`, `colorway_delete`, `colorway_activate`
 - Sewing: `sew_segment`, `sew_free`, `sew_multi`, `sew_edit`, `sew_flip`, `sew_delete`, `sew_list`, `sew_check`, `sew_bindings`, `tack_add`, `tack_delete`, `sew_pleat`, `sew_gather`, `sew_auto`, `button_add`, `buttonhole_add`, `button_fasten`, `hardware_move`, `hardware_delete`, `zipper_add`, `zipper_set`, `zipper_delete`, `stitch_add`, `stitch_set`, `stitch_delete`, `fray_add`, `finish_add`, `finish_set`, `finish_delete`, `sew_rip`, `sew_mend`, `quilt_make`, `trim_import`, `trim_debug`
 - Bodies: `body_load_default`, `body_import`, `body_remove`, `body_show`, `body_set`, `body_resize`, `body_pose`, `body_list`, `body_measure`, `body_joints`, `place_volume_set`, `place_point_set`, `place_points`, `place_defaults`
 - Animation: `anim_get`, `anim_set`, `motion_import`, `motion_set`, `motion_remove`, `key_set`, `key_remove`, `cache_set`, `cache_remove`, `morph_set`, `anim_record`, `anim_stop`, `job_state`, `job_harvest`, `cache_frame`, `anim_play`, `anim_pause`
-- Export: `export_formats`, `export_run`, `uv_get`, `uv_layout`, `uv_island_set`, `thickness_set`, `bake_run`, `gameready_run`, `quad_remesh`, `quad_clear`, `retopo_get`, `retopo_set`, `schematic_export`, `capture_write`
+- Export: `export_formats`, `export_run`, `uv_get`, `uv_layout`, `uv_island_set`, `thickness_set`, `bake_run`, `gameready_run`, `quad_remesh`, `quad_clear`, `retopo_get`, `retopo_set`, `schematic_export`, `capture_write`, `link_start`, `link_stop`, `link_state`
 
 ### system_info
 
@@ -2208,8 +2228,191 @@ Write bytes captured in the window (a png snapshot, a webm video or a gif) to a 
 - `data`: string; required; The file bytes, base64 encoded (a data: URL prefix is accepted).
 - `kind`: string (png | webm | gif); required
 - `path`: string; required; Absolute output path whose extension matches kind.
+
+### link_start
+
+Start the Live Link for Unreal through USD: write the current draped garment as a usda layer into a folder at once, then replace it atomically every N simulation frames while the simulation runs (and after an edit, and when the simulation settles). Unreal's USD Stage reloads the layer when the file changes. The link follows the live positions without touching the document or undo; any file command (new, open) stops it. Starting again replaces the running link.
+
+- `axis`: string (y_up | z_up); default "y_up"; Up axis stored in the layer. Unreal converts from the stage's upAxis.
+- `every_frames`: integer; default 1; range 1 to 100000; Write a new layer every this many simulation frames. Edits to the garment write at once, and a stopped simulation writes its last frame after a quarter second.
+- `file`: string; default "garment"; File name without extension; the layer is [folder]/[file].usda.
+- `folder`: string; required; Absolute folder the layer is written into; created when missing. Point Unreal's USD Stage at the file inside it.
+- `format`: string (usd); default "usd"; Layer format. Only usd (usda text) is written.
+- `thickness`: boolean; default false; Write the back face and side strips set by thickness.set.
+
+### link_stop
+
+Stop the Live Link. The last layer stays in the folder.
+
+- no parameters
+
+Note: safe to repeat.
+
+### link_state
+
+Read whether the Live Link is running, the folder and layer path, the write interval, how many layers were written, the frame of the last one, its size, the last error and why it stopped.
+
+- no parameters
+
+Note: read-only.
+
+### snapshot_save
+
+Store the whole garment state as a snapshot inside the project (entry snapshot/ID.json, plus snapshot/ID.png when a thumbnail is given as base64 PNG, at most 1 MiB). Does not change the garment, so it is not an undo step. At most 64 snapshots per project.
+
+- `name`: string; Snapshot name. Defaults to Snapshot N.
+- `thumbnail`: string; Optional PNG of the 3D window as base64 (a data URL is accepted), at most 1 MiB decoded.
+
+### snapshot_list
+
+List the snapshots stored in the project: id, name, created (unix seconds), panels, bytes and whether a thumbnail exists. With thumbnails true each item carries thumbnail_png (base64).
+
+- `thumbnails`: boolean; default false; Include each thumbnail as base64 PNG in thumbnail_png.
+
+Note: read-only.
+
+### snapshot_restore
+
+Replace the garment with a snapshot's state. One undo step; bodies, the history and the other snapshots are kept.
+
+- `id`: integer; required; range 1 to inf; Snapshot id from snapshot.list.
+
+### snapshot_remove
+
+Delete a snapshot and its thumbnail from the project. Not an undo step.
+
+- `id`: integer; required; range 1 to inf; Snapshot id from snapshot.list.
+
+Note: removes or replaces (undoable).
+
+### library_list
+
+List the user library: fabrics (.ffab), trim and style files (.ffstyle), components (.ffcomp), garments (.ffbrc), poses (.ffpose) and motions (.ffmotion) from every configured library folder, with name, tags, thumbnail path and size. Files placed in the kind folders by hand are listed too.
+
+- `kind`: string (fabric | trim | style | component | garment | pose | motion); Only this kind. Leave out for all.
+- `query`: string; Case-insensitive text that must appear in the name or a tag.
+
+Note: read-only.
+
+### library_add
+
+Save a fabric, trim style, style, component, pose, motion or the open garment into the first library folder, with tags and an optional PNG thumbnail. Files are written atomically; the item can be inserted again with library.insert.
+
+- `from`: ['integer', 'string']; What to save: a fabric id, a trim or style id (style.list), a component id (component.list), a body id for a pose (default the first body) or a motion id. Leave out for kind garment, which saves the open project.
+- `kind`: string (fabric | trim | style | component | garment | pose | motion); required
+- `name`: string; required; Item name.
+- `tags`: array of string
+- `thumbnail`: string; Optional PNG as base64, at most 1 MiB.
+
+### library_insert
+
+Bring a library fabric, trim, style, component, pose or motion into the open project. One undo step. A garment is not inserted: the error names the path for file.open.
+
+- `body`: integer; range 1 to inf; Pose and motion only: the body to apply it to. Defaults to the first body.
+- `id`: string; required; Library item id from library.list.
+- `joins`: array of object; Component only: joins for component.insert, each {port, to: {component, port}, reversed, ease}.
+
+### library_remove
+
+Delete a library item, its thumbnail and index entry from disk. Only files inside the library folders can be removed. Cannot be undone.
+
+- `id`: string; required; Library item id from library.list, for example fabric/denim.
+
+Note: removes or replaces (undoable).
+
+### library_roots
+
+The folders the library reads and writes: the configured list, or the default [data dir]/library.
+
+- no parameters
+
+Note: read-only.
+
+### library_set_roots
+
+Set the library folders (absolute paths, created when missing, at most 8). The first receives new items. The list is stored in [data dir]/library_roots.json. An empty list returns to the default folder.
+
+- `paths`: array of string; required; Absolute folders. The first one receives new items. An empty list returns to the default [data dir]/library.
+
+Note: safe to repeat.
+
+### component_create
+
+Group panels into a component: the author lists the panels, and names ports as edge spans of those panels with a length tolerance in mm. A component owns its own panels and their real seams; a panel belongs to at most one component. Nothing is inferred from panel shape.
+
+- `name`: string; required; Component name, for example Sleeve L.
+- `panels`: array of integer; required; Panel ids the author groups into the component. A panel belongs to at most one component.
+- `ports`: array of object; Named edge spans of the component's own panels: [{name, spans: [{panel, segment, t0, t1}], tolerance}]. tolerance is a length in mm (default 5); t0 and t1 default to the whole segment.
+
+### component_list
+
+List components with their panels, ports (live length against the stored length, tolerance, whether the edge still exists, the join it is in) and internal seams, and the joins with the real seams they made.
+
+- no parameters
+
+Note: read-only.
+
+### component_save
+
+Write a component to the library as a .ffcomp file: its panels, their internal seams and its ports, nothing else (no fabrics, trims or body). Path must be inside the component folder of a library folder; leave it out to use the first library folder.
+
+- `id`: integer; required; range 1 to inf; Component id.
+- `name`: string; Library name. Defaults to the component name.
+- `path`: string; Absolute .ffcomp path inside the component folder of a library folder. Leave out to save into the first library folder under the component's name.
+- `tags`: array of string
+- `thumbnail`: string; Optional PNG as base64, at most 1 MiB.
+
+### component_insert
+
+Insert a library component: its panels get new ids and are placed beside the garment, its internal seams and ports are recreated, and the given joins become ordinary seams between real panel edges. One undo step.
+
+- `from`: string; required; Library component id (component/sleeve-l) or an absolute .ffcomp path inside a library folder.
+- `joins`: array of object; Joins to make now: [{port, to: {component, port}, reversed, ease}], where port is a port of the inserted component and to a port of a component in the project.
+
+### component_swap
+
+Replace a component with a library component: remove the old panels, insert the new ones centred where the old were, and recreate every join by port name. Refused when a joined port name is missing or its length differs by more than the tolerance (unless ease is true, which sews with a seam ratio). Panels are never graded or resized. One undo step.
+
+- `ease`: boolean; default false; Accept ports whose length differs by more than the tolerance and sew them with a seam ratio. A missing port name always refuses the swap. Panels are never resized.
+- `id`: integer; required; range 1 to inf; Project component to replace.
+- `with`: string; required; Library component id or an absolute .ffcomp path inside a library folder.
+
+### component_join
+
+Join a port of one component to a port of another: one seam per pair of spans (or one multi-span seam when the span counts differ) between the real panel edges, recorded as a join. Refused when the port lengths differ by more than the tolerance unless ease is true.
+
+- `a_port`: ['object', 'string']; required; {component, port} or "component:port".
+- `b_port`: ['object', 'string']; required; {component, port} or "component:port".
+- `ease`: boolean; default false; Allow ports whose lengths differ by more than the tolerance; the seam gets ratio = b length / a length.
+- `reversed`: boolean; default true; Pair the start of side a with the end of side b (right for two counter-clockwise outlines meeting along an edge).
+
+### component_check
+
+Compare a library component with a project component by port names and lengths only: for every joined port of the project component, whether the other has a port of that name and its length is within the tolerance. Changes nothing.
+
+- `id`: integer; required; range 1 to inf; Project component that would be replaced.
+- `with`: string; required; Library component id or an absolute .ffcomp path inside a library folder.
+
+Note: read-only.
+
+### component_remove
+
+Remove a component and its joins. The panels and seams stay unless delete_panels is true.
+
+- `delete_panels`: boolean; default false; Also delete the component's panels and the seams on them. Without it only the grouping and its joins are removed and the panels and seams stay.
+- `id`: integer; required; range 1 to inf; Component id.
+
+Note: removes or replaces (undoable).
+
+### component_sample
+
+Build the sample modular T-shirt: tshirt groups the drafted sample into components and joins; sleeveless adds a no-sleeve armhole binding component for swapping.
+
+- `like`: integer; range 1 to inf; sleeveless only: the component whose port sets the binding lengths (a sleeve).
+- `name`: string (tshirt | sleeveless); required; tshirt groups the drafted sample T-shirt (sample.load tshirt) into Torso, Sleeve L and Sleeve R with an armhole port and a join each. sleeveless adds a no-sleeve variant: two armhole binding strips as one component with an armhole port the lengths of another component's port.
+- `port`: string; default "armhole"; sleeveless only: the port name to match.
 [ffb-tools:end]
 
 ## Not yet available
 
-Sewing, simulation, bodies, fabrics and animation commands arrive in later phases; only the tools listed in the reference exist. Say so plainly if asked for one, rather than approximating with pattern edits.
+Only the tools listed in the reference exist. If asked for something not listed (for example Alembic export, which `export_run` reports as unavailable), say so plainly rather than approximating with other edits.

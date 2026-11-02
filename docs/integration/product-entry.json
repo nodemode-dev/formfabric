@@ -1,0 +1,23 @@
+{
+  "purpose": "What formportal's package schemas need so formfabric can host extension packs. Data only; the change is made in formai_dev's catalog/ first and copied into formportal by its owner.",
+  "files": ["catalog/schema/package.schema.json", "catalog/schema/extensions.schema.json"],
+  "change": {
+    "field": "product",
+    "add_to_enum": "formfabric"
+  },
+  "product": {
+    "id": "formfabric",
+    "name": "FormFabric",
+    "kind": "garment",
+    "identifier": "ai.nodemode.formfabric",
+    "project_extensions": [".ffbrc"],
+    "agents": {"mcp": true, "skills": true}
+  },
+  "proposed_package_kinds": [
+    {"kind": "preset", "for": "fabric presets (.ffab), style files (.ffstyle), poses (.ffpose) and motions (.ffmotion) packed as a folder of files", "permissions": ["document"]},
+    {"kind": "script-plugin", "for": "Python plugins in the PARAMS model (a .py file with PARAMS and run), listed by the Plugins menu", "permissions": ["document", "files-write"]},
+    {"kind": "action-set", "for": "named lists of engine commands", "permissions": ["document"]},
+    {"kind": "theme", "for": "interface themes", "permissions": []}
+  ],
+  "notes": "No new kind or permission value is requested: the four kinds above already exist in the schema enum. A script-plugin runs Python inside formfabric's service with the engine commands only; formportal should treat it like any other script-plugin and require a signature if it ever allows plugins that import modules outside the standard library. Native packages are not proposed."
+}

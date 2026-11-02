@@ -36,6 +36,8 @@ src="$(ffb_native_path "$FFB_ROOT")"
 extra=()
 [ -z "${FFB_PYI_ARCH:-}" ] || extra+=(--target-arch "$FFB_PYI_ARCH")
 [ ! -f "$FFB_ROOT/setup/agents.py" ] || extra+=(--add-data "$src/setup/agents.py${sep}setup")
+[ ! -d "$FFB_ROOT/.claude/skills" ] || extra+=(--add-data "$src/.claude/skills${sep}.claude/skills")
+[ -z "$(ls "$FFB_ROOT/backend/plugins"/*.py 2>/dev/null)" ] || extra+=(--add-data "$src/backend/plugins${sep}plugins")
 if [ "$(ffb_os)" = windows ]; then extra+=(--hidden-import winpty); else extra+=(--hidden-import ptyprocess); fi
 mode=--onefile
 if [ "$(ffb_os)" = macos ]; then

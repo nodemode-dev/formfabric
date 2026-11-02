@@ -21,6 +21,7 @@ usage: ./formfabric [command] [options]
   desktop dev|build   run or bundle the desktop app; extra arguments such as --config FILE go to tauri
   app [flags]         build the installable desktop app start to finish (same as ./build_app)
   mcp                 formfabric over MCP's stdio transport (backend/venv python, app.mcp_stdio)
+  py [args]           run the backend venv's Python with the formfabric package importable (python/README.md)
   i18n extract|check  collect the English interface strings, or check each language table against strings.json
   agents sync|install refresh the agent skills' tool reference (sync), or register formfabric with Claude Code, Codex and Cursor (install)
   doctor              check the toolchain, installs and ports
@@ -63,6 +64,15 @@ case "$cmd" in
     [ -e "backend/$py" ] || { printf '[formfabric] backend venv missing, run ./formfabric install\n' >&2; exit 1; }
     cd backend
     exec "$py" -m app.mcp_stdio "$@" ;;
+  py)
+    start="$OLDPWD"
+    py="$PWD/backend/venv/bin/python"
+    [ -x "$py" ] || py="$PWD/backend/venv/Scripts/python.exe"
+    [ -e "$py" ] || { printf '[formfabric] backend venv missing, run ./formfabric install\n' >&2; exit 1; }
+    PYTHONPATH="$PWD/python${PYTHONPATH:+:$PYTHONPATH}"
+    export PYTHONPATH
+    cd "$start"
+    exec "$py" "$@" ;;
   agents) exec python3 -I setup/agents.py "$@" ;;
   i18n) exec python3 -I setup/i18n.py "$@" ;;
   doctor) exec setup/doctor "$@" ;;

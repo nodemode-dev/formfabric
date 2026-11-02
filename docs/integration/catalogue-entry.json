@@ -1,0 +1,14 @@
+{
+  "id": "formfabric",
+  "name": "FormFabric",
+  "alt_of": "Marvelous Designer",
+  "group": "next",
+  "status": "in-development",
+  "kind": "garment",
+  "summary": "Garment pattern design and cloth simulation: draw patterns, sew, drape and export.",
+  "identifier": "ai.nodemode.formfabric",
+  "repository": "https://github.com/nodemode-dev/formfabric",
+  "licence": "Apache-2.0",
+  "project_extensions": [".ffbrc"],
+  "minimum_os": { "macos": "macOS 12", "windows": "Windows 10" }
+}

@@ -12,19 +12,30 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class ScriptError(RuntimeError):
-    pass
+    def __init__(self, message: str, code: str = "failed", command: str | None = None):
+        super().__init__(message)
+        self.code = code
+        self.command = command
 
 
 class Ffb:
     def __init__(self, dispatch: Callable[[str, dict], dict]):
         self._dispatch = dispatch
 
-    def call(self, command: str, /, **args: Any) -> Any:
-        reply = self._dispatch(command, args)
+    def call(self, command: str, given: dict | None = None, /, **args: Any) -> Any:
+        reply = self._dispatch(command, {**(given or {}), **args})
         if not reply.get("ok"):
             error = reply.get("error") or {}
-            raise ScriptError(f"{command}: {error.get('message', 'failed')}")
+            raise ScriptError(f"{command}: {error.get('message', 'failed')}", str(error.get("code", "failed")), command)
         return reply.get("result")
+
+    def try_call(self, command: str, given: dict | None = None, /, **args: Any) -> dict:
+        return self._dispatch(command, {**(given or {}), **args})
+
+    def commands(self) -> list[str]:
+        from app.services import engine
+
+        return [c["id"] for c in engine.catalogue()["commands"]]
 
 
 def plugin_dirs() -> list[Path]:
@@ -76,6 +87,45 @@ def list_plugins() -> list[dict]:
             if info:
                 found[info["name"]] = info
     return sorted(found.values(), key=lambda p: p["title"].lower())
+
+
+def resolve_args(params: dict, given: dict | None) -> dict:
+    out = dict(given or {})
+    for key, spec in params.items():
+        if key not in out:
+            if "default" in spec:
+                out[key] = spec["default"]
+            continue
+        value, kind = out[key], spec["type"]
+        if kind == "boolean":
+            if isinstance(value, str) and value.lower() in ("true", "false"):
+                value = value.lower() == "true"
+            if not isinstance(value, bool):
+                raise ScriptError(f"{key} must be true or false", "bad_args")
+        elif kind in ("number", "integer"):
+            try:
+                value = float(value) if not isinstance(value, bool) else None
+            except (TypeError, ValueError):
+                value = None
+            if value is None or value != value or value in (float("inf"), float("-inf")):
+                raise ScriptError(f"{key} must be a number", "bad_args")
+            if kind == "integer":
+                if value != int(value):
+                    raise ScriptError(f"{key} must be a whole number", "bad_args")
+                value = int(value)
+            if "min" in spec and value < spec["min"]:
+                raise ScriptError(f"{key} must be at least {spec['min']}", "bad_args")
+            if "max" in spec and value > spec["max"]:
+                raise ScriptError(f"{key} must be at most {spec['max']}", "bad_args")
+        elif kind == "choice":
+            if str(value) not in spec.get("options", []):
+                raise ScriptError(f"{key} must be one of {', '.join(spec.get('options', []))}", "bad_args")
+            value = str(value)
+        else:
+            if not isinstance(value, str):
+                raise ScriptError(f"{key} must be text", "bad_args")
+        out[key] = value
+    return out
 
 
 def run_file(path: str | Path, ffb: Ffb, args: dict | None = None) -> dict:

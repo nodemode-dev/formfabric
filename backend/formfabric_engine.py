@@ -85,6 +85,18 @@ def free_port() -> int:
 def main() -> int:
     if "--selfcheck" in sys.argv:
         return selfcheck()
+    if len(sys.argv) > 1 and sys.argv[1] == "mcp":
+        from app import mcp_stdio
+
+        return mcp_stdio.main()
+    if len(sys.argv) > 1 and sys.argv[1] == "agents":
+        import runpy
+
+        tool = os.path.join(resource_dir(), "setup", "agents.py")
+        if not os.path.isfile(tool):
+            print("formfabric: the agent setup tool is not in this build", file=sys.stderr)
+            return 1
+        return runpy.run_path(tool, run_name="__formfabric_agents__")["main"](sys.argv[2:])
     watch_parent()
     bundled = os.path.join(resource_dir(), "frontend_dist")
     if os.path.isdir(bundled):

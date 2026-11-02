@@ -1,8 +1,11 @@
 mod bake;
 mod export;
 mod game;
+mod link_scene;
 mod scene;
 mod uv_cmds;
+
+pub(crate) use link_scene::{link_scene, LinkScene};
 
 use crate::{Command, Session};
 

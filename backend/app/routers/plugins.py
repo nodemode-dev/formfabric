@@ -25,9 +25,13 @@ async def run(body: RunRequest) -> dict:
         raise HTTPException(status_code=404, detail=f"no plugin {body.name}")
     ffb = scripting.Ffb(engine.dispatch)
     try:
-        ran = await run_in_threadpool(scripting.run_file, plugin["path"], ffb, body.args)
+        args = scripting.resolve_args(plugin["params"], body.args)
+        ran = await run_in_threadpool(scripting.run_file, plugin["path"], ffb, args)
     except scripting.ScriptError as err:
-        return {"ok": False, "error": {"code": "plugin_failed", "message": str(err)}}
+        code = "bad_args" if err.code == "bad_args" else "plugin_failed"
+        return {"ok": False, "error": {"code": code, "message": str(err), "command": err.command}}
+    except engine.EngineUnavailable as err:
+        raise HTTPException(status_code=503, detail=str(err))
     except Exception as err:
         return {"ok": False, "error": {"code": "plugin_error", "message": f"{type(err).__name__}: {err}"}}
     result = ran["result"]

@@ -1,6 +1,6 @@
 ---
 name: formfabric-harness
-description: "Orchestrates all development of formfabric, the Form-family garment pattern and cloth simulation desktop app by nodemode-ai: Rust engine workspace in native/, FastAPI service in backend/, vanilla TypeScript and Vite frontend, Tauri 2 shell. Use whenever a task touches 2D pattern tools, panels, seams, the cloth solver, the command registry, the MCP catalogue, the .ffbrc project file, the Pattern View or 3D View, the sidecar, setup scripts, version bumps or releases, or any file under native/, frontend/src, backend/app, src-tauri or setup/. Enforces the project laws (SEDO, zero DOM flash, z-index tokens) and the commit identity rule. Not for operating the app through MCP (use formfabric-modeling)."
+description: "Orchestrates all development of formfabric, the Form-family garment pattern and cloth simulation desktop app by nodemode-ai: Rust engine workspace in native/, FastAPI service in backend/, vanilla TypeScript and Vite frontend, Tauri 2 shell. Use whenever a task touches 2D pattern tools, panels, seams, the cloth solver, the command registry, the MCP catalogue, the .ffbrc project file, the Pattern View or 3D View, the sidecar, setup scripts, version bumps or releases, the Python API in python/, plugins, the Live Link, or any file under native/, frontend/src, backend/app, src-tauri, setup/ or docs/integration/. Enforces the project laws (SEDO, zero DOM flash, z-index tokens) and the commit identity rule. Not for operating the app through MCP (use formfabric-modeling)."
 license: Apache-2.0
 metadata:
   nodemode.author: nodemode-ai
@@ -17,7 +17,7 @@ formfabric is the Form-family garment app (Apache-2.0): draw sewing patterns in 
 formfabric-harness/
   SKILL.md                   this file, the router
   sub-skills/[name]/SUB-SKILL.md
-    engine  pattern  shell-ui  service  desktop  release
+    engine  pattern  shell-ui  service  desktop  release  agents
 ```
 
 ## Subsystem map
@@ -36,6 +36,10 @@ formfabric-harness/
 | Sidecar entry | `backend/formfabric_engine.py` | PyInstaller entry for `formfabric-engine` |
 | Frontend | `frontend/` (vanilla TypeScript, Vite, port 5280) | `src/engine/`, `src/workspace/`, `src/dock/`, `src/ui/`, `src/styles/tokens.css` |
 | Desktop | `src-tauri/` (Tauri 2, id `ai.nodemode.formfabric`) | splash, sidecar spawn, main window, `.ffbrc` association |
+| Python API | `python/formfabric/` (standard library only) | in-process and HTTP backends, commands generated from the catalogue, Garment and Sim helpers, GoF sender; run with `./formfabric py` |
+| Plugins | `backend/plugins`, `backend/app/services/scripting.py`, `routers/plugins.py` | Python files with `run(ffb, args)` and a `PARAMS` dict, run from `/api/plugins/run` |
+| Live Link | `native/crates/ffb-commands/src/link_cmds.rs` | `link.start`, `link.stop`, `link.state`: a USD layer for Unreal replaced atomically while the simulation runs |
+| Family drafts | `docs/integration/` | data for formcompiler and formportal, the GoF proposal, the Unreal recipe |
 | Launcher | `./formfabric`, `build_app`, `setup/` | one script per task |
 | Agent kit | `.mcp.json`, `.claude/`, `.agents/`, `.codex/`, `.cursor/`, `AGENTS.md`, `setup/agents.py` | `./formfabric agents sync|install` |
 
@@ -79,6 +83,7 @@ Every commit has one author and committer, `nodemode-ai` with the email `mackin@
 | FastAPI routes, events socket, MCP router, loopback guard, sidecar entry | `sub-skills/service/SUB-SKILL.md` |
 | Tauri, splash, sidecar spawn, bundling, file association | `sub-skills/desktop/SUB-SKILL.md` |
 | Version bumps, CI, changelog, formcompiler contract, release gate | `sub-skills/release/SUB-SKILL.md` |
+| Python API, plugins, `.mcp.json` and the stdio MCP server, Live Link, GoF, `docs/integration/` drafts | `sub-skills/agents/SUB-SKILL.md` |
 
 A cross-cutting task loads every row it touches. A new pattern command loads engine, then pattern, then shell-ui, then release.
 
