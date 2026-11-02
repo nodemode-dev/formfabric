@@ -31,7 +31,7 @@ class Session:
         self.chunks: deque[str] = deque()
         self.size = 0
         self.alive = True
-        self.subscribers: set[asyncio.Queue] = set()
+        self.subscribers: set[Subscriber] = set()
         self.lock = threading.Lock()
         self.gen = 0
         self.cols = 100
@@ -89,22 +89,43 @@ def base_env() -> dict:
     return env
 
 
-HIGH_WATER = 48
-HARD_LIMIT = 20000
+HIGH_BYTES = 512 * 1024
+DROP_BYTES = 8 * 1024 * 1024
+STALL_SECONDS = 2.0
+
+
+class Subscriber(asyncio.Queue):
+    def __init__(self, acked: int = 0) -> None:
+        super().__init__()
+        self.acked = acked
+        self.moved = time.monotonic()
+        self.sent = acked
+
+    def consumed(self, pos: int) -> None:
+        if pos > self.acked:
+            self.acked = pos
+        self.moved = time.monotonic()
 
 
 def _deliver(session: Session, text: str | None, pos: int) -> None:
     item = None if text is None else (text, pos)
     for q in list(session.subscribers):
-        if q.qsize() < HARD_LIMIT or text is None:
-            q.put_nowait(item)
+        if text is not None and pos >= 0:
+            q.sent = pos
+            if pos - q.acked > DROP_BYTES:
+                session.subscribers.discard(q)
+                q.put_nowait(("", -2))
+                continue
+        q.put_nowait(item)
+
+
+def _behind(q: Subscriber, now: float) -> bool:
+    return q.sent - q.acked > HIGH_BYTES and now - q.moved < STALL_SECONDS
 
 
 def _backpressure(session: Session) -> None:
-    waited = 0.0
-    while waited < 1.0 and any(q.qsize() > HIGH_WATER for q in list(session.subscribers)):
-        time.sleep(0.004)
-        waited += 0.004
+    while any(_behind(q, time.monotonic()) for q in list(session.subscribers)):
+        time.sleep(0.002)
 
 
 def _send(session: Session, text: str | None, pos: int = -1) -> None:

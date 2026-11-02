@@ -21,7 +21,7 @@ async def attach(ws: WebSocket, sid: str) -> None:
     except KeyError:
         await ws.close(code=4404)
         return
-    q: asyncio.Queue = asyncio.Queue()
+    q = terminal.Subscriber(session.pos)
     session.subscribers.add(q)
 
     async def outbound() -> None:
@@ -34,20 +34,26 @@ async def attach(ws: WebSocket, sid: str) -> None:
             item = await q.get()
             parts: list[str] = []
             size = 0
+            top = 0
             ended = False
             while True:
                 if item is None:
                     ended = True
                     break
                 text, pos = item
+                if pos == -2:
+                    await ws.close(code=1013)
+                    return
                 if pos < 0 or pos > seen:
                     parts.append(text)
                     size += len(text)
+                top = max(top, pos)
                 if size >= BATCH or q.empty():
                     break
                 item = q.get_nowait()
             if parts:
                 await ws.send_text("".join(parts))
+            q.consumed(top)
             if ended:
                 await ws.send_text(json.dumps({"type": "exit"}))
 
