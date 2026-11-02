@@ -17,7 +17,7 @@ fn schema() -> Value {
         "properties": {
             "maps": {"type": "array", "items": {"type": "string", "enum": ["normal", "ao", "displacement"]}, "description": "Maps to bake. Default all three."},
             "size": {"type": "integer", "minimum": 64, "maximum": 4096, "default": 1024, "description": "Pixels per side of every tile."},
-            "path": {"type": "string", "description": "Absolute path ending in .png. Files are written as <name>_<map>.png, with _<udim> added when the layout uses more than one tile."},
+            "path": {"type": "string", "description": "Absolute path ending in .png. Files are written as NAME_MAP.png, with _UDIM added when the layout uses more than one tile."},
             "samples": {"type": "integer", "minimum": 1, "maximum": 128, "default": 12, "description": "Ambient occlusion rays per pixel."},
             "distance": {"type": "number", "minimum": 1, "maximum": 5000, "default": 150, "unit": "mm", "description": "Longest occlusion ray."},
             "smooth": {"type": "integer", "minimum": 0, "maximum": 50, "default": 6, "description": "Laplacian smoothing passes that build the low frequency base surface the normal and displacement maps are measured against."},
@@ -332,7 +332,7 @@ pub(super) fn commands() -> Vec<Command> {
         mcp: "bake_run",
         group: Group::Export,
         label: "Bake Maps",
-        description: "Bake texture maps in the UV layout (uv.layout) as 8 bit PNG: a tangent space normal map and a displacement map that carry the drape detail of the simulated mesh over a smoothed base surface, and an ambient occlusion map by ray casting through the BVH, with visible bodies as occluders. Writes <name>_<map>.png beside the path, one file per map and UDIM tile. Synchronous; the ray budget is capped.",
+        description: "Bake texture maps in the UV layout (uv.layout) as 8 bit PNG: a tangent space normal map and a displacement map that carry the drape detail of the simulated mesh over a smoothed base surface, and an ambient occlusion map by ray casting through the BVH, with visible bodies as occluders. Writes NAME_MAP.png beside the path, one file per map and UDIM tile. Synchronous; the ray budget is capped.",
         keys: &[],
         hints: EXTERNAL,
         schema,

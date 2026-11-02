@@ -318,7 +318,7 @@ fn motion_remove(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
 
 fn parse_target(s: &Session, target: &str) -> Result<(), CommandError> {
     let parts: Vec<&str> = target.split('.').collect();
-    let unknown = || bad(format!("unknown key target {target}; use body.<id>.pose, body.<id>.<measurement>, wind.<field>, panel.<id>.state.<field> or fabric.<id>.<field>"));
+    let unknown = || bad(format!("unknown key target {target}; use body.ID.pose, body.ID.MEASUREMENT, wind.FIELD, panel.ID.state.FIELD or fabric.ID.FIELD"));
     let number = |t: &str| t.parse::<u32>().map_err(|_| unknown());
     match parts.as_slice() {
         ["wind", field] if WIND_FIELDS.contains(field) => Ok(()),
@@ -379,7 +379,7 @@ fn key_set_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
-            "target": {"type": "string", "description": "body.<id>.pose (a pose name or {joint: [x, y, z, w]}), body.<id>.<measurement>, wind.<field>, panel.<id>.state.<field>, fabric.<id>.<field>."},
+            "target": {"type": "string", "description": "body.ID.pose (a pose name or {joint: [x, y, z, w]}), body.ID.MEASUREMENT, wind.FIELD, panel.ID.state.FIELD, fabric.ID.FIELD, where ID is a number and FIELD or MEASUREMENT a name."},
             "frame": {"type": "integer", "minimum": 0, "maximum": MAX_FRAME},
             "value": {"description": "A number, a boolean, a vector, a pose name or a joint rotation object, by target."},
             "interp": {"type": "string", "enum": ["step", "linear", "smooth"], "description": "Interpolation from this key to the next. smooth is a cubic Hermite spline through Catmull-Rom tangents. Default linear."}
@@ -553,7 +553,7 @@ pub(crate) fn commands() -> Vec<Command> {
         Command { id: "motion.import", mcp: "motion_import", group: Group::Anim, label: "Import motion", description: "Read a motion file (.bvh, .glb or .gltf animation with linear, step and cubic spline channels, and .fbx on desktop) and retarget it onto a body by joint-name mapping with rest pose alignment (A pose or T pose source), a root motion option (inplace, keep or off) and a lead-in. The converted motion is stored in the project. Returns which joints mapped.", keys: &[], hints: WRITE, schema: import_schema, run: import_motion },
         Command { id: "motion.set", mcp: "motion_set", group: Group::Anim, label: "Edit motion", description: "Change a motion's start frame, lead-in frames (blend from the current pose to the first motion pose), body, name or retarget options (map, root, scale, loop, align).", keys: &[], hints: SET, schema: motion_set_schema, run: motion_set },
         Command { id: "motion.remove", mcp: "motion_remove", group: Group::Anim, label: "Remove motion", description: "Remove a motion from the timeline.", keys: &[], hints: DESTROY, schema: id_schema, run: motion_remove },
-        Command { id: "key.set", mcp: "key_set", group: Group::Anim, label: "Set key", description: "Set a keyframe on a track: body.<id>.pose, body.<id>.<measurement>, wind.<field>, panel.<id>.state.<field> or fabric.<id>.<field>. Interpolation step, linear or smooth (cubic Hermite with Catmull-Rom tangents). Recording applies the body, measurement and wind tracks every frame.", keys: &[], hints: SET, schema: key_set_schema, run: key_set },
+        Command { id: "key.set", mcp: "key_set", group: Group::Anim, label: "Set key", description: "Set a keyframe on a track: body.ID.pose, body.ID.MEASUREMENT, wind.FIELD, panel.ID.state.FIELD or fabric.ID.FIELD. Interpolation step, linear or smooth (cubic Hermite with Catmull-Rom tangents). Recording applies the body, measurement and wind tracks every frame.", keys: &[], hints: SET, schema: key_set_schema, run: key_set },
         Command { id: "key.remove", mcp: "key_remove", group: Group::Anim, label: "Remove key", description: "Remove the key at a frame from a track; an empty track is deleted.", keys: &[], hints: DESTROY, schema: key_remove_schema, run: key_remove },
         Command { id: "cache.set", mcp: "cache_set", group: Group::Anim, label: "Edit cache layer", description: "Rename a cache layer, show or hide it, or make it the active cache.", keys: &[], hints: SET, schema: cache_set_schema, run: cache_set },
         Command { id: "cache.remove", mcp: "cache_remove", group: Group::Anim, label: "Remove cache layer", description: "Delete a cache layer and its stored frames. Undo brings it back.", keys: &[], hints: DESTROY, schema: id_schema, run: cache_remove },
