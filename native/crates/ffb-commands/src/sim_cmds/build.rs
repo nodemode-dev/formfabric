@@ -19,6 +19,17 @@ fn build(session: &mut Session, force: bool) -> Result<(), CommandError> {
     Ok(())
 }
 
+pub(crate) fn keyed_rebuilder(core: std::sync::Arc<std::sync::Mutex<super::runtime::Core>>, forced: std::collections::HashMap<u32, std::collections::BTreeMap<usize, usize>>) -> impl FnMut(&ffb_pattern::Garment, &[ffb_body::Body]) -> Result<(), String> + Send {
+    let mut mesh = crate::mesh_cmds::MeshState { forced, ..Default::default() };
+    move |garment, bodies| {
+        let assembled = assemble(garment, &mut mesh, bodies)?;
+        let mut c = lock(&core);
+        c.wind = garment.wind.clone();
+        c.install_keep(assembled);
+        Ok(())
+    }
+}
+
 pub(crate) fn ensure(session: &mut Session) -> Result<(), CommandError> {
     build(session, false)
 }

@@ -355,6 +355,7 @@ dependencies = [
  "ffb-body",
  "ffb-core",
  "ffb-fabric",
+ "ffb-gpu",
  "ffb-io",
  "ffb-mesh",
  "ffb-pattern",

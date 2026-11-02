@@ -104,6 +104,8 @@ fn describe(c: &super::runtime::Core, session: &Session) -> Value {
         "preset": session.sim.preset,
         "method": adapter::method_name(&p),
         "device": session.sim.device,
+        "device_active": if c.on_gpu { "gpu" } else { "cpu" },
+        "device_note": c.device_note,
         "fps": round(1.0 / f64::from(p.time_step), 2),
         "kinetic_energy": c.stepper.as_ref().map(|s| round(f64::from(s.kinetic_energy()), 3)),
         "seam_gap": c.stepper.as_ref().map(|s| round(f64::from(s.max_link_gap()), 2)),
@@ -239,7 +241,7 @@ fn settings_schema() -> Value {
             "cg_tolerance": {"type": "number", "minimum": 0.000001, "maximum": 0.1, "description": "Conjugate gradient relative tolerance (implicit method)."},
             "close_frames": {"type": "integer", "minimum": 0, "maximum": 600, "description": "Seam closing phase at the start of a drape: up to this many frames with stiffened seams, reduced gravity, strong damping and collisions on, then the normal simulation. 0 turns it off. Only applies when the garment has seams or links."},
             "close_gap": {"type": "number", "minimum": 0.1, "maximum": 50, "unit": "mm", "description": "The closing phase may end early once the largest seam gap is under this."},
-            "device": {"type": "string", "enum": ["cpu", "gpu"], "description": "Where the solver runs. gpu is accepted and reported unavailable until a GPU solver exists; the simulation stays on the cpu."}
+            "device": {"type": "string", "enum": ["cpu", "gpu"], "description": "Where the solver runs. gpu needs an engine built with the gpu feature and an adapter; otherwise it is reported unavailable and the simulation stays on the cpu. The gpu path supports the vbd method only."}
         },
         "required": [],
         "additionalProperties": false
@@ -356,13 +358,28 @@ fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         s.sim.preset = preset.clone();
     }
     let gpu = adapter::gpu_available();
+    let switched = s.sim.device != requested;
     s.sim.device = requested.clone();
+    let want = requested == "gpu";
+    let (active, note) = {
+        let mut c = super::runtime::lock(&s.sim.core);
+        c.want_gpu = want;
+        if switched && c.stepper.is_some() && c.on_gpu != (want && gpu) {
+            c.reset();
+        }
+        (if c.on_gpu { "gpu" } else { "cpu" }, c.device_note.clone())
+    };
+    let message = if want && !gpu {
+        "gpu solver is not available (no adapter or not built in); running on the cpu".to_string()
+    } else {
+        note
+    };
     Ok(json!({
         "preset": s.sim.preset,
         "params": params_json(&p),
         "changed": touched,
         "presets": ["fast", "normal", "quality", "final"],
-        "device": {"requested": requested, "active": "cpu", "gpu_available": gpu, "message": if requested == "gpu" && !gpu { "gpu solver is not available yet; running on the cpu" } else { "" }}
+        "device": {"requested": requested, "active": active, "gpu_available": gpu, "message": message}
     }))
 }
 

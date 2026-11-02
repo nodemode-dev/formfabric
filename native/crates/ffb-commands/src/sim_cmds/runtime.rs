@@ -36,6 +36,9 @@ pub(crate) struct Core {
     pub closing_done: u32,
     pub closing_over: bool,
     pub close_total: u32,
+    pub want_gpu: bool,
+    pub device_note: String,
+    pub on_gpu: bool,
 }
 
 fn closing_params(base: &Params, u: f32) -> Params {
@@ -68,19 +71,39 @@ impl Core {
         if wanted != self.params {
             self.params = wanted;
             if let Some(st) = self.stepper.as_mut() {
-                st.set_params(wanted);
+                if adapter::accepts(st, &wanted) {
+                    st.set_params(wanted);
+                } else {
+                    self.reset();
+                }
             }
         }
     }
 
+    pub fn make_stepper(&mut self, cloth: Cloth) -> Stepper {
+        let (stepper, note) = adapter::new_stepper(cloth, self.params, self.want_gpu);
+        self.on_gpu = adapter::is_gpu(&stepper);
+        self.device_note = note;
+        stepper
+    }
+
     pub fn install(&mut self, assembled: Assembled) {
+        self.install_inner(assembled, false);
+    }
+
+    pub fn install_keep(&mut self, assembled: Assembled) {
+        self.install_inner(assembled, true);
+    }
+
+    fn install_inner(&mut self, assembled: Assembled, keep: bool) {
         self.sync_params();
         let Assembled { mut cloth, slices, colliders, extras } = assembled;
+        let colliders = if keep { self.colliders.clone() } else { colliders };
         let mut start = cloth.clone();
         if let Some(old) = &self.stepper {
             let x = old.positions();
             for s in &slices {
-                let kept = self.slices.iter().find(|o| o.id == s.id && o.sig == s.sig && o.count == s.count);
+                let kept = self.slices.iter().find(|o| o.id == s.id && (keep || o.sig == s.sig) && o.count == s.count);
                 if let Some(o) = kept.filter(|o| o.start + o.count <= x.len()) {
                     start.positions[s.start..s.start + s.count].copy_from_slice(&x[o.start..o.start + o.count]);
                 }
@@ -89,7 +112,7 @@ impl Core {
         self.solid = states::finish(&mut start, &extras);
         states::finish(&mut cloth, &extras);
         self.pins.clone_from(&start.pins);
-        let mut stepper = Stepper::new(start, self.params);
+        let mut stepper = self.make_stepper(start);
         stepper.set_colliders(colliders.clone());
         self.stepper = Some(stepper);
         self.base = cloth;
@@ -102,7 +125,7 @@ impl Core {
         self.stale = false;
         self.closing_done = 0;
         self.close_total = 0;
-        self.closing_over = false;
+        self.closing_over = keep;
     }
 
     pub fn reset(&mut self) {
@@ -110,7 +133,7 @@ impl Core {
         if self.base.positions.is_empty() {
             return;
         }
-        let mut stepper = Stepper::new(self.base.clone(), self.params);
+        let mut stepper = self.make_stepper(self.base.clone());
         stepper.set_colliders(self.colliders.clone());
         self.stepper = Some(stepper);
         self.pins.clone_from(&self.base.pins);

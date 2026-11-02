@@ -164,7 +164,7 @@ fn flat(points: &[[f32; 3]]) -> Vec<f32> {
 
 fn scene(s: &Session, skip: &[u32], moving: Collider) -> Vec<Collider> {
     let others: Vec<Body> = s.bodies.iter().filter(|b| !skip.contains(&b.id)).cloned().collect();
-    let mut all = adapter::body_colliders(&others);
+    let mut all = adapter::body_colliders(&s.garment, &others);
     all.push(moving);
     all.push(adapter::floor());
     all

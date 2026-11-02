@@ -11,6 +11,10 @@ publish.workspace = true
 name = "ffb_engine"
 crate-type = ["cdylib"]
 
+[features]
+default = ["gpu"]
+gpu = ["ffb-commands/gpu"]
+
 [dependencies]
 ffb-core.workspace = true
 ffb-commands.workspace = true

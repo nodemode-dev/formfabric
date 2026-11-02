@@ -20,6 +20,11 @@ ffb-remesh.workspace = true
 glam.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+ffb-gpu = { workspace = true, optional = true }
+
+[features]
+default = []
+gpu = ["dep:ffb-gpu"]
 
 [[bin]]
 name = "ffb-catalogue"

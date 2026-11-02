@@ -31,6 +31,80 @@ pub(crate) struct CoreOps {
     pub step: Box<dyn Fn(Vec<ffb_sim::Collider>, Wind) + Send>,
     pub measure: Box<dyn Fn(bool) -> (f32, f32, u32) + Send>,
     pub end: Box<dyn Fn() + Send>,
+    pub rekey: Option<Rekey>,
+}
+
+pub(crate) type Rekey = Box<dyn FnMut(&ffb_pattern::Garment, &[Body]) -> Result<(), String> + Send>;
+
+pub(crate) fn has_cloth_keys(anim: &Anim) -> bool {
+    anim.tracks.iter().any(|t| (t.target.starts_with("panel.") || t.target.starts_with("fabric.")) && !t.keys.is_empty())
+}
+
+fn truth(v: &Value) -> Option<bool> {
+    v.as_bool().or_else(|| v.as_f64().map(|x| x >= 0.5))
+}
+
+fn apply_cloth_keys(g: &mut ffb_pattern::Garment, anim: &Anim, frame: f64) -> bool {
+    let mut changed = false;
+    for t in anim.tracks.iter() {
+        let parts: Vec<&str> = t.target.split('.').collect();
+        let Some(v) = interp::evaluate(&t.keys, frame) else { continue };
+        match parts.as_slice() {
+            ["panel", id, "state", field] => {
+                let Some(k) = id.parse::<u32>().ok().and_then(|i| g.index_of(i)) else { continue };
+                let st = &mut g.panels[k].state;
+                let num = v.as_f64().filter(|x| x.is_finite());
+                match *field {
+                    "frozen" => {
+                        if let Some(b) = truth(&v).filter(|b| *b != st.frozen) {
+                            st.frozen = b;
+                            changed = true;
+                        }
+                    }
+                    "hold_shape" => {
+                        if let Some(b) = truth(&v).filter(|b| *b != st.hold_shape) {
+                            st.hold_shape = b;
+                            changed = true;
+                        }
+                    }
+                    "stiffen" => {
+                        if let Some(x) = num.filter(|x| *x != st.stiffen) {
+                            st.stiffen = x;
+                            changed = true;
+                        }
+                    }
+                    "shrink_weft" => {
+                        if let Some(x) = num.filter(|x| *x != st.shrink_weft) {
+                            st.shrink_weft = x;
+                            changed = true;
+                        }
+                    }
+                    "shrink_warp" => {
+                        if let Some(x) = num.filter(|x| *x != st.shrink_warp) {
+                            st.shrink_warp = x;
+                            changed = true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            ["fabric", id, field] => {
+                let Some(f) = id.parse::<u32>().ok().and_then(|i| g.fabrics.iter_mut().find(|f| f.id == i)) else { continue };
+                let Some(x) = v.as_f64().filter(|x| x.is_finite()) else { continue };
+                let Ok(mut json) = serde_json::to_value(&f.physical) else { continue };
+                if json.get(*field).and_then(Value::as_f64) == Some(x) {
+                    continue;
+                }
+                json[*field] = json!(x);
+                if let Ok(next) = serde_json::from_value(json) {
+                    f.physical = next;
+                    changed = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    changed
 }
 
 pub(crate) struct Plan {
@@ -51,6 +125,7 @@ pub(crate) struct Plan {
     pub name: String,
     pub wind: Wind,
     pub sink: Option<Arc<dyn FrameSink>>,
+    pub garment: Option<ffb_pattern::Garment>,
 }
 
 fn wind_at(base: &Wind, anim: &Anim, frame: f64) -> Wind {
@@ -125,6 +200,7 @@ pub(crate) fn plan_for(s: &mut Session, start: u32, end: u32, name: String, step
         j.warnings = warnings;
     }
     let (a, b, c, d, e) = (s.sim.core.clone(), s.sim.core.clone(), s.sim.core.clone(), s.sim.core.clone(), s.sim.core.clone());
+    let keyed = has_cloth_keys(&s.garment.anim);
     let ops = CoreOps {
         begin: Box::new(move || {
             let mut core = a.lock().unwrap_or_else(|x| x.into_inner());
@@ -147,12 +223,13 @@ pub(crate) fn plan_for(s: &mut Session, start: u32, end: u32, name: String, step
         measure: Box::new(move |validate| {
             let core = d.lock().unwrap_or_else(|x| x.into_inner());
             match core.stepper.as_ref() {
-                Some(st) if validate => (st.max_link_gap(), st.max_penetration().max(0.0), st.self_intersections().len() as u32),
+                Some(st) if validate => (st.max_link_gap(), st.max_penetration().max(0.0), crate::sim_cmds::self_hits(st)),
                 Some(st) => (st.max_link_gap(), 0.0, 0),
                 None => (0.0, 0.0, 0),
             }
         }),
         end: Box::new(move || e.lock().unwrap_or_else(|x| x.into_inner()).stale = true),
+        rekey: if keyed { Some(Box::new(crate::sim_cmds::keyed_rebuilder(s.sim.core.clone(), s.mesh.forced.clone()))) } else { None },
     };
     Ok(Plan {
         ops,
@@ -172,6 +249,7 @@ pub(crate) fn plan_for(s: &mut Session, start: u32, end: u32, name: String, step
         name,
         wind: s.garment.wind.clone(),
         sink: s.sink.clone(),
+        garment: if keyed { Some(s.garment.clone()) } else { None },
     })
 }
 
@@ -204,6 +282,7 @@ fn run(mut p: Plan) {
         let mut sh = p.shared.lock().unwrap_or_else(|e| e.into_inner());
         sh.time_step = 1.0 / (fps * k as f32);
     }
+    let mut rekey = p.ops.rekey.take();
     let begin = std::mem::replace(&mut p.ops.begin, Box::new(|| Err(String::new())));
     let existing = match begin() {
         Ok(c) => c,
@@ -256,6 +335,14 @@ fn run(mut p: Plan) {
             break;
         }
         let began = Instant::now();
+        if let (Some(g), Some(rekey)) = (p.garment.as_mut(), rekey.as_mut()) {
+            if apply_cloth_keys(g, &p.anim, f64::from(f)) {
+                if let Err(e) = rekey(g, &[]) {
+                    fail(&p.job, format!("the cloth could not be rebuilt for the panel or fabric keys at frame {f}: {e}"));
+                    return;
+                }
+            }
+        }
         for r in p.rigs.iter_mut() {
             if r.measure_keys.is_empty() {
                 continue;

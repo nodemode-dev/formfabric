@@ -1,14 +1,59 @@
 use ffb_fabric::Physical;
 use ffb_sim::{compare_positions, reference_step, Cloth, Collider, Material, Method, Params};
 
-pub(crate) use ffb_sim::{Solver as Stepper, StepStats as Stats};
+#[cfg(feature = "gpu")]
+pub(crate) use ffb_gpu::AnyStepper as Stepper;
+#[cfg(not(feature = "gpu"))]
+pub(crate) use ffb_sim::Solver as Stepper;
+pub(crate) use ffb_sim::StepStats as Stats;
+
+#[cfg(feature = "gpu")]
+pub(crate) fn new_stepper(cloth: Cloth, params: Params, want_gpu: bool) -> (Stepper, String) {
+    Stepper::new(cloth, params, want_gpu)
+}
+
+#[cfg(not(feature = "gpu"))]
+pub(crate) fn new_stepper(cloth: Cloth, params: Params, want_gpu: bool) -> (Stepper, String) {
+    let note = if want_gpu { "gpu is not built into this engine; running on the cpu".to_string() } else { String::new() };
+    (Stepper::new(cloth, params), note)
+}
+
+#[cfg(feature = "gpu")]
+pub(crate) fn accepts(stepper: &Stepper, params: &Params) -> bool {
+    stepper.accepts(params)
+}
+
+#[cfg(not(feature = "gpu"))]
+pub(crate) fn accepts(_stepper: &Stepper, _params: &Params) -> bool {
+    true
+}
+
+#[cfg(feature = "gpu")]
+pub(crate) fn self_hits(stepper: &Stepper) -> u32 {
+    stepper.self_intersections().map_or(0, |v| v.len() as u32)
+}
+
+#[cfg(not(feature = "gpu"))]
+pub(crate) fn self_hits(stepper: &Stepper) -> u32 {
+    stepper.self_intersections().len() as u32
+}
+
+#[cfg(feature = "gpu")]
+pub(crate) fn is_gpu(stepper: &Stepper) -> bool {
+    stepper.is_gpu()
+}
+
+#[cfg(not(feature = "gpu"))]
+pub(crate) fn is_gpu(_stepper: &Stepper) -> bool {
+    false
+}
 
 pub(crate) fn material(p: &Physical) -> Material {
     Material::from_physical(p)
 }
 
-pub(crate) fn body_colliders(bodies: &[ffb_body::Body]) -> Vec<Collider> {
-    bodies.iter().filter(|b| b.visible && !b.triangles.is_empty()).map(ffb_body::collider).collect()
+pub(crate) fn body_colliders(garment: &ffb_pattern::Garment, bodies: &[ffb_body::Body]) -> Vec<Collider> {
+    bodies.iter().filter(|b| b.visible && !b.triangles.is_empty()).map(|b| crate::edit3d_cmds::fit_shell_collider(garment, b)).collect()
 }
 
 pub(crate) fn mesh_collider(positions: Vec<[f32; 3]>, triangles: &[[u32; 3]]) -> Collider {
@@ -48,6 +93,12 @@ pub(crate) fn set_method(p: &mut Params, name: &str) -> bool {
     true
 }
 
+#[cfg(feature = "gpu")]
+pub(crate) fn gpu_available() -> bool {
+    ffb_gpu::available()
+}
+
+#[cfg(not(feature = "gpu"))]
 pub(crate) fn gpu_available() -> bool {
     false
 }
@@ -82,7 +133,31 @@ pub(crate) fn trim_bindings(garment: &ffb_pattern::Garment, meshes: &std::collec
 }
 
 pub(crate) fn stiffen_bands(garment: &ffb_pattern::Garment, meshes: &std::collections::BTreeMap<u32, ffb_mesh::PanelMesh>) -> Vec<(u32, Vec<f32>)> {
-    crate::trim_cmds::stiffen_bands(garment, meshes).into_iter().collect()
+    let mut all = crate::trim_cmds::stiffen_bands(garment, meshes);
+    for (id, factors) in crate::edit3d_cmds::styleline_stiffen(garment, meshes) {
+        match all.get_mut(&id) {
+            Some(have) => {
+                if have.len() < factors.len() {
+                    have.resize(factors.len(), 1.0);
+                }
+                for (h, f) in have.iter_mut().zip(factors.iter()) {
+                    *h = h.max(*f);
+                }
+            }
+            None => {
+                all.insert(id, factors);
+            }
+        }
+    }
+    all.into_iter().collect()
+}
+
+pub(crate) fn style_folds(garment: &ffb_pattern::Garment, meshes: &std::collections::BTreeMap<u32, ffb_mesh::PanelMesh>, starts: &std::collections::BTreeMap<u32, u32>) -> Vec<ffb_sim::Fold> {
+    crate::edit3d_cmds::styleline_folds(garment, meshes, starts)
+}
+
+pub(crate) fn fit_signature(garment: &ffb_pattern::Garment) -> u64 {
+    crate::edit3d_cmds::fit_and_style_signature(garment)
 }
 
 pub(crate) fn floor() -> Collider {
@@ -98,9 +173,9 @@ pub(crate) struct Compared {
 }
 
 pub(crate) fn compare(cloth: &Cloth, colliders: &[Collider], params: Params, frames: u32, over: &dyn Fn() -> bool) -> Compared {
-    let mut main = Stepper::new(cloth.clone(), params);
+    let mut main = ffb_sim::Solver::new(cloth.clone(), params);
     main.set_colliders(colliders.to_vec());
-    let mut reference = Stepper::new(cloth.clone(), params);
+    let mut reference = ffb_sim::Solver::new(cloth.clone(), params);
     reference.set_colliders(colliders.to_vec());
     let (mut main_ms, mut reference_ms) = (0.0, 0.0);
     let mut done = 0;

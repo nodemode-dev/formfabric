@@ -68,6 +68,7 @@ pub(crate) fn assemble(garment: &Garment, mesh: &mut MeshState, bodies: &[ffb_bo
     let mut folds = Vec::new();
     let mut extras = Extras::default();
     let mut tri_ranges: HashMap<u32, (usize, usize)> = HashMap::new();
+    let fit_sig = adapter::fit_signature(garment);
     for panel in &garment.panels {
         if panel.state.disabled {
             continue;
@@ -84,6 +85,7 @@ pub(crate) fn assemble(garment: &Garment, mesh: &mut MeshState, bodies: &[ffb_bo
         let mut h = Fnv::default();
         h.u64(ensured.key);
         h.u64(place_sig);
+        h.u64(fit_sig);
         let positions: Vec<[f32; 3]> = match panel.place3d.as_ref().and_then(|p| p.pose.as_ref()).filter(|pose| pose.len() == m.positions.len()) {
             Some(pose) => pose.clone(),
             None => layout::positions_3d(m, panel).chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect(),
@@ -193,7 +195,9 @@ pub(crate) fn assemble(garment: &Garment, mesh: &mut MeshState, bodies: &[ffb_bo
         cloth.pins.push(PinPoint { vertex: vertex as u32, target: pin.target.map_or(held, |t| [t[0] as f32, t[1] as f32, t[2] as f32]) });
     }
     cloth.folds = folds;
-    let mut colliders = adapter::body_colliders(bodies);
+    let starts: BTreeMap<u32, u32> = slices.iter().map(|s| (s.id, s.start as u32)).collect();
+    cloth.folds.extend(adapter::style_folds(garment, &meshes, &starts));
+    let mut colliders = adapter::body_colliders(garment, bodies);
     colliders.push(adapter::floor());
     Ok(Assembled { cloth, slices, colliders, extras })
 }
