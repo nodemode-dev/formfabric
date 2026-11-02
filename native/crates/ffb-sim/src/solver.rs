@@ -462,7 +462,7 @@ impl Solver {
             });
         }
         if self.params.self_collision && n > 0 {
-            self.guard_self_contact(&mut pre);
+            self.settle_self_contact();
         }
         let mut vmax: f64 = 0.0;
         let mut contacts = 0;

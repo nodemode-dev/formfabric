@@ -5,26 +5,10 @@ use crate::selfcol::SpatialHash;
 use crate::solver::Solver;
 
 const MAX_PUSH: f64 = 3.0;
-const GUARD_ROUNDS: u32 = 8;
-
-fn dbg() -> u32 {
-    static D: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
-    *D.get_or_init(|| std::env::var("FFB_SC_DBG").ok().and_then(|s| s.parse().ok()).unwrap_or(0))
-}
-
-fn off() -> u32 {
-    static D: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
-    *D.get_or_init(|| std::env::var("FFB_SC_OFF").ok().and_then(|s| s.parse().ok()).unwrap_or(0))
-}
+const SPEED_CAP: f64 = 1200.0;
 
 thread_local! {
     static PUSH: std::cell::RefCell<Vec<DVec3>> = const { std::cell::RefCell::new(Vec::new()) };
-}
-
-static CNT: [std::sync::atomic::AtomicU32; 6] = [const { std::sync::atomic::AtomicU32::new(0) }; 6];
-
-fn bump(i: usize) {
-    CNT[i].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 }
 
 pub struct Contact<'a> {
@@ -50,8 +34,8 @@ impl Contact<'_> {
     fn linked(&self, v: u32, a: u32) -> bool {
         let nb = &self.neighbors[v as usize];
         let two = v == a || nb.binary_search(&a).is_ok() || nb.iter().any(|&w| self.neighbors[w as usize].binary_search(&a).is_ok());
-        if two || off() & 8 != 0 {
-            return two;
+        if two {
+            return true;
         }
         nb.iter().any(|&w| self.neighbors[w as usize].iter().any(|&u| self.neighbors[u as usize].binary_search(&a).is_ok()))
     }
@@ -159,20 +143,13 @@ pub fn vertex_triangle_pass(x: &mut [DVec3], hash: &SpatialHash, c: &Contact) ->
             if wsum < 1.0e-18 {
                 continue;
             }
-            if dbg() & 16 != 0 && (c.seam[v] || t.iter().any(|&i| c.seam[i as usize])) {
+            if c.seam[v] || t.iter().any(|&i| c.seam[i as usize]) {
                 continue;
             }
             let lambda = (sep - sd).min(MAX_PUSH * sep) / wsum;
             x[v] += n * (lambda * wv);
             for k in 0..3 {
                 x[t[k] as usize] -= n * (lambda * wt[k] * bary[k]);
-            }
-            bump(0);
-            if c.seam[v] {
-                bump(2);
-            }
-            if t.iter().any(|&i| c.seam[i as usize]) {
-                bump(3);
             }
             count += 1;
         }
@@ -203,6 +180,9 @@ pub fn edge_edge_pass(x: &mut [DVec3], hash: &SpatialHash, c: &Contact) -> u32 {
                     let (sp, st, c1, c2) = seg_seg(x[p as usize], x[q as usize], x[r as usize], x[s as usize]);
                     let delta = c1 - c2;
                     let dist = delta.length();
+                    if [p, q, r, s].iter().any(|&i| c.seam[i as usize]) {
+                        continue;
+                    }
                     if dist >= c.reach + c.margin || c.linked(p, r) || c.linked(p, s) || c.linked(q, r) || c.linked(q, s) {
                         continue;
                     }
@@ -235,7 +215,6 @@ pub fn edge_edge_pass(x: &mut [DVec3], hash: &SpatialHash, c: &Contact) -> u32 {
                     x[q as usize] += n * (lambda * w[1] * k[1]);
                     x[r as usize] -= n * (lambda * w[2] * k[2]);
                     x[s as usize] -= n * (lambda * w[3] * k[3]);
-                    bump(1);
                     count += 1;
                 }
             }
@@ -280,27 +259,7 @@ impl Solver {
         SpatialHash::build(&self.x, &self.model.triangles, cell, margin)
     }
 
-    pub(crate) fn resolve_self_contact(&mut self) {
-        if off() & 4 == 0 {
-            let cap = std::env::var("FFB_SC_CAP").ok().and_then(|s| s.parse::<f64>().ok()).unwrap_or(1200.0) * self.substep_time();
-            for i in 0..self.x.len() {
-                let d = self.x[i] - self.xn[i];
-                let l = d.length();
-                if l > cap && !self.pinned[i] {
-                    self.x[i] = self.xn[i] + d * (cap / l);
-                }
-            }
-        }
-        let base = self.params.collision_thickness.max(0.0) as f64;
-        let mean_thick = self.model.thickness.iter().copied().fold(0.0, f64::max);
-        let reach = base.max(mean_thick) * 3.0;
-        if reach <= 0.0 {
-            return;
-        }
-        let mean = self.x.iter().zip(&self.xn).map(|(a, b)| *a - *b).sum::<DVec3>() / self.x.len().max(1) as f64;
-        let moved = self.x.iter().zip(&self.xn).map(|(a, b)| (*a - *b - mean).length()).fold(0.0, f64::max);
-        let margin = (moved + 0.5 * reach).min(self.model.rest_edge.max(1.0));
-        let hash = self.contact_hash(reach + margin);
+    fn seam_flags(&self) -> Vec<bool> {
         let mut seam = vec![false; self.x.len()];
         for l in &self.model.links {
             for &v in &l.v[..l.n] {
@@ -315,6 +274,29 @@ impl Solver {
                 }
             }
         }
+        seam
+    }
+
+    pub(crate) fn resolve_self_contact(&mut self) {
+        let seam = self.seam_flags();
+        let cap = SPEED_CAP * self.substep_time();
+        for ((x, xn), pinned) in self.x.iter_mut().zip(&self.xn).zip(&self.pinned) {
+            let d = *x - *xn;
+            let l = d.length();
+            if l > cap && !*pinned {
+                *x = *xn + d * (cap / l);
+            }
+        }
+        let base = self.params.collision_thickness.max(0.0) as f64;
+        let mean_thick = self.model.thickness.iter().copied().fold(0.0, f64::max);
+        let reach = base.max(mean_thick) * 3.0;
+        if reach <= 0.0 {
+            return;
+        }
+        let mean = self.x.iter().zip(&self.xn).map(|(a, b)| *a - *b).sum::<DVec3>() / self.x.len().max(1) as f64;
+        let moved = self.x.iter().zip(&self.xn).map(|(a, b)| (*a - *b - mean).length()).fold(0.0, f64::max);
+        let margin = (moved + 0.5 * reach).min(self.model.rest_edge.max(1.0));
+        let hash = self.contact_hash(reach + margin);
         let c = Contact {
             tris: &self.model.triangles,
             neighbors: &self.model.neighbors,
@@ -329,66 +311,46 @@ impl Solver {
         };
         let before = self.x.clone();
         vertex_triangle_pass(&mut self.x, &hash, &c);
-        if dbg() & 2 == 0 {
-            edge_edge_pass(&mut self.x, &hash, &c);
-        }
-        if dbg() & 8 == 0 {
-            vertex_triangle_pass(&mut self.x, &hash, &c);
-        }
+        edge_edge_pass(&mut self.x, &hash, &c);
+        vertex_triangle_pass(&mut self.x, &hash, &c);
+        self.project_links();
         let delta: Vec<DVec3> = self.x.iter().zip(&before).map(|(a, b)| *a - *b).collect();
-        if dbg() & 1 != 0 {
-            let push = delta.iter().map(|d| d.length()).fold(0.0, f64::max);
-            let c0 = CNT.each_ref().map(|a| a.swap(0, std::sync::atomic::Ordering::Relaxed));
-            eprintln!("SC reach {reach:.2} margin {margin:.2} vt {} ee {} vt_seamv {} vt_seamt {} maxpush {push:.2} moved {moved:.2}", c0[0], c0[1], c0[2], c0[3]);
-        }
         PUSH.with(|p| *p.borrow_mut() = delta);
     }
 
-    pub(crate) fn guard_self_contact(&mut self, pre: &mut [DVec3]) {
-        let n = self.x.len();
-        let push = PUSH.with(|p| std::mem::take(&mut *p.borrow_mut()));
-        let offset = self.params.skin_offset.max(0.0) as f64;
-        let mut reverted = vec![false; n];
-        for round in 0..if off() & 1 == 0 { GUARD_ROUNDS } else { 0 } {
-            let tris = &self.model.triangles;
-            let fresh: Vec<(u32, u32)> = self.self_intersections().into_iter().filter(|&(a, b)| !triangles_intersect(&self.xn, &tris[a as usize], &tris[b as usize])).collect();
-            if dbg() & 1 != 0 {
-                eprintln!("SCG round {round} fresh {}", fresh.len());
-            }
-            if fresh.is_empty() {
-                break;
-            }
-            let mut hit = vec![false; n];
-            for (a, b) in fresh {
-                for &i in self.model.triangles[a as usize].iter().chain(&self.model.triangles[b as usize]) {
-                    hit[i as usize] = true;
+    fn project_links(&mut self) {
+        for _ in 0..2 {
+            for l in &self.model.links {
+                let mut d = DVec3::ZERO;
+                for k in 0..l.n {
+                    d += self.x[l.v[k] as usize] * l.c[k];
                 }
-            }
-            if round >= GUARD_ROUNDS / 2 {
-                let h0 = hit.clone();
-                for (i, nb) in self.model.neighbors.iter().enumerate() {
-                    if nb.iter().any(|&w| h0[w as usize]) {
-                        hit[i] = true;
-                    }
+                let len = d.length();
+                if len < 1.0e-9 || len <= l.rest {
+                    continue;
                 }
-            }
-            let keep = if round + 2 >= GUARD_ROUNDS { 0.0 } else { 0.5 };
-            for i in 0..n {
-                if hit[i] && !self.pinned[i] {
-                    let p = self.xn[i] + (self.x[i] - self.xn[i]) * keep;
-                    self.x[i] = if self.colliders.is_empty() { p } else { crate::collide::resolve(&self.colliders, p, offset).0 };
-                    reverted[i] = true;
-                    if let Some(q) = pre.get_mut(i) {
-                        *q = self.x[i];
-                    }
+                let dir = d / len;
+                let w: Vec<f64> = (0..l.n).map(|k| if self.pinned[l.v[k] as usize] { 0.0 } else { self.inv_mass[l.v[k] as usize] }).collect();
+                let wsum: f64 = (0..l.n).map(|k| w[k] * l.c[k] * l.c[k]).sum();
+                if wsum < 1.0e-18 {
+                    continue;
+                }
+                let lambda = 0.5 * (len - l.rest) / wsum;
+                for (k, wk) in w.iter().enumerate() {
+                    self.x[l.v[k] as usize] -= dir * (lambda * wk * l.c[k]);
                 }
             }
         }
-        if off() & 2 == 0 && push.len() == n {
-            for i in 0..n {
-                if !reverted[i] && !self.pinned[i] {
-                    self.xn[i] += push[i];
-                }
+    }
+
+    pub(crate) fn settle_self_contact(&mut self) {
+        let push = PUSH.with(|p| std::mem::take(&mut *p.borrow_mut()));
+        if push.len() != self.x.len() {
+            return;
+        }
+        for ((xn, p), pinned) in self.xn.iter_mut().zip(&push).zip(&self.pinned) {
+            if !*pinned {
+                *xn += *p;
             }
         }
     }
