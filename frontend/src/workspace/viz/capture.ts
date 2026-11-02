@@ -87,7 +87,7 @@ export class Capture {
     const seconds = el<HTMLInputElement>('<input class="cv-input" type="number" min="1" max="120" step="1" value="4">');
     const range = el<HTMLInputElement>('<input type="checkbox">');
     const path = el<HTMLInputElement>('<input class="cv-input" type="text" spellcheck="false" placeholder="/absolute/path/capture.png">');
-    path.value = localStorage.getItem(PATH_KEY) ?? '';
+    try { path.value = localStorage.getItem(PATH_KEY) ?? ''; } catch { path.value = ''; }
     this.rows.kind = d.field('Type', kind);
     this.rows.size = d.field('Size', size);
     this.rows.dims = d.field('Width and height', dims);
@@ -133,7 +133,7 @@ export class Capture {
     this.go.dataset.k = 'cap-go';
     kind.addEventListener('change', () => this.layout());
     size.addEventListener('change', () => this.layout());
-    path.addEventListener('change', () => localStorage.setItem(PATH_KEY, path.value.trim()));
+    path.addEventListener('change', () => { try { localStorage.setItem(PATH_KEY, path.value.trim()); } catch { /* not saved */ } });
     this.dialog = d;
     this.layout();
     return d;
@@ -143,6 +143,25 @@ export class Capture {
     const d = this.dialog ?? this.build();
     this.layout();
     d.open();
+    this.reserve(d);
+  }
+
+  private reserved = false;
+
+  private reserve(d: Dialog): void {
+    if (this.reserved || !this.kind || !this.size) return;
+    this.reserved = true;
+    const kind = this.kind.value;
+    const size = this.size.value;
+    const path = this.path?.value ?? '';
+    this.kind.value = 'multi';
+    this.size.value = 'custom';
+    this.layout();
+    d.body.style.minHeight = `${d.body.offsetHeight}px`;
+    this.kind.value = kind;
+    this.size.value = size;
+    this.layout();
+    if (this.path) this.path.value = path;
   }
 
   private layout(): void {
@@ -179,7 +198,7 @@ export class Capture {
       this.say(t('Enter an absolute path to save to'));
       return;
     }
-    localStorage.setItem(PATH_KEY, target);
+    try { localStorage.setItem(PATH_KEY, target); } catch { /* not saved */ }
     this.busy = true;
     this.cancel = false;
     setDisabled(this.go, true);

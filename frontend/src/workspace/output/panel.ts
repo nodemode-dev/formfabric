@@ -320,10 +320,17 @@ export class OutputPanel {
     const want = known.map((k) => k.join(':')).join('|');
     if (sel.dataset.sig !== want) {
       sel.dataset.sig = want;
-      sel.replaceChildren();
-      for (const [id, text] of known) { const o = document.createElement('option'); o.value = id; setText(o, text); sel.appendChild(o); }
-      const last = recall<string>('format', 'obj');
-      if (known.some(([id]) => id === last)) this.format.set(last);
+      const keep = sel.value;
+      const have = new Map(Array.from(sel.options).map((o) => [o.value, o] as const));
+      for (const [id, o] of have) if (!known.some(([k]) => k === id)) o.remove();
+      known.forEach(([id, text], at) => {
+        let o = have.get(id);
+        if (!o) { o = document.createElement('option'); o.value = id; }
+        if (o.textContent !== text) setText(o, text);
+        if (sel.options[at] !== o) sel.insertBefore(o, sel.options[at] ?? null);
+      });
+      const last = keep && known.some(([id]) => id === keep) ? keep : recall<string>('format', 'obj');
+      if (known.some(([id]) => id === last) && sel.value !== last) this.format.set(last);
     }
     const canExport = s.has('export.run') && known.length > 0;
     this.format.disable(!canExport);

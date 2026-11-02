@@ -3,7 +3,38 @@ use super::{compact, Raw};
 const DATA: u64 = 1 << 63;
 
 fn word(b: &[u8], at: usize) -> Result<u64, String> {
-    b.get(at..at + 8).map(|s| u64::from_le_bytes(s.try_into().unwrap_or([0; 8]))).ok_or_else(|| "the Alembic file is truncated".to_string())
+    at.checked_add(8).and_then(|end| b.get(at..end)).map(|s| u64::from_le_bytes(s.try_into().unwrap_or([0; 8]))).ok_or_else(|| "the Alembic file is truncated".to_string())
+}
+
+const MAX_DEPTH: u32 = 64;
+const MAX_NODES: usize = 1_000_000;
+
+struct Budget {
+    nodes: usize,
+    bytes: usize,
+    vertices: usize,
+    out: Vec<Mesh>,
+}
+
+impl Budget {
+    fn node(&mut self, depth: u32) -> Result<(), String> {
+        if depth > MAX_DEPTH {
+            return Err(format!("the Alembic file nests deeper than {MAX_DEPTH} levels"));
+        }
+        if self.nodes == 0 {
+            return Err(format!("the Alembic file holds more than {MAX_NODES} objects and properties"));
+        }
+        self.nodes -= 1;
+        Ok(())
+    }
+
+    fn bytes(&mut self, n: usize) -> Result<(), String> {
+        if n > self.bytes {
+            return Err("the Alembic file expands to more sample data than its size allows".into());
+        }
+        self.bytes -= n;
+        Ok(())
+    }
 }
 
 fn group(b: &[u8], entry: u64) -> Result<Vec<u64>, String> {
@@ -13,23 +44,24 @@ fn group(b: &[u8], entry: u64) -> Result<Vec<u64>, String> {
     if entry & DATA != 0 {
         return Err("the Alembic file is damaged (data where a group belongs)".into());
     }
-    let n = word(b, entry as usize)? as usize;
+    let at = usize::try_from(entry).map_err(|_| "the Alembic file is damaged (offset too large)".to_string())?;
+    let n = usize::try_from(word(b, at)?).map_err(|_| "the Alembic file is damaged (group too large)".to_string())?;
     if n == 0 || n > b.len() / 8 {
         return Err("the Alembic file is damaged (bad group size)".into());
     }
-    (0..n).map(|i| word(b, entry as usize + 8 + i * 8)).collect()
+    (0..n).map(|i| word(b, at.saturating_add(8).saturating_add(i * 8))).collect()
 }
 
 fn data(b: &[u8], entry: u64) -> Result<&[u8], String> {
     if entry & DATA == 0 {
         return Err("the Alembic file is damaged (group where data belongs)".into());
     }
-    let at = (entry & !DATA) as usize;
+    let at = usize::try_from(entry & !DATA).map_err(|_| "the Alembic file is damaged (offset too large)".to_string())?;
     if at == 0 {
         return Ok(&[]);
     }
-    let n = word(b, at)? as usize;
-    b.get(at + 8..at + 8 + n).ok_or_else(|| "the Alembic file is truncated".to_string())
+    let n = usize::try_from(word(b, at)?).map_err(|_| "the Alembic file is truncated".to_string())?;
+    at.checked_add(8).and_then(|s| s.checked_add(n).map(|e| (s, e))).and_then(|(s, e)| b.get(s..e)).ok_or_else(|| "the Alembic file is truncated".to_string())
 }
 
 struct Cur<'a> {
@@ -39,8 +71,9 @@ struct Cur<'a> {
 
 impl<'a> Cur<'a> {
     fn take(&mut self, n: usize) -> Result<&'a [u8], String> {
-        let s = self.b.get(self.at..self.at + n).ok_or("the Alembic header table is damaged")?;
-        self.at += n;
+        let end = self.at.checked_add(n).ok_or("the Alembic header table is damaged")?;
+        let s = self.b.get(self.at..end).ok_or("the Alembic header table is damaged")?;
+        self.at = end;
         Ok(s)
     }
 
@@ -82,7 +115,8 @@ fn meta_of(table: &[String], idx: u8) -> Result<String, String> {
     table.get(idx as usize - 1).cloned().ok_or_else(|| "the Alembic metadata table is damaged".to_string())
 }
 
-fn props(b: &[u8], entry: u64, table: &[String]) -> Result<Vec<Prop>, String> {
+fn props(b: &[u8], entry: u64, table: &[String], depth: u32, budget: &mut Budget) -> Result<Vec<Prop>, String> {
+    budget.node(depth)?;
     let children = group(b, entry)?;
     let Some((hdr, groups)) = children.split_last() else { return Ok(Vec::new()) };
     let blob = data(b, *hdr)?;
@@ -98,7 +132,7 @@ fn props(b: &[u8], entry: u64, table: &[String]) -> Result<Vec<Prop>, String> {
             n = cur.var(hint)?;
             if info & 0x200 != 0 {
                 first = cur.var(hint)?;
-                last = cur.var(hint)?;
+                last = cur.var(hint)?.max(first);
             } else if !constant {
                 first = 1;
                 last = n.saturating_sub(1);
@@ -116,7 +150,7 @@ fn props(b: &[u8], entry: u64, table: &[String]) -> Result<Vec<Prop>, String> {
             meta_of(table, ((info >> 20) & 0xFF) as u8)?;
         }
         let g = *groups.get(out.len()).ok_or("the Alembic property list is damaged")?;
-        let (subs, entries) = if compound { (props(b, g, table)?, Vec::new()) } else { (Vec::new(), group(b, g)?) };
+        let (subs, entries) = if compound { (props(b, g, table, depth + 1, budget)?, Vec::new()) } else { (Vec::new(), group(b, g)?) };
         out.push(Prop { name, compound, pod: (info >> 4) & 15, extent: (info >> 12) & 255, n, first, last, constant, array: info & 3 != 1, entries, subs });
     }
     Ok(out)
@@ -130,11 +164,11 @@ fn payload<'a>(b: &'a [u8], p: &Prop, i: usize) -> Result<&'a [u8], String> {
     let k = if p.constant || i < p.first {
         0
     } else if i >= p.last {
-        p.last - p.first + 1
+        (p.last.saturating_sub(p.first)).saturating_add(1)
     } else {
-        i - p.first + 1
+        (i - p.first).saturating_add(1)
     };
-    let at = if p.array { 2 * k } else { k };
+    let at = if p.array { k.saturating_mul(2) } else { k };
     let blob = data(b, *p.entries.get(at).ok_or("the Alembic sample table is damaged")?)?;
     if blob.is_empty() {
         return Ok(blob);
@@ -170,7 +204,8 @@ struct Mesh {
     indices: Vec<i64>,
 }
 
-fn collect(b: &[u8], entry: u64, meta: &str, table: &[String], sample: usize, out: &mut Vec<Mesh>) -> Result<(), String> {
+fn collect(b: &[u8], entry: u64, meta: &str, table: &[String], sample: usize, depth: u32, budget: &mut Budget) -> Result<(), String> {
+    budget.node(depth)?;
     let children = group(b, entry)?;
     let Some((hdr, rest)) = children.split_last() else { return Ok(()) };
     let blob = data(b, *hdr)?;
@@ -179,7 +214,7 @@ fn collect(b: &[u8], entry: u64, meta: &str, table: &[String], sample: usize, ou
     }
     if meta.contains("schema=AbcGeom_PolyMesh_v1") || meta.contains("schemaObjTitle=AbcGeom_PolyMesh_v1") {
         let top = match rest.first() {
-            Some(p) => props(b, *p, table)?,
+            Some(p) => props(b, *p, table, depth + 1, budget)?,
             None => Vec::new(),
         };
         if let Some(geom) = top.iter().find(|p| p.name == ".geom") {
@@ -188,9 +223,15 @@ fn collect(b: &[u8], entry: u64, meta: &str, table: &[String], sample: usize, ou
                 if sample >= p.n.max(1) {
                     return Err(format!("sample {sample} is past the last sample ({}) of the mesh", p.n.saturating_sub(1)));
                 }
+                let raw_p = payload(b, p, sample)?.len();
+                let points = raw_p / (p.extent.max(1) as usize * if p.pod == 11 { 8 } else { 4 });
+                budget.vertices = budget.vertices.checked_sub(points).ok_or_else(|| format!("the Alembic mesh has more than {} vertices", super::MAX_VERTICES))?;
+                budget.bytes(raw_p.saturating_mul(3))?;
+                budget.bytes(payload(b, fc, sample)?.len().saturating_mul(3))?;
+                budget.bytes(payload(b, fi, sample)?.len().saturating_mul(3))?;
                 let v = floats(b, p, sample)?;
                 let positions = v.as_chunks::<3>().0.iter().map(|c| [c[0] as f32, c[1] as f32, c[2] as f32]).collect();
-                out.push(Mesh { positions, counts: ints(b, fc, sample)?, indices: ints(b, fi, sample)? });
+                budget.out.push(Mesh { positions, counts: ints(b, fc, sample)?, indices: ints(b, fi, sample)? });
             }
         }
     }
@@ -208,7 +249,7 @@ fn collect(b: &[u8], entry: u64, meta: &str, table: &[String], sample: usize, ou
             meta_of(table, mi)?
         };
         let g = *rest.get(1 + k).ok_or("an Alembic child list is damaged")?;
-        collect(b, g, &cmeta, table, sample, out)?;
+        collect(b, g, &cmeta, table, sample, depth + 1, budget)?;
         k += 1;
     }
     Ok(())
@@ -225,6 +266,13 @@ pub fn read(b: &[u8], sample: Option<usize>) -> Result<Raw, String> {
     if root.len() < 6 {
         return Err("the Alembic archive is damaged".into());
     }
+    let version = |e: u64| -> Result<i32, String> {
+        let d = data(b, e)?;
+        Ok(i32::from_le_bytes(d.try_into().map_err(|_| "the Alembic version fields are damaged".to_string())?))
+    };
+    if version(root[0])? != 0 || version(root[1])? < 9999 {
+        return Err("this Alembic file version is not supported".into());
+    }
     let raw = data(b, root[5])?;
     let mut table = Vec::new();
     let mut cur = Cur { b: raw, at: 0 };
@@ -232,8 +280,9 @@ pub fn read(b: &[u8], sample: Option<usize>) -> Result<Raw, String> {
         let l = cur.take(1)?[0] as usize;
         table.push(cur.text(l)?);
     }
-    let mut meshes = Vec::new();
-    collect(b, root[2], "", &table, sample.unwrap_or(0), &mut meshes)?;
+    let mut budget = Budget { nodes: MAX_NODES, bytes: b.len().saturating_mul(4).max(1 << 20), vertices: super::MAX_VERTICES, out: Vec::new() };
+    collect(b, root[2], "", &table, sample.unwrap_or(0), 0, &mut budget)?;
+    let meshes = std::mem::take(&mut budget.out);
     if meshes.is_empty() {
         return Err("the Alembic file holds no polygon mesh".into());
     }
@@ -248,11 +297,13 @@ pub fn read(b: &[u8], sample: Option<usize>) -> Result<Raw, String> {
         let mut at = 0usize;
         for c in &m.counts {
             let c = *c;
-            if c <= 0 || at + c as usize > m.indices.len() {
-                break;
+            let Some(end) = usize::try_from(c).ok().filter(|c| *c > 0).and_then(|c| at.checked_add(c)).filter(|e| *e <= m.indices.len()) else { break };
+            let corners = &m.indices[at..end];
+            at = end;
+            if corners.iter().any(|i| *i < 0 || *i >= n) {
+                continue;
             }
-            let face: Vec<u32> = m.indices[at..at + c as usize].iter().rev().map(|i| if *i < 0 || *i >= n { 0 } else { base as u32 + *i as u32 }).collect();
-            at += c as usize;
+            let face: Vec<u32> = corners.iter().rev().map(|i| base as u32 + *i as u32).collect();
             for k in 1..face.len().saturating_sub(1) {
                 triangles.push([face[0], face[k], face[k + 1]]);
             }

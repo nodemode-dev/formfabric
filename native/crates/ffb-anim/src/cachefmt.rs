@@ -192,7 +192,7 @@ impl<'a> Cache<'a> {
             return Err("the animation cache header is malformed".into());
         }
         let header: Header = serde_json::from_slice(&bytes[12..12 + hl]).map_err(|e| format!("the animation cache header is malformed: {e}"))?;
-        if header.frames > MAX_FRAMES || header.panels.len() > 4096 || header.bodies.len() > 256 {
+        if header.frames == 0 || header.frames > MAX_FRAMES || header.panels.len() > 4096 || header.bodies.len() > 256 {
             return Err("the animation cache is over the limits".into());
         }
         if header.stats.len() != header.frames as usize || header.bodies.iter().any(|b| b.joints.len() > 4096) {
@@ -348,7 +348,20 @@ pub fn compose(layers: &[(u32, &[u8])]) -> Result<Composed, String> {
         return Err("the layers were recorded with different panels or bodies and cannot be merged".into());
     }
     let first = caches.iter().map(|(s, _)| *s).min().unwrap_or(0);
-    let last = caches.iter().map(|(s, c)| s + c.header.frames.saturating_sub(1)).max().unwrap_or(0);
+    let mut last = 0u32;
+    for (s, c) in &caches {
+        if *s > MAX_FRAMES {
+            return Err("a layer starts beyond the frame limit".into());
+        }
+        last = last.max(s.checked_add(c.header.frames.saturating_sub(1)).ok_or("a layer range overflows")?);
+    }
+    let total = u64::from(last - first) + 1;
+    if total > u64::from(MAX_FRAMES) {
+        return Err(format!("the merged layer would span {total} frames, over the limit of {MAX_FRAMES}; move the layers closer first"));
+    }
+    if total.saturating_mul(top.header.frame_size() as u64) > MAX_BYTES as u64 {
+        return Err("the merged layer would be larger than the cache size limit; move the layers closer or merge fewer frames".into());
+    }
     let at = |f: u32| -> Option<Pulled> {
         caches.iter().rev().find(|(s, c)| f >= *s && f - *s < c.header.frames).and_then(|(s, c)| pull(c, f - *s))
     };
@@ -357,18 +370,24 @@ pub fn compose(layers: &[(u32, &[u8])]) -> Result<Composed, String> {
     header.frames = 0;
     header.stats = Vec::new();
     let mut writer = Writer::new(header);
+    let mut prev: Option<(u32, Pulled)> = None;
+    let mut next: Option<(u32, Pulled)> = None;
     for f in first..=last {
-        let mut got = at(f);
-        if got.is_none() {
-            let prev = (first..f).rev().find_map(|p| at(p).map(|x| (p, x)));
-            let next = (f + 1..=last).find_map(|n| at(n).map(|x| (n, x)));
-            if let (Some((p, a)), Some((n, b))) = (prev, next) {
-                got = Some(blend(&a, &b, (f - p) as f32 / (n - p) as f32));
+        let mut one = match at(f) {
+            Some(p) => p,
+            None => {
+                if next.as_ref().is_none_or(|(n, _)| *n <= f) {
+                    next = (f + 1..=last).find_map(|n| at(n).map(|x| (n, x)));
+                }
+                match (&prev, &next) {
+                    (Some((p, a)), Some((n, b))) => blend(a, b, (f - p) as f32 / (n - p) as f32),
+                    _ => return Err("a frame could not be resolved".into()),
+                }
             }
-        }
-        let mut one = got.ok_or("a frame could not be resolved")?;
+        };
         one.stat.frame = f;
-        writer.push(&one.panels, &one.bodies, one.stat)?;
+        writer.push(&one.panels, &one.bodies, one.stat.clone())?;
+        prev = Some((f, one));
     }
     let frames = writer.header().frames;
     Ok(Composed { bytes: writer.finish()?, start: first, frames })

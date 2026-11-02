@@ -57,7 +57,7 @@ fn stage_schema() -> Value {
             "hdri_rotation": {"type": "number", "description": "Environment rotation in degrees."},
             "exposure": {"type": "number", "minimum": -10, "maximum": 10, "description": "Exposure in stops."},
             "ground": {"type": "boolean", "description": "Show the ground plane."},
-            "background": {"description": "Background: a CSS colour string, a colour array, or an object. An object with image (a local picture path, PNG or JPEG; null clears it) and fit (cover or contain, default cover) draws that picture behind the scene, fixed to the screen."}
+            "background": {"description": "Background: a CSS colour string, a colour array, or an object. An object with image (an absolute local picture path ending in png, jpg, jpeg or webp; null clears it) and fit (cover or contain, default cover) draws that picture behind the scene, fixed to the screen."}
         },
         "additionalProperties": false
     })
@@ -99,6 +99,9 @@ fn stage_set(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
                 let lower = path.to_ascii_lowercase();
                 if path.is_empty() || ["http:", "https:", "data:", "blob:", "file:", "ftp:"].iter().any(|p| lower.starts_with(p)) {
                     return Err(bad("image must be a local file path; URLs are not accepted"));
+                }
+                if !std::path::Path::new(path).is_absolute() || path.contains('\0') {
+                    return Err(bad("image must be an absolute path"));
                 }
                 if !["png", "jpg", "jpeg", "webp"].iter().any(|e| lower.ends_with(&format!(".{e}"))) {
                     return Err(bad("image must be a png, jpg, jpeg or webp file"));

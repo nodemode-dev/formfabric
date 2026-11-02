@@ -125,6 +125,27 @@ impl PanelTopo {
 }
 
 impl Topology {
+    pub fn sanitize(&mut self) -> usize {
+        let mut dropped = 0;
+        for panel in self.panels.values_mut() {
+            let n = panel.points.len();
+            let ok = |ids: &Vec<u32>, p: &PanelTopo| ids.iter().all(|i| (*i as usize) < n && p.points[*i as usize].iter().all(|c| c.is_finite()));
+            let snapshot = panel.clone();
+            let (f0, l0) = (panel.faces.len(), panel.lines.len());
+            panel.faces.retain(|f| (f.len() == 3 || f.len() == 4) && ok(f, &snapshot));
+            panel.lines.retain(|l| l.len() >= 2 && ok(l, &snapshot));
+            dropped += f0 - panel.faces.len() + l0 - panel.lines.len();
+        }
+        if let Some(open) = &self.open {
+            let valid = self.panels.get(&open.panel).is_some_and(|p| open.points.iter().all(|i| (*i as usize) < p.points.len()));
+            if !valid {
+                self.open = None;
+                dropped += 1;
+            }
+        }
+        dropped
+    }
+
     pub fn is_empty(&self) -> bool {
         self.panels.values().all(|p| p.points.is_empty()) && self.open.is_none() && self.remeshed.is_empty()
     }

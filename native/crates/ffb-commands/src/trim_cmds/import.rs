@@ -9,6 +9,8 @@ use crate::{Command, CommandError, Group, Session, EXTERNAL};
 
 const MAX_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_TRIANGLES: usize = 20_000;
+#[cfg(not(target_arch = "wasm32"))]
+const FBX_MEMORY: usize = 512 * 1024 * 1024;
 const MAX_EXTENT: f64 = 2_000.0;
 
 type Mesh = (Vec<[f64; 3]>, Vec<[u32; 3]>);
@@ -58,8 +60,8 @@ pub fn parse_obj(source: &str, scale: f64, up_y: bool) -> Result<Mesh, CommandEr
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn parse_fbx(path: &str, scale: f64) -> Result<Mesh, CommandError> {
-    let raw = ffb_body::import::fbx::read(path).map_err(bad)?;
+fn parse_fbx(bytes: &[u8], scale: f64) -> Result<Mesh, CommandError> {
+    let raw = ffb_body::import::fbx::read_memory(bytes, FBX_MEMORY).map_err(bad)?;
     if raw.triangles.len() > MAX_TRIANGLES {
         return Err(bad(format!("the mesh has more than {MAX_TRIANGLES} triangles")));
     }
@@ -72,7 +74,7 @@ fn parse_fbx(path: &str, scale: f64) -> Result<Mesh, CommandError> {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn parse_fbx(_path: &str, _scale: f64) -> Result<Mesh, CommandError> {
+fn parse_fbx(_bytes: &[u8], _scale: f64) -> Result<Mesh, CommandError> {
     Err(bad("FBX import is not available in the browser build"))
 }
 
@@ -143,11 +145,9 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         return Err(bad("the file is larger than 8 MB"));
     }
     let mut bytes = Vec::new();
-    if !fbx {
-        std::io::Read::take(file, MAX_BYTES + 1).read_to_end(&mut bytes).map_err(io)?;
-        if bytes.len() as u64 > MAX_BYTES {
-            return Err(bad("the file is larger than 8 MB"));
-        }
+    std::io::Read::take(file, MAX_BYTES + 1).read_to_end(&mut bytes).map_err(io)?;
+    if bytes.len() as u64 > MAX_BYTES {
+        return Err(bad("the file is larger than 8 MB"));
     }
     let panel = panel_of(&s.garment, required_id(a, "panel")?)?;
     let point = optional_vec2(a, "point")?.ok_or_else(|| bad("point is required"))?;
@@ -158,7 +158,7 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let panel_id = panel.id;
     let scale = number_or(a, "scale", 1.0);
     let up_y = fbx || text(a, "up") == Some("y");
-    let (positions, triangles) = if fbx { parse_fbx(&path, scale)? } else { parse_obj(&String::from_utf8_lossy(&bytes), scale, up_y)? };
+    let (positions, triangles) = if fbx { parse_fbx(&bytes, scale)? } else { parse_obj(&String::from_utf8_lossy(&bytes), scale, up_y)? };
     let span = |k: usize| positions.iter().map(|p| p[k]).fold(f64::MIN, f64::max) - positions.iter().map(|p| p[k]).fold(f64::MAX, f64::min);
     let (width, thickness) = (span(0).max(span(1)), span(2));
     let stem = std::path::Path::new(&path).file_stem().and_then(|n| n.to_str()).unwrap_or("Trim").to_string();

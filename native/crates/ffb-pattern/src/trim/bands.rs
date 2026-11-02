@@ -30,6 +30,7 @@ fn gather(garment: &Garment, ends: &[SeamEnd], half: f64, factor: f64, out: &mut
     panels.dedup();
     for panel in panels {
         let lines: Vec<Vec<V2>> = ends.iter().filter(|e| e.panel == panel).map(|e| polyline(garment, e)).filter(|l| l.len() >= 2).collect();
+        let factor = if factor.is_finite() { factor.clamp(0.05, 100.0) } else { 1.0 };
         if !lines.is_empty() && (factor - 1.0).abs() > 1.0e-6 {
             out.push(Band { panel, lines, half, factor });
         }
@@ -80,6 +81,7 @@ fn near(lines: &[Vec<V2>], p: V2) -> f64 {
 
 pub fn stiffen_bands(garment: &Garment, meshes: &BTreeMap<u32, TrimMesh>) -> BTreeMap<u32, Vec<f32>> {
     let mut out: BTreeMap<u32, Vec<f32>> = BTreeMap::new();
+    let mut boost: BTreeMap<u32, Vec<f32>> = BTreeMap::new();
     for band in bands_of(garment) {
         let Some(mesh) = meshes.get(&band.panel) else { continue };
         if garment.panels.iter().any(|p| p.id == band.panel && p.state.disabled) {
@@ -89,6 +91,7 @@ pub fn stiffen_bands(garment: &Garment, meshes: &BTreeMap<u32, TrimMesh>) -> BTr
         if slot.len() != mesh.triangles.len() {
             continue;
         }
+        let up = boost.entry(band.panel).or_insert_with(|| vec![1.0; mesh.triangles.len()]);
         for (k, tri) in mesh.triangles.iter().enumerate() {
             let corners: Vec<V2> = tri.iter().filter_map(|i| mesh.positions.get(*i as usize).copied()).collect();
             if corners.len() != 3 {
@@ -96,7 +99,18 @@ pub fn stiffen_bands(garment: &Garment, meshes: &BTreeMap<u32, TrimMesh>) -> BTr
             }
             let centre = [(corners[0][0] + corners[1][0] + corners[2][0]) / 3.0, (corners[0][1] + corners[1][1] + corners[2][1]) / 3.0];
             if corners.iter().chain(std::iter::once(&centre)).any(|p| near(&band.lines, *p) <= band.half) {
-                slot[k] = if band.factor < 1.0 { slot[k] * band.factor as f32 } else if slot[k] < 1.0 { band.factor as f32 } else { slot[k].max(band.factor as f32) };
+                if band.factor < 1.0 {
+                    slot[k] *= band.factor as f32;
+                } else {
+                    up[k] = up[k].max(band.factor as f32);
+                }
+            }
+        }
+    }
+    for (id, up) in &boost {
+        if let Some(slot) = out.get_mut(id) {
+            for (s, u) in slot.iter_mut().zip(up) {
+                *s *= *u;
             }
         }
     }

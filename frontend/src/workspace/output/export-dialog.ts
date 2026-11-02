@@ -64,12 +64,18 @@ export class ExportDialog extends Dialog {
     this.host.replaceChildren();
     this.built.clear();
     const select = this.format.select;
-    select.replaceChildren();
+    const keep = select.value;
+    const have = new Map(Array.from(select.options).map((o) => [o.value, o] as const));
+    const ids = new Set(formats.map((f) => f.id));
+    for (const [id, o] of have) if (!ids.has(id)) o.remove();
+    formats.forEach((f, at) => {
+      let o = have.get(f.id);
+      if (!o) { o = document.createElement('option'); o.value = f.id; }
+      if (o.textContent !== f.label) setText(o, f.label);
+      if (select.options[at] !== o) select.insertBefore(o, select.options[at] ?? null);
+    });
+    if (keep && ids.has(keep) && select.value !== keep) select.value = keep;
     for (const f of formats) {
-      const o = document.createElement('option');
-      o.value = f.id;
-      setText(o, f.label);
-      select.appendChild(o);
       const box = el('<div class="ou-fmt" hidden></div>');
       const rows = new Map<string, { spec: OptSpec; row: Row<never> }>();
       const saved = recall<Record<string, Value>>(`export.${f.id}`, {});

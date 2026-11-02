@@ -2308,7 +2308,7 @@ Note: read-only.
 
 Set the environment image, its rotation, exposure in stops, the ground plane and the background. Only the given fields change. An undo step.
 
-- `background`: value; Background: a CSS colour string, a colour array, or an object. An object with image (a local picture path, PNG or JPEG; null clears it) and fit (cover or contain, default cover) draws that picture behind the scene, fixed to the screen.
+- `background`: value; Background: a CSS colour string, a colour array, or an object. An object with image (an absolute local picture path ending in png, jpg, jpeg or webp; null clears it) and fit (cover or contain, default cover) draws that picture behind the scene, fixed to the screen.
 - `exposure`: number; range -10 to 10; Exposure in stops.
 - `ground`: boolean; Show the ground plane.
 - `hdri`: ['string', 'null']; Environment image name or path; null clears it.

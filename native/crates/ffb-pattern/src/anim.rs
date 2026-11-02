@@ -60,6 +60,7 @@ pub struct CacheLayer {
     pub kind: CacheKind,
     pub locked: bool,
     pub offset: i32,
+    pub source: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

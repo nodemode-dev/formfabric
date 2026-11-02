@@ -158,7 +158,7 @@ pub(crate) fn stiffen_bands(garment: &ffb_pattern::Garment, meshes: &std::collec
                 }
                 for (h, f) in have.iter_mut().zip(factors.iter()) {
                     if *f > 1.0 {
-                        *h = if *h < 1.0 { *f } else { h.max(*f) };
+                        *h = if *h < 1.0 { *h * *f } else { h.max(*f) };
                     }
                 }
             }

@@ -54,19 +54,29 @@ fn harvest(s: &mut Session) -> Result<Option<u32>, CommandError> {
             return Err(CommandError::new("locked", format!("cache layer {target} is locked; the recording is kept until it is unlocked or stored as a new layer")));
         }
     }
+    let target = replace.filter(|t| s.garment.anim.caches.iter().any(|c| c.id == *t && c.kind == CacheKind::Pattern));
+    let old_trims: Vec<(u32, bool, String)> = match target {
+        Some(t) => s.garment.anim.caches.iter().filter(|c| c.kind == CacheKind::Trim && c.source == t).map(|c| (c.id, c.locked, c.entry.clone())).collect(),
+        None => Vec::new(),
+    };
+    let mut orphans: Vec<String> = old_trims.iter().filter(|t| !t.1).map(|t| t.2.clone()).collect();
+    if let Some(c) = target.and_then(|t| s.garment.anim.caches.iter().find(|c| c.id == t)) {
+        orphans.push(c.entry.clone());
+    }
+    super::reserve_trash(s, &orphans)?;
     let finished = lock_job(&s.anim.job).finished.take();
     lock_job(&s.anim.job).replace = None;
     let Some(done) = finished else { return Ok(None) };
     let id = super::alloc_cache_id(s);
     let name = cache_entry(id);
-    let trims = super::layers::trim_cache(s, &done.bytes, &done.name);
+    let trims = if old_trims.iter().any(|t| t.1) { None } else { super::layers::trim_cache(s, &done.bytes, &done.name) };
     put_entry(s, name.clone(), done.bytes);
     let trim_id = trims.map(|bytes| {
         let tid = super::alloc_cache_id(s);
         put_entry(s, cache_entry(tid), bytes);
         tid
     });
-    let target = replace.filter(|t| s.garment.anim.caches.iter().any(|c| c.id == *t && c.kind == CacheKind::Pattern));
+    let removable: Vec<u32> = old_trims.iter().filter(|t| !t.1).map(|t| t.0).collect();
     edit_garment(s, "Record animation", |g| {
         let mut stored = id;
         match target.and_then(|t| g.anim.caches.iter().position(|c| c.id == t)) {
@@ -78,11 +88,11 @@ fn harvest(s: &mut Session) -> Result<Option<u32>, CommandError> {
                 c.offset = 0;
                 stored = c.id;
             }
-            None => g.anim.caches.push(CacheLayer { id, name: done.name.clone(), start: done.start, frames: done.frames, visible: true, entry: name.clone(), kind: CacheKind::Pattern, locked: false, offset: 0 }),
+            None => g.anim.caches.push(CacheLayer { id, name: done.name.clone(), start: done.start, frames: done.frames, visible: true, entry: name.clone(), ..CacheLayer::default() }),
         }
+        g.anim.caches.retain(|c| !removable.contains(&c.id));
         if let Some(tid) = trim_id {
-            g.anim.caches.retain(|c| !(c.kind == CacheKind::Trim && c.name == format!("{} trims", done.name)));
-            g.anim.caches.push(CacheLayer { id: tid, name: format!("{} trims", done.name), start: done.start, frames: done.frames, visible: true, entry: cache_entry(tid), kind: CacheKind::Trim, locked: false, offset: 0 });
+            g.anim.caches.push(CacheLayer { id: tid, name: format!("{} trims", done.name), start: done.start, frames: done.frames, visible: true, entry: cache_entry(tid), kind: CacheKind::Trim, source: stored, ..CacheLayer::default() });
         }
         g.anim.active_cache = Some(stored);
         Ok(())
@@ -246,7 +256,7 @@ fn cache_frame(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let layer = s.garment.anim.caches[k].clone();
     let data = entry(s, &layer.entry).ok_or_else(|| CommandError::new("not_found", "the cache data is missing"))?;
     let cache = Cache::parse(data).map_err(|e| CommandError::new("invalid_geometry", e))?;
-    let rel = frame.checked_sub(layer.start).filter(|r| *r < cache.header.frames).ok_or_else(|| bad(format!("frame {frame} is outside the cache range {} to {}", layer.start, layer.start + cache.header.frames.saturating_sub(1))))?;
+    let rel = frame.checked_sub(layer.start).filter(|r| *r < cache.header.frames).ok_or_else(|| bad(format!("frame {frame} is outside the cache range {} to {}", layer.start, layer.start.saturating_add(cache.header.frames.saturating_sub(1)))))?;
     let trims: Vec<Value> = super::layers::resolve(&s.garment.anim, frame, CacheKind::Trim)
         .and_then(|t| {
             let tl = &s.garment.anim.caches[t];
@@ -331,7 +341,7 @@ fn play(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         ids.push(layer.id);
     }
     let first_frame = picks.iter().map(|k| s.garment.anim.caches[*k].start).min().unwrap_or(0);
-    let last = picks.iter().map(|k| s.garment.anim.caches[*k].start + s.garment.anim.caches[*k].frames.saturating_sub(1)).max().unwrap_or(0);
+    let last = picks.iter().map(|k| s.garment.anim.caches[*k].start.saturating_add(s.garment.anim.caches[*k].frames.saturating_sub(1))).max().unwrap_or(0);
     let fps = Cache::parse(&layers[layers.len() - 1].1).map(|c| c.header.fps).unwrap_or(30.0);
     let sink = s.sink.clone().ok_or_else(|| CommandError::new("unsupported", "playback needs a connected viewer"))?;
     let from = a.get("from").and_then(Value::as_u64).map_or(s.garment.anim.current, |x| x.min(100_000) as u32);

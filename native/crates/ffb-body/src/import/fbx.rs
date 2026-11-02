@@ -16,14 +16,28 @@ fn rotation(m: &ufbx::Matrix) -> Q {
     qfrom_columns(c0, c1, c2)
 }
 
-pub fn read(path: &str) -> Result<Raw, String> {
-    let opts = ufbx::LoadOpts {
+fn options(memory_limit: usize) -> ufbx::LoadOpts<'static> {
+    ufbx::LoadOpts {
         ignore_animation: true,
         target_axes: ufbx::CoordinateAxes { right: ufbx::CoordinateAxis::PositiveX, up: ufbx::CoordinateAxis::PositiveY, front: ufbx::CoordinateAxis::PositiveZ },
         target_unit_meters: 0.001,
+        temp_allocator: ufbx::AllocatorOpts { memory_limit, ..Default::default() },
+        result_allocator: ufbx::AllocatorOpts { memory_limit, ..Default::default() },
         ..Default::default()
-    };
-    let scene = ufbx::load_file(path, opts).map_err(|e| format!("could not read the FBX file: {}", e.description))?;
+    }
+}
+
+pub fn read(path: &str) -> Result<Raw, String> {
+    let scene = ufbx::load_file(path, options(0)).map_err(|e| format!("could not read the FBX file: {}", e.description))?;
+    build(&scene)
+}
+
+pub fn read_memory(bytes: &[u8], memory_limit: usize) -> Result<Raw, String> {
+    let scene = ufbx::load_memory(bytes, options(memory_limit)).map_err(|e| format!("could not read the FBX file: {}", e.description))?;
+    build(&scene)
+}
+
+fn build(scene: &ufbx::Scene) -> Result<Raw, String> {
     let mut raw = Raw { unit_mm: Some(1.0), ..Raw::default() };
     let skinned_mesh = scene.nodes.iter().find_map(|n| n.mesh.as_ref().filter(|m| !m.skin_deformers.is_empty()));
     let deformer = skinned_mesh.and_then(|m| m.skin_deformers.first());

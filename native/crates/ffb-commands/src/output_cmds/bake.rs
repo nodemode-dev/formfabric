@@ -75,14 +75,43 @@ fn sample(img: &png::Image, u: f32, v: f32) -> [f32; 3] {
     [mix(0), mix(1), mix(2)]
 }
 
+const TEXTURE_FILE_MAX: u64 = 64 << 20;
+const TEXTURE_BUDGET: usize = 256 << 20;
+
+fn read_texture(path: &str) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let meta = file.metadata().map_err(|e| e.to_string())?;
+    if !meta.is_file() {
+        return Err("it is not a regular file".into());
+    }
+    if meta.len() > TEXTURE_FILE_MAX {
+        return Err(format!("it is larger than {} MiB", TEXTURE_FILE_MAX >> 20));
+    }
+    let mut bytes = Vec::new();
+    file.take(TEXTURE_FILE_MAX + 1).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+    if bytes.len() as u64 > TEXTURE_FILE_MAX {
+        return Err(format!("it is larger than {} MiB", TEXTURE_FILE_MAX >> 20));
+    }
+    Ok(bytes)
+}
+
 fn look_of(s: &Session, geos: &[PanelGeo], notes: &mut Vec<String>) -> Vec<Look> {
     let mats = materials(&s.garment, geos, false);
     let mut cache: HashMap<String, Option<Arc<png::Image>>> = HashMap::new();
+    let mut decoded = 0usize;
     let mut load = |path: &Option<String>, notes: &mut Vec<String>| -> Option<Arc<png::Image>> {
         let path = path.as_ref().filter(|p| !p.is_empty())?;
         cache
             .entry(path.clone())
-            .or_insert_with(|| match std::fs::read(path).map_err(|e| e.to_string()).and_then(|b| png::decode(&b)) {
+            .or_insert_with(|| match read_texture(path).and_then(|b| png::decode(&b)).and_then(|img| {
+                decoded = decoded.saturating_add(img.data.len());
+                if decoded > TEXTURE_BUDGET {
+                    Err(format!("the textures together decode to more than {} MiB", TEXTURE_BUDGET >> 20))
+                } else {
+                    Ok(img)
+                }
+            }) {
                 Ok(img) => Some(Arc::new(img)),
                 Err(e) => {
                     notes.push(format!("texture {path} was not read ({e}); the flat value was used. Only PNG textures are sampled."));

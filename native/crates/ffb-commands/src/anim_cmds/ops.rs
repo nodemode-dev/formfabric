@@ -503,6 +503,7 @@ fn cache_set(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
 fn cache_remove(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let k = cache_index(s, a)?;
     super::layers::guard(s, k)?;
+    super::reserve_trash(s, &[s.garment.anim.caches[k].entry.clone()])?;
     let id = s.garment.anim.caches[k].id;
     edit_garment(s, "Remove cache", |g| {
         g.anim.caches.remove(k);

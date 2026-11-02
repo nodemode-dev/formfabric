@@ -12486,7 +12486,7 @@
     "additionalProperties": false,
     "properties": {
      "background": {
-      "description": "Background: a CSS colour string, a colour array, or an object. An object with image (a local picture path, PNG or JPEG; null clears it) and fit (cover or contain, default cover) draws that picture behind the scene, fixed to the screen."
+      "description": "Background: a CSS colour string, a colour array, or an object. An object with image (an absolute local picture path ending in png, jpg, jpeg or webp; null clears it) and fit (cover or contain, default cover) draws that picture behind the scene, fixed to the screen."
      },
      "exposure": {
       "description": "Exposure in stops.",

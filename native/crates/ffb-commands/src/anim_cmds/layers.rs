@@ -23,7 +23,17 @@ pub(crate) fn guard(s: &Session, k: usize) -> Result<(), CommandError> {
     refuse_locked(&s.garment.anim.caches[k])
 }
 
+const MAX_FRAME: u32 = 100_000;
+
+fn span(layer: &CacheLayer) -> Result<u32, CommandError> {
+    if layer.frames == 0 || layer.frames > MAX_FRAME || layer.start > MAX_FRAME {
+        return Err(CommandError::new("invalid_cache", format!("cache layer {} has an invalid range (start {}, {} frames)", layer.id, layer.start, layer.frames)));
+    }
+    Ok(layer.start + layer.frames - 1)
+}
+
 fn bytes_of(s: &Session, layer: &CacheLayer) -> Result<Vec<u8>, CommandError> {
+    span(layer)?;
     entry(s, &layer.entry).map(<[u8]>::to_vec).ok_or_else(|| CommandError::new("not_found", "the cache data is missing"))
 }
 
@@ -48,10 +58,12 @@ fn cut(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     guard(s, k)?;
     let layer = s.garment.anim.caches[k].clone();
     let frame = frame_arg(a, "frame")?;
-    if frame <= layer.start || frame - layer.start >= layer.frames {
-        return Err(bad(format!("frame must be inside the layer after its first frame: {} to {}", layer.start + 1, layer.start + layer.frames - 1)));
+    let last = span(&layer)?;
+    if frame <= layer.start || frame > last {
+        return Err(bad(format!("frame must be inside the layer after its first frame: {} to {}", layer.start + 1, last)));
     }
     let bytes = bytes_of(s, &layer)?;
+    super::reserve_trash(s, std::slice::from_ref(&layer.entry))?;
     let head = frame - layer.start;
     let tail = layer.frames - head;
     let first = cachefmt::slice(&bytes, 0, head, layer.start).map_err(|e| CommandError::new("invalid_cache", e))?;
@@ -60,7 +72,7 @@ fn cut(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     put_entry(s, cache_entry(first_id), first);
     let new_id = super::alloc_cache_id(s);
     put_entry(s, cache_entry(new_id), second);
-    let upper = CacheLayer { id: new_id, name: format!("{} cut", layer.name), start: frame, frames: tail, visible: layer.visible, entry: cache_entry(new_id), kind: layer.kind, locked: false, offset: 0 };
+    let upper = CacheLayer { id: new_id, name: format!("{} cut", layer.name), start: frame, frames: tail, visible: layer.visible, entry: cache_entry(new_id), kind: layer.kind, locked: false, offset: 0, source: layer.source };
     edit_garment(s, "Cut cache", |g| {
         let low = &mut g.anim.caches[k];
         low.frames = head;
@@ -106,6 +118,8 @@ fn merge(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         let layer = &s.garment.anim.caches[*k];
         stored.push((layer.start, bytes_of(s, layer)?));
     }
+    let entries: Vec<String> = picked.iter().map(|k| s.garment.anim.caches[*k].entry.clone()).collect();
+    super::reserve_trash(s, &entries)?;
     let parts: Vec<(u32, &[u8])> = stored.iter().map(|(st, b)| (*st, b.as_slice())).collect();
     let done = cachefmt::compose(&parts).map_err(|e| CommandError::new("invalid_cache", e))?;
     let top = *picked.last().unwrap_or(&0);

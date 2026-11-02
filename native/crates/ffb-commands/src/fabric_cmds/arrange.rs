@@ -41,9 +41,15 @@ fn merge_schema() -> Value {
 }
 
 fn merge_run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
-    let ids = id_list(a, "ids")?;
+    let mut ids = id_list(a, "ids")?;
+    let mut seen = Vec::new();
+    ids.retain(|id| {
+        let fresh = !seen.contains(id);
+        seen.push(*id);
+        fresh
+    });
     if ids.len() < 2 {
-        return Err(bad("ids needs at least two fabrics"));
+        return Err(bad("ids needs at least two different fabrics"));
     }
     let name = text(a, "name")?;
     mutate(s, "Merge Fabrics", |g| {

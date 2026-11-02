@@ -121,8 +121,8 @@ fn cache_frames(s: &Session, a: &Value, geos: &[PanelGeo], built: &export::Built
         stack.push((layer.start, cache, slots));
     }
     let origin = if explicit.is_some() { stack[0].0 } else { stack.iter().map(|l| l.0).min().unwrap_or(0) };
-    let last = stack.iter().map(|l| l.0 + l.1.header.frames - 1).max().unwrap_or(0);
-    let total = last - origin + 1;
+    let last = stack.iter().map(|l| l.0.saturating_add(l.1.header.frames.saturating_sub(1))).max().unwrap_or(0);
+    let total = last.saturating_sub(origin).saturating_add(1);
     let start = number(a, "start", 0.0, f64::from(total - 1))?.map_or(0, |x| x as u32);
     let end = number(a, "end", 0.0, f64::from(total - 1))?.map_or(total - 1, |x| x as u32);
     let step = number(a, "step", 1.0, f64::from(total))?.map_or(1, |x| x as u32);
@@ -140,8 +140,8 @@ fn cache_frames(s: &Session, a: &Value, geos: &[PanelGeo], built: &export::Built
     let mut list = Vec::with_capacity(count);
     let mut frame = start;
     while frame <= end {
-        let at = origin + frame;
-        let (layer_start, cache, slots) = stack.iter().find(|l| at >= l.0 && at < l.0 + l.1.header.frames).ok_or_else(|| bad(format!("no visible cache layer covers frame {at}; narrow start and end")))?;
+        let at = origin.saturating_add(frame);
+        let (layer_start, cache, slots) = stack.iter().find(|l| at >= l.0 && at < l.0.saturating_add(l.1.header.frames)).ok_or_else(|| bad(format!("no visible cache layer covers frame {at}; narrow start and end")))?;
         let mut raw = Vec::new();
         for slot in slots {
             let f = cache.panel_frame(at - layer_start, *slot).ok_or_else(|| CommandError::new("invalid_cache", "a cache frame is missing"))?;
@@ -163,15 +163,28 @@ pub(super) fn write_files(dir: &std::path::Path, files: &[export::File]) -> Resu
     }
     let mut order: Vec<usize> = (0..files.len()).collect();
     order.sort_by_key(|i| usize::from(texts[*i].ends_with(".obj") || texts[*i].ends_with(".gltf") || texts[*i].ends_with(".glb") || texts[*i].ends_with(".fbx") || texts[*i].ends_with(".usda")));
-    let mut done: Vec<usize> = Vec::new();
+    let mut done: Vec<(usize, bool, Option<Vec<u8>>)> = Vec::new();
     for i in order {
+        let existed = std::fs::symlink_metadata(&texts[i]).is_ok();
+        let before = match std::fs::metadata(&texts[i]) {
+            Ok(m) if m.is_file() && m.len() <= 64 << 20 => std::fs::read(&texts[i]).ok(),
+            _ => None,
+        };
         if let Err(e) = args::write_atomic(&texts[i], &files[i].bytes) {
-            for d in done {
-                let _ = std::fs::remove_file(&texts[d]);
+            for (d, had, old) in done {
+                match old {
+                    Some(bytes) => {
+                        let _ = args::write_atomic(&texts[d], &bytes);
+                    }
+                    None if !had => {
+                        let _ = std::fs::remove_file(&texts[d]);
+                    }
+                    None => {}
+                }
             }
             return Err(e);
         }
-        done.push(i);
+        done.push((i, existed, before));
         written.push(json!({"path": texts[i], "bytes": files[i].bytes.len()}));
     }
     written.sort_by_key(|w| w["path"].as_str().map(str::to_string));

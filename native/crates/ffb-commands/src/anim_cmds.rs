@@ -59,12 +59,14 @@ pub struct AnimState {
     pub(crate) next_cache: u32,
     pub(crate) play_data: Option<(String, Arc<Vec<u8>>)>,
     pub(crate) auto_prev: std::collections::BTreeMap<String, serde_json::Value>,
+    pub(crate) hist: (usize, usize),
 }
 
 impl Default for AnimState {
     fn default() -> Self {
         AnimState {
             auto_prev: std::collections::BTreeMap::new(),
+            hist: (0, 0),
             alive: Arc::new(AtomicBool::new(false)),
             next_motion: 1,
             next_cache: 1,
@@ -139,6 +141,15 @@ pub(crate) fn alloc_cache_id(s: &mut Session) -> u32 {
     let id = seen.chain(stored).max().unwrap_or(0).max(s.anim.next_cache.saturating_sub(1)) + 1;
     s.anim.next_cache = id + 1;
     id
+}
+
+pub(crate) fn reserve_trash(s: &Session, orphans: &[String]) -> Result<(), CommandError> {
+    let held: usize = s.anim.trash.iter().map(|(_, d)| d.len()).sum();
+    let incoming: usize = orphans.iter().filter(|n| !s.anim.trash.iter().any(|(t, _)| t == *n)).filter_map(|n| entry(s, n)).map(<[u8]>::len).sum();
+    if held + incoming > MAX_TRASH_BYTES {
+        return Err(CommandError::new("too_large", format!("undo memory for cache edits is full ({} MiB held, {} MiB more needed of {} MiB); an older undo step would lose its cache data. Save the project and reopen it to clear undo memory, then repeat", held >> 20, incoming >> 20, MAX_TRASH_BYTES >> 20)));
+    }
+    Ok(())
 }
 
 fn sweep(s: &mut Session) {

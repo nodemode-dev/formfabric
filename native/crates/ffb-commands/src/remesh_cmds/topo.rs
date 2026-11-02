@@ -17,8 +17,13 @@ fn conv(e: TopoError) -> CommandError {
     CommandError::new(e.code, e.message)
 }
 
-pub(crate) fn load(garment: &ffb_pattern::Garment) -> Topology {
-    garment.output.retopo.get("topology").and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default()
+pub(crate) fn load(garment: &ffb_pattern::Garment) -> Result<Topology, CommandError> {
+    let Some(v) = garment.output.retopo.get("topology") else {
+        return Ok(Topology::default());
+    };
+    let mut topo: Topology = serde_json::from_value(v.clone()).map_err(|e| CommandError::new("bad_project", format!("the stored topology cannot be read: {e}")))?;
+    topo.sanitize();
+    Ok(topo)
 }
 
 fn store(garment: &mut ffb_pattern::Garment, topo: &Topology) {
@@ -35,12 +40,12 @@ fn store(garment: &mut ffb_pattern::Garment, topo: &Topology) {
 }
 
 pub(crate) fn modes(garment: &ffb_pattern::Garment) -> Vec<(u32, Mode)> {
-    load(garment).remeshed.into_iter().filter(|(id, _)| garment.index_of(*id).is_some()).collect()
+    load(garment).unwrap_or_default().remeshed.into_iter().filter(|(id, _)| garment.index_of(*id).is_some()).collect()
 }
 
 fn edit(s: &mut Session, label: &str, f: impl FnOnce(&mut Session, &mut Topology) -> Result<Value, CommandError>) -> Result<Value, CommandError> {
     let before = s.garment.clone();
-    let mut topo = load(&s.garment);
+    let mut topo = load(&s.garment)?;
     let mut out = f(s, &mut topo)?;
     store(&mut s.garment, &topo);
     let changed = s.garment != before;
@@ -197,7 +202,7 @@ fn merge_schema() -> Value {
 
 fn merge(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let (pa, pb) = (nat(a, "a")?, nat(a, "b")?);
-    let topo0 = load(&s.garment);
+    let topo0 = load(&s.garment)?;
     let panel = infer_panel(s, &topo0, a)?;
     edit(s, "Topology merge", |_, topo| {
         topo.merge(panel, pa, pb).map_err(conv)?;
@@ -250,7 +255,7 @@ fn divide(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let e = a.get("edge").filter(|v| v.is_object()).ok_or_else(|| bad("edge must be {panel, a, b}"))?;
     let (pa, pb) = (nat(e, "a")?, nat(e, "b")?);
     let count = a.get("count").and_then(Value::as_u64).unwrap_or(2) as usize;
-    let topo0 = load(&s.garment);
+    let topo0 = load(&s.garment)?;
     let panel = infer_panel(s, &topo0, e)?;
     edit(s, "Topology divide", |_, topo| {
         let d = topo.divide(panel, pa, pb, count).map_err(conv)?;
@@ -359,7 +364,7 @@ fn list_schema() -> Value {
 fn list(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let tol = a.get("tolerance").and_then(Value::as_f64).filter(|t| t.is_finite() && *t > 0.0).unwrap_or(GHOST_TOL);
     let only = a.get("panel").and_then(Value::as_u64).map(|p| p as u32);
-    let topo = load(&s.garment);
+    let topo = load(&s.garment)?;
     let mut panels = Vec::new();
     for (id, t) in &topo.panels {
         let Some(i) = s.garment.index_of(*id) else { continue };
@@ -378,7 +383,7 @@ fn list(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
 }
 
 pub(crate) fn topology_panels(s: &mut Session) -> Vec<QuadPanel> {
-    let topo = load(&s.garment);
+    let topo = load(&s.garment).unwrap_or_default();
     let mut out = Vec::new();
     for (id, mode) in modes(&s.garment) {
         let Ok(mesh) = topo.to_quad_mesh(id) else { continue };
