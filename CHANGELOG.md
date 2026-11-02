@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.23.1 · 2026-11-02
+
+Fixes from the owner's test run, and a new icon.
+
+- 3D View: a fabric's base colour image map now shows (the engine's `base_color` key was not read).
+- 3D View: a fabric's map repeat size is honoured when it arrives as a width and height pair, instead of falling back to 200 mm.
+- 3D View: texture images stored as local files load through the service with the window token, as the fabric panel previews already did.
+- A new app icon (desktop icons and the window favicon).
+
 ## v0.23.0 · 2026-11-02
 
 Phases 19 to 23, released together. They close the parity rows that were partial at v0.18.0: of 125 rows, 115 are landed, 1 is partial and 9 are deferred, six of them pending the owner's sign-off. v1.0.0 follows that sign-off.

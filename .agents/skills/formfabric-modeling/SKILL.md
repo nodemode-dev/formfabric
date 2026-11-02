@@ -61,7 +61,7 @@ The tool reference below is generated from the engine's command registry by `./f
 ## Tool reference
 
 [ffb-tools:begin]
-Generated from the engine's command registry (formfabric 0.23.0) by `./formfabric agents sync`; do not edit between the markers by hand.
+Generated from the engine's command registry (formfabric 0.23.1) by `./formfabric agents sync`; do not edit between the markers by hand.
 
 - Engine: `system_info`, `system_capabilities`
 - Files: `file_new`, `file_save`, `file_open`, `sample_list`, `sample_load`, `exchange_import_dxf`, `exchange_export_dxf`, `snapshot_save`, `snapshot_list`, `snapshot_restore`, `snapshot_remove`, `library_list`, `library_add`, `library_insert`, `library_remove`, `library_roots`, `library_set_roots`, `component_save`
