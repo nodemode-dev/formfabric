@@ -57,7 +57,7 @@ fn stage_schema() -> Value {
             "hdri_rotation": {"type": "number", "description": "Environment rotation in degrees."},
             "exposure": {"type": "number", "minimum": -10, "maximum": 10, "description": "Exposure in stops."},
             "ground": {"type": "boolean", "description": "Show the ground plane."},
-            "background": {"description": "Background: a CSS colour string, a colour array, or an object the viewer understands."}
+            "background": {"description": "Background: a CSS colour string, a colour array, or an object. An object with image (a local picture path, PNG or JPEG; null clears it) and fit (cover or contain, default cover) draws that picture behind the scene, fixed to the screen."}
         },
         "additionalProperties": false
     })
@@ -83,9 +83,35 @@ fn stage_set(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         None => None,
         Some(v) => Some(v.as_bool().ok_or_else(|| bad("ground must be true or false"))?),
     };
-    let background = a.get("background").cloned();
+    let mut background = a.get("background").cloned();
     if background.as_ref().is_some_and(|b| b.to_string().len() > 1024) {
         return Err(bad("background is too large"));
+    }
+    if let Some(Value::Object(o)) = background.as_mut() {
+        match o.get("image") {
+            None => {}
+            Some(Value::Null) => {
+                o.remove("image");
+                o.remove("fit");
+            }
+            Some(Value::String(path)) => {
+                args::clean_name("image", path)?;
+                let lower = path.to_ascii_lowercase();
+                if path.is_empty() || ["http:", "https:", "data:", "blob:", "file:", "ftp:"].iter().any(|p| lower.starts_with(p)) {
+                    return Err(bad("image must be a local file path; URLs are not accepted"));
+                }
+                if !["png", "jpg", "jpeg", "webp"].iter().any(|e| lower.ends_with(&format!(".{e}"))) {
+                    return Err(bad("image must be a png, jpg, jpeg or webp file"));
+                }
+                let fit = match o.get("fit").and_then(Value::as_str) {
+                    None | Some("cover") => "cover",
+                    Some("contain") => "contain",
+                    Some(_) => return Err(bad("fit must be cover or contain")),
+                };
+                o.insert("fit".into(), json!(fit));
+            }
+            Some(_) => return Err(bad("image must be a file path or null")),
+        }
     }
     edit(s, "Stage", |g| {
         let st = &mut g.viz.stage;

@@ -1,6 +1,18 @@
 import { add, cross, invert, lookAt, multiply, normalize, ortho, perspective, scale, sub, transformPoint, type Mat4, type Vec3 } from './math';
 
 export type ViewName = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
+export type PresetName = ViewName | 'left34' | 'right34';
+
+export const CAPTURE_VIEWS: ReadonlyArray<readonly [PresetName, string]> = [
+  ['front', 'Front'],
+  ['back', 'Back'],
+  ['left', 'Left'],
+  ['right', 'Right'],
+  ['left34', '3/4 Left'],
+  ['right34', '3/4 Right'],
+  ['top', 'Top'],
+  ['bottom', 'Bottom'],
+];
 
 export interface CameraPose {
   target: Vec3;
@@ -10,7 +22,9 @@ export interface CameraPose {
   ortho: boolean;
 }
 
-const VIEWS: Record<ViewName, [number, number]> = {
+const VIEWS: Record<PresetName, [number, number]> = {
+  left34: [-Math.PI / 4, Math.PI / 36],
+  right34: [Math.PI / 4, Math.PI / 36],
   front: [0, 0],
   back: [Math.PI, 0],
   right: [Math.PI / 2, 0],
@@ -195,7 +209,7 @@ export class OrbitCamera {
     }
   }
 
-  snap(view: ViewName): void {
+  snap(view: PresetName): void {
     [this.yaw, this.pitch] = VIEWS[view];
     if (this.trackball) {
 

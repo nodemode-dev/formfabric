@@ -80,6 +80,33 @@ void main() {
   outColor = vec4(pow(col, vec3(1.0 / 2.2)), fade * (0.5 + 0.35 * (1.0 - sh)));
 }`;
 
+const BACK_VS = `#version 300 es
+out vec2 vUv;
+void main() {
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)) * 2.0 - 1.0;
+  vUv = vec2(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5);
+  gl_Position = vec4(p, 0.9999, 1.0);
+}`;
+
+const BACK_FS = `#version 300 es
+precision highp float;
+in vec2 vUv;
+uniform sampler2D uTex;
+uniform vec2 uScale;
+out vec4 outColor;
+void main() {
+  vec2 uv = (vUv - 0.5) * uScale + 0.5;
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
+  outColor = texture(uTex, uv);
+}`;
+
+export function parseBackdrop(v: unknown): { image: string; fit: 'cover' | 'contain' } | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as { image?: unknown; fit?: unknown };
+  if (typeof o.image !== 'string' || o.image === '') return null;
+  return { image: o.image, fit: o.fit === 'contain' ? 'contain' : 'cover' };
+}
+
 function compile(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader {
   const sh = gl.createShader(type) as WebGLShader;
   gl.shaderSource(sh, src);
@@ -135,6 +162,14 @@ export class StageGL {
   private readonly depthTex: WebGLTexture | null;
   private sky: WebGLTexture | null = null;
   private skyUrl = '';
+  private readonly backProg: WebGLProgram;
+  private readonly bTex: WebGLUniformLocation | null;
+  private readonly bScale: WebGLUniformLocation | null;
+  private back: WebGLTexture | null = null;
+  private backUrl = '';
+  private backFit: 'cover' | 'contain' = 'cover';
+  private backSize: [number, number] = [1, 1];
+  backState: 'none' | 'loading' | 'ready' | 'failed' = 'none';
   private shadowKey = '';
   private readonly tmp = new Float32Array(16);
   private readonly inv = new Float32Array(16);
@@ -156,6 +191,9 @@ export class StageGL {
     this.sSky = gl.getUniformLocation(this.skyProg, 'uSky');
     this.sExp = gl.getUniformLocation(this.skyProg, 'uExposure');
     this.sRot = gl.getUniformLocation(this.skyProg, 'uRot');
+    this.backProg = link(gl, BACK_VS, BACK_FS);
+    this.bTex = gl.getUniformLocation(this.backProg, 'uTex');
+    this.bScale = gl.getUniformLocation(this.backProg, 'uScale');
     this.groundProg = link(gl, GROUND_VS, GROUND_FS);
     for (const n of ['uVP', 'uCenter', 'uSize', 'uFloor', 'uHasShadow', 'uShadow', 'uShadowM', 'uShadowTexel']) this.gu[n] = gl.getUniformLocation(this.groundProg, n);
     this.groundVao = gl.createVertexArray();
@@ -198,8 +236,84 @@ export class StageGL {
     return !!this.stage?.ground;
   }
 
+  get hasBackdrop(): boolean {
+    return this.backState === 'ready' && this.back !== null;
+  }
+
+  private setBackdrop(v: unknown): void {
+    const b = parseBackdrop(v);
+    this.backFit = b?.fit ?? 'cover';
+    const url = b?.image ?? '';
+    if (url === this.backUrl) return;
+    this.backUrl = url;
+    if (!url) {
+      this.backState = 'none';
+      return;
+    }
+    this.backState = 'loading';
+    void this.loadBackdrop(url);
+  }
+
+  private async loadBackdrop(path: string): Promise<void> {
+    const gl = this.gl;
+    try {
+      if (path.length > 1024 || (/^[a-z][a-z0-9+.-]+:/i.test(path) && !/^[a-z]:[\\/]/i.test(path))) throw new Error('only local file paths are accepted');
+      const res = await fetch(serviceUrl(`/api/files/image?path=${encodeURIComponent(path)}`), { cache: 'no-store' });
+      if (!res.ok) throw new Error(String(res.status));
+      const bmp = await createImageBitmap(await res.blob(), { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+      if (path !== this.backUrl || bmp.width * bmp.height > 8192 * 8192) {
+        bmp.close();
+        if (path === this.backUrl) throw new Error('the image is too large');
+        return;
+      }
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      if (this.back) gl.deleteTexture(this.back);
+      this.back = tex;
+      this.backSize = [bmp.width, bmp.height];
+      bmp.close();
+      this.backState = 'ready';
+    } catch {
+      if (path === this.backUrl) this.backState = 'failed';
+    }
+    this.onLoaded?.();
+  }
+
+  drawBackdrop(pw: number, ph: number): void {
+    if (!this.hasBackdrop || !this.back) return;
+    const gl = this.gl;
+    const ca = pw / Math.max(ph, 1);
+    const ia = this.backSize[0] / Math.max(this.backSize[1], 1);
+    const wide = ca > ia;
+    const cover = this.backFit === 'cover';
+    const sx = wide === cover ? 1 : ca / ia;
+    const sy = wide === cover ? ia / ca : 1;
+    gl.useProgram(this.backProg);
+    gl.uniform2f(this.bScale, sx, sy);
+    gl.uniform1i(this.bTex, 3);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this.back);
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.bindVertexArray(this.emptyVao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.disable(gl.BLEND);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
+  }
+
   setStage(s: StageJson): void {
     this.stage = s;
+    this.setBackdrop(s.background);
     const url = s.hdri ?? '';
     if (url === this.skyUrl) return;
     this.skyUrl = url;

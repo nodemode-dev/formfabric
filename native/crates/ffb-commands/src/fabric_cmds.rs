@@ -1,3 +1,4 @@
+mod arrange;
 mod colorway;
 mod common;
 mod library;
@@ -20,5 +21,6 @@ pub(crate) fn commands() -> Vec<Command> {
     all.extend(lab_cmd::commands());
     all.extend(package::commands());
     all.extend(colorway::commands());
+    all.extend(arrange::commands());
     all
 }

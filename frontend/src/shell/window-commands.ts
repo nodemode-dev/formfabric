@@ -19,6 +19,7 @@ export interface WindowCtx {
   openAbout: () => void;
   showHome: () => void;
   workspace: (id: string) => void;
+  openOutput: (section: 'uv' | 'retopo') => void;
   setUnits: (u: string) => void;
   openPath: (path: string) => void;
 }
@@ -77,6 +78,10 @@ export function registerWindowCommands(ctx: WindowCtx): void {
   for (const u of UNITS) list.push({ id: `app.units_${u}`, label: u === 'mm' ? 'Millimetres' : u === 'cm' ? 'Centimetres' : 'Inches', checked: () => loadPrefs().units === u, run: () => { updatePrefs({ units: u }); ctx.setUnits(u); } });
   for (const s of PREF_SECTIONS) list.push({ id: `app.prefs.${s}`, label: s, run: () => ctx.openSettings(s) });
   for (const w of WORKSPACES) list.push({ id: `app.ws_${w.id}`, label: w.label, enabled: () => w.ready, run: () => ctx.workspace(w.id) });
+  list.push(
+    { id: 'app.ws_uv', label: 'UV', run: () => ctx.openOutput('uv') },
+    { id: 'app.ws_retopo', label: 'Retopo', run: () => ctx.openOutput('retopo') },
+  );
   for (let i = 0; i < 10; i++) list.push({ id: `app.recent.${i}`, label: () => session.recent()[i]?.split(/[\\/]/).pop() ?? '', enabled: () => !!session.recent()[i], run: () => { const p = session.recent()[i]; if (p) ctx.openPath(p); } });
   const openSample = async (name: string, body: string | null): Promise<void> => {
     if (session.dirty && !(await confirmAction('Replace the open project?', 'The open project has unsaved changes. Opening a sample replaces the garment and clears the undo history.', 'Replace', true))) return;

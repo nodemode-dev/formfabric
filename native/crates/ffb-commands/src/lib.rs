@@ -8,6 +8,7 @@ mod exchange_cmds;
 mod output_cmds;
 mod remesh_cmds;
 mod sample_cmds;
+mod scene_cmds;
 mod viz_cmds;
 mod fabric_cmds;
 mod file_cmds;
@@ -234,6 +235,7 @@ static COMMANDS: LazyLock<Vec<Command>> = LazyLock::new(|| {
     all.extend(snapshot_cmds::commands());
     all.extend(library_cmds::commands());
     all.extend(component_cmds::commands());
+    all.extend(scene_cmds::commands());
     all
 });
 

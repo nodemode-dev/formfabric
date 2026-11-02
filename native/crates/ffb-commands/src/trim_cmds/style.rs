@@ -161,8 +161,89 @@ fn list(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     Ok(json!({"count": styles.len(), "styles": styles}))
 }
 
+fn copy_schema() -> Value {
+    obj(json!({"id": ident("Style to copy, as listed by style.list."), "name": {"type": "string", "description": "Name of the copy. Defaults to the original name with copy added."}}), &["id"])
+}
+
+fn copy(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
+    let id = required_id(a, "id")?;
+    let source = s.garment.styles.iter().find(|x| x.id == id).cloned().ok_or_else(|| missing(format!("no style with id {id}")))?;
+    let new_id = next_style_id(&s.garment);
+    let name = clean_text(a, "name")?.unwrap_or_else(|| format!("{} copy", source.name));
+    let before = s.garment.clone();
+    let style = Style { id: new_id, name: name.chars().take(64).collect(), ..source };
+    s.garment.styles.push(style.clone());
+    record(s, "Copy Style", before);
+    Ok(describe(&s.garment, &style))
+}
+
+fn merge_schema() -> Value {
+    obj(json!({"ids": {"type": "array", "minItems": 2, "maxItems": 64, "items": ident("Style id."), "description": "Two or more styles of the same kind. The first one supplies the parameters of the new style."}, "name": {"type": "string", "description": "Name of the new style. Defaults to the first name with merged added."}}), &["ids"])
+}
+
+fn merge_styles(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
+    let ids = id_list(a, "ids")?;
+    if ids.len() < 2 {
+        return Err(bad("ids needs at least two styles"));
+    }
+    let mut sources = Vec::new();
+    for id in &ids {
+        sources.push(s.garment.styles.iter().find(|x| x.id == *id).cloned().ok_or_else(|| missing(format!("no style with id {id}")))?);
+    }
+    if sources.iter().any(|x| x.kind != sources[0].kind) {
+        return Err(bad("styles of different kinds cannot be merged"));
+    }
+    let new_id = next_style_id(&s.garment);
+    let name = clean_text(a, "name")?.unwrap_or_else(|| format!("{} merged", sources[0].name));
+    let before = s.garment.clone();
+    let merged = Style { id: new_id, name: name.chars().take(64).collect(), ..sources[0].clone() };
+    let g = &mut s.garment;
+    let mut moved = 0;
+    for h in g.hardware.iter_mut().filter(|h| ids.contains(&h.style)) {
+        h.style = new_id;
+        moved += 1;
+    }
+    for z in g.zippers.iter_mut().filter(|z| ids.contains(&z.style)) {
+        z.style = new_id;
+        moved += 1;
+    }
+    for t in g.stitches.iter_mut().filter(|t| ids.contains(&t.style)) {
+        t.style = new_id;
+        moved += 1;
+    }
+    g.styles.retain(|x| !ids.contains(&x.id));
+    g.styles.push(merged.clone());
+    record(s, "Merge Styles", before);
+    let mut out = describe(&s.garment, &merged);
+    out["merged"] = json!(ids);
+    out["reassigned"] = json!(moved);
+    Ok(out)
+}
+
 pub(super) fn commands() -> Vec<Command> {
     vec![
+        Command {
+            id: "style.copy",
+            mcp: "style_copy",
+            group: Group::Pattern,
+            label: "Copy Style",
+            description: "Copy a style (any kind, including an imported trim with its mesh) to a new style with its own id. One undo step.",
+            keys: &[],
+            hints: WRITE,
+            schema: copy_schema,
+            run: copy,
+        },
+        Command {
+            id: "style.merge",
+            mcp: "style_merge",
+            group: Group::Pattern,
+            label: "Merge Styles",
+            description: "Merge two or more styles of the same kind into one new style that takes the parameters of the first. Hardware, zippers and stitches that used any of them move to the new style and the originals are removed. One undo step.",
+            keys: &[],
+            hints: WRITE,
+            schema: merge_schema,
+            run: merge_styles,
+        },
         Command {
             id: "style.create",
             mcp: "style_create",

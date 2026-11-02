@@ -22,10 +22,11 @@ pub(crate) enum Kind {
     Garment,
     Pose,
     Motion,
+    Place,
 }
 
 impl Kind {
-    pub(crate) const ALL: [Kind; 7] = [Kind::Fabric, Kind::Trim, Kind::Style, Kind::Component, Kind::Garment, Kind::Pose, Kind::Motion];
+    pub(crate) const ALL: [Kind; 8] = [Kind::Fabric, Kind::Trim, Kind::Style, Kind::Component, Kind::Garment, Kind::Pose, Kind::Motion, Kind::Place];
 
     pub(crate) fn name(self) -> &'static str {
         match self {
@@ -36,6 +37,7 @@ impl Kind {
             Kind::Garment => "garment",
             Kind::Pose => "pose",
             Kind::Motion => "motion",
+            Kind::Place => "place",
         }
     }
 
@@ -47,6 +49,7 @@ impl Kind {
             Kind::Garment => "ffbrc",
             Kind::Pose => "ffpose",
             Kind::Motion => "ffmotion",
+            Kind::Place => "ffplace",
         }
     }
 

@@ -6,6 +6,7 @@ const NAME_KEY = 'formfabric.layout.name';
 
 export const DRAWERS: ReadonlyArray<readonly [string, string]> = [
   ['library', '.ff-lib-toggle'],
+  ['objects', '.ff-ob-toggle'],
   ['fabric', '.ff-fb-toggle'],
   ['body', '.ff-bd-toggle'],
   ['trims', '.ff-tr-toggle'],
@@ -22,6 +23,14 @@ export const DEFAULT_LAYOUTS: Readonly<Record<string, SavedLayout>> = {
   Animate: { layout: 'split', ratio: 0.6, drawers: ['timeline'], dock: closed },
   Output: { layout: '3d', ratio: 0.5, drawers: ['output'], dock: closed },
   Library: { layout: 'split', ratio: 0.5, drawers: ['library'], dock: closed },
+};
+
+export const WORKSPACE_LAYOUT: Readonly<Record<string, string>> = {
+  pattern: 'Pattern',
+  sew: 'Pattern and 3D',
+  drape: 'Drape',
+  animate: 'Animate',
+  render: 'Output',
 };
 
 const toggleOf = (selector: string): HTMLButtonElement | null => document.querySelector<HTMLButtonElement>(selector);
@@ -74,7 +83,7 @@ export class WorkspaceLayouts {
     return true;
   }
 
-  apply(name: string): boolean {
+  apply(name: string, keepDock = false): boolean {
     const s = this.get(name);
     if (!s) return false;
     this.layout.set(s.layout);
@@ -83,13 +92,23 @@ export class WorkspaceLayouts {
     for (const [id, sel] of DRAWERS) if (s.drawers.includes(id) && !expanded(sel)) toggleOf(sel)?.click();
     const html = document.documentElement;
     const open = html.getAttribute('data-ft-dock') === 'open';
-    if (s.dock.open) {
+    if (s.dock.open && !keepDock) {
       html.setAttribute('data-ft-dock-h', String(s.dock.h));
       html.style.setProperty('--ft-dock-size', `${s.dock.h}px`);
     }
-    if (open !== s.dock.open) document.dispatchEvent(new CustomEvent('ff:dock-toggle', { detail: { kind: 'shell' } }));
+    if (!keepDock && open !== s.dock.open) document.dispatchEvent(new CustomEvent('ff:dock-toggle', { detail: { kind: 'shell' } }));
     this.remember(name);
     return true;
+  }
+
+  applyWorkspace(id: string): boolean {
+    const name = WORKSPACE_LAYOUT[id];
+    return name ? this.apply(name, true) : false;
+  }
+
+  openDrawer(id: string): void {
+    const sel = DRAWERS.find(([d]) => d === id)?.[1];
+    if (sel && !expanded(sel)) toggleOf(sel)?.click();
   }
 
   private remember(name: string | null): void {

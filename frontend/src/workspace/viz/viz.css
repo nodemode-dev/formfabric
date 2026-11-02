@@ -31,6 +31,9 @@
 .ff-sg-list { flex: none; height: 112px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-primary); }
 .ff-sg-empty { flex: none; height: 16px; margin: 0; color: var(--text-muted); font-size: var(--fs-11); }
 .ff-sg-hdri { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-1); }
+.ff-sg-btns { display: flex; gap: var(--space-1); }
+.ff-sg-btns .cv-btn { flex: none; }
+.ff-sg-btns [hidden] { display: none; }
 .ff-sg-status { flex: none; height: 16px; margin: 0; color: var(--text-muted); font-size: var(--fs-11); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ff-sg-vec { display: grid; grid-template-columns: 92px repeat(3, minmax(0, 1fr)); gap: var(--space-1); align-items: center; min-height: 28px; }
 .ff-sg-vec .cv-input { width: 100%; box-sizing: border-box; font-variant-numeric: tabular-nums; }

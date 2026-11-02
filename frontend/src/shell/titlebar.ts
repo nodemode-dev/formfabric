@@ -8,8 +8,8 @@ export const WORKSPACES = [
   { id: 'pattern', label: 'Pattern', ready: true },
   { id: 'sew', label: 'Sew', ready: true },
   { id: 'drape', label: 'Drape', ready: true },
-  { id: 'animate', label: 'Animate', ready: false },
-  { id: 'render', label: 'Render', ready: false },
+  { id: 'animate', label: 'Animate', ready: true },
+  { id: 'render', label: 'Render', ready: true },
 ] as const;
 
 const WS_KEY = 'formfabric.workspace';

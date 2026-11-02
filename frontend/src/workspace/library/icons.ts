@@ -23,4 +23,5 @@ export const KIND_ICON: Record<string, string> = {
   garment: 'panel',
   pose: 'body',
   motion: 'tlTimeline',
+  place: 'libPort',
 };

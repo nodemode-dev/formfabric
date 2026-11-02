@@ -82,6 +82,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   trimHooks.addPrint = (id) => { void addPrint(view, id, null); };
   void import('./output').then((m) => m.mountOutput(root, deps, doc, sel, view));
   void import('./library').then((m) => m.mountLibrary(root, deps, doc, sel, view));
+  void import('./objects').then((m) => m.mountObjects(root, deps, doc, sel, view));
   const check = new SeamCheck(q(root, '[data-k="pane2d"]'), doc, sel, () => { inspector.update(); view.redraw(); check.update(); }, (on) => setClass(checkBtn, 'is-on', on));
 
   const addButton = (id: string, iconName: string, key: string, label: string, onClick: () => void): HTMLButtonElement => {

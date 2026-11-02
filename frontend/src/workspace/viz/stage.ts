@@ -1,3 +1,4 @@
+import { nativeDialogs, pickPath } from '../../shell/file-dialog';
 import { el, patchList, q, setClass, setDisabled, setHidden, setText, setValue } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { onLanguage, t } from '../../ui/i18n';
@@ -82,6 +83,8 @@ export class StageDrawer {
   private readonly exposure;
   private readonly ground;
   private readonly bg;
+  private readonly image: HTMLInputElement;
+  private readonly fit;
   private readonly addKind;
   private readonly addBtn: HTMLButtonElement;
   private sel: number | null = null;
@@ -137,9 +140,24 @@ export class StageDrawer {
     this.rotation = numField('Rotation', 'deg', '5', (v) => void this.stage({ hdri_rotation: v }));
     this.exposure = numField('Exposure', 'EV', '0.25', (v) => void this.stage({ exposure: Math.max(-10, Math.min(10, v)) }));
     this.ground = toggleField('Ground and shadow catcher', (on) => void this.stage({ ground: on }));
-    this.bg = colorField('Background', (h) => void this.stage({ background: h }));
-    env.append(hrow, this.status, this.rotation.el, this.exposure.el, this.ground.el, this.bg.el);
-    onLanguage(() => { this.hdri.placeholder = t('Path of an equirectangular image'); this.refresh(); });
+    this.bg = colorField('Background', (h) => this.backdrop({ color: h }));
+    const brow = el('<div class="ff-sg-hdri"><input class="cv-input" type="text" spellcheck="false"><span class="ff-sg-btns"><button class="cv-btn" type="button" data-k="pick"></button><button class="cv-btn" type="button" data-k="apply"></button><button class="cv-btn cv-btn-ghost" type="button" data-k="clear"></button></span></div>');
+    this.image = q<HTMLInputElement>(brow, 'input');
+    const pick = q<HTMLButtonElement>(brow, '[data-k="pick"]');
+    const applyImage = q<HTMLButtonElement>(brow, '[data-k="apply"]');
+    const clearImage = q<HTMLButtonElement>(brow, '[data-k="clear"]');
+    label(pick, 'Choose...');
+    label(applyImage, 'Apply');
+    label(clearImage, 'Clear');
+    setHidden(pick, !nativeDialogs());
+    pick.addEventListener('click', () => void pickPath('open', null, 'image').then((p) => { if (p) { setValue(this.image, p); this.backdrop({ image: p }); } }).catch(() => undefined));
+    applyImage.addEventListener('click', () => this.backdrop({ image: this.image.value.trim() || null }));
+    clearImage.addEventListener('click', () => this.backdrop({ image: null }));
+    this.image.addEventListener('keydown', (e) => { if (e.key === 'Enter') this.backdrop({ image: this.image.value.trim() || null }); });
+    this.fit = selectField('Fit', [['cover', 'Cover'], ['contain', 'Contain']], (v) => this.backdrop({ fit: v }));
+    env.append(hrow, this.status, this.rotation.el, this.exposure.el, this.ground.el, this.bg.el, brow, this.fit.el);
+    onLanguage(() => { this.hdri.placeholder = t('Path of an equirectangular image'); this.image.placeholder = t('Path of a background picture'); this.refresh(); });
+    this.image.placeholder = t('Path of a background picture');
 
     if (localStorage.getItem(OPEN_KEY) === '1') this.setOpen(true);
     this.available();
@@ -155,6 +173,8 @@ export class StageDrawer {
     setDisabled(this.hdri, !st);
     this.ground.input.disabled = !st;
     this.bg.disable(!st);
+    setDisabled(this.image, !st);
+    this.fit.disable(!st);
   }
 
   setOpen(on: boolean): void {
@@ -235,8 +255,20 @@ export class StageDrawer {
     this.rotation.set(s.hdri_rotation);
     this.exposure.set(s.exposure);
     this.ground.set(s.ground);
-    const bgc = /^#[0-9a-f]{6}$/i.test(String(s.background)) ? String(s.background) : '#1c1b1d';
-    this.bg.set(bgc);
+    const bo = s.background && typeof s.background === 'object' && !Array.isArray(s.background) ? (s.background as Record<string, unknown>) : {};
+    const bgText = typeof s.background === 'string' ? s.background : typeof bo.color === 'string' ? bo.color : '';
+    this.bg.set(/^#[0-9a-f]{6}$/i.test(bgText) ? bgText : '#1c1b1d');
+    setValue(this.image, typeof bo.image === 'string' ? bo.image : '');
+    this.fit.set(bo.fit === 'contain' ? 'contain' : 'cover');
+  }
+
+  private backdrop(patch: { image?: string | null; fit?: string; color?: string }): void {
+    const cur = this.host.viz().stage.background;
+    const o = cur && typeof cur === 'object' && !Array.isArray(cur) ? (cur as Record<string, unknown>) : {};
+    const color = patch.color ?? (typeof cur === 'string' ? cur : typeof o.color === 'string' ? o.color : undefined);
+    const image = patch.image !== undefined ? patch.image : typeof o.image === 'string' ? o.image : null;
+    const fit = patch.fit ?? (o.fit === 'contain' ? 'contain' : 'cover');
+    void this.stage({ background: image ? { image, fit, ...(color ? { color } : {}) } : color ?? null });
   }
 
   setHdriStatus(state: string): void {

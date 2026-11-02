@@ -153,12 +153,12 @@ export function startApp(): void {
   });
   const shortcuts = new ShortcutsDialog(commands);
   const about = new AboutDialog();
-  const titlebar = new TitleBar(q(app, '.cv-titlebar'), commands, () => undefined);
+  let wsLayouts: WorkspaceLayouts | null = null;
+  const titlebar = new TitleBar(q(app, '.cv-titlebar'), commands, (id) => { wsLayouts?.applyWorkspace(id); });
   const captions = new CaptionButtons(q(app, '.cv-titlebar'), () => localStorage.getItem('formfabric.customTitleBar') === '1');
   document.addEventListener('ff:title-bar', () => captions.sync());
   document.addEventListener(PREFS_EVENT, () => captions.sync());
 
-  let wsLayouts: WorkspaceLayouts | null = null;
   const menus = () => buildMenus(commands, () => session.recent(), () => (wsLayouts ? layoutSlotIds(wsLayouts) : []));
   const palette = new CommandPalette(commands, menus);
   const home = new HomeScreen(root, {
@@ -179,6 +179,11 @@ export function startApp(): void {
     openAbout: () => about.open(),
     showHome: () => home.show(),
     workspace: (id) => titlebar.choose(id),
+    openOutput: (section) => {
+      titlebar.choose('render');
+      wsLayouts?.openDrawer('output');
+      window.dispatchEvent(new CustomEvent('ffb:output-section', { detail: { section } }));
+    },
     setUnits: (u) => { status.setUnits(u); void commands.call('view.units', { units: u }); },
     openPath,
   });

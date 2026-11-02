@@ -36,7 +36,7 @@ fn presets_run(_: &mut Session, a: &Value) -> Result<Value, CommandError> {
     }))
 }
 
-fn fabric_json(g: &Garment, f: &ffb_fabric::Fabric) -> Value {
+pub(super) fn fabric_json(g: &Garment, f: &ffb_fabric::Fabric) -> Value {
     let mut v = serde_json::to_value(f).unwrap_or(Value::Null);
     v["panels"] = json!(usage(g, f.id));
     v["is_default"] = json!(g.default_fabric == Some(f.id));

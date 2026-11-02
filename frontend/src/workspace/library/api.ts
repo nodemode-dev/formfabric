@@ -1,11 +1,11 @@
 import { serviceUrl } from '../../engine/service';
 import { hasCommand, obj, quiet, run } from '../viz/api';
 
-export const KINDS = ['fabric', 'trim', 'style', 'component', 'garment', 'pose', 'motion'] as const;
+export const KINDS = ['fabric', 'trim', 'style', 'component', 'garment', 'pose', 'motion', 'place'] as const;
 export type Kind = (typeof KINDS)[number];
 
 export const KIND_LABEL: Record<string, string> = {
-  all: 'All kinds', fabric: 'Fabric', trim: 'Trim style', style: 'Style line', component: 'Component', garment: 'Garment', pose: 'Pose', motion: 'Motion',
+  all: 'All kinds', fabric: 'Fabric', trim: 'Trim style', style: 'Style line', component: 'Component', garment: 'Garment', pose: 'Pose', motion: 'Motion', place: 'Placement',
 };
 
 export interface LibItem { id: string; kind: string; name: string; tags: string[]; thumb: string; root: string }

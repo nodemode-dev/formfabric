@@ -7,7 +7,9 @@ use serde_json::{json, Map, Value};
 use crate::{args, b64, dispatch, Command, CommandError, Group, Session, DESTROY, EXTERNAL, READ, WRITE};
 use store::Kind;
 
-const KINDS: [&str; 7] = ["fabric", "trim", "style", "component", "garment", "pose", "motion"];
+const KINDS: [&str; 8] = ["fabric", "trim", "style", "component", "garment", "pose", "motion", "place"];
+const MAX_PLACE_VOLUMES: usize = 256;
+const MAX_PLACE_POINTS: usize = 4096;
 const MAGIC: &[u8; 8] = b"FFMOTION";
 const MAX_HEADER: usize = 1 << 20;
 
@@ -107,7 +109,7 @@ fn add_schema() -> Value {
         "properties": {
             "kind": {"type": "string", "enum": KINDS},
             "name": {"type": "string", "minLength": 1, "maxLength": 64, "description": "Item name."},
-            "from": {"type": ["integer", "string"], "description": "What to save: a fabric id, a trim or style id (style.list), a component id (component.list), a body id for a pose (default the first body) or a motion id. Leave out for kind garment, which saves the open project."},
+            "from": {"type": ["integer", "string"], "description": "What to save: a fabric id, a trim or style id (style.list), a component id (component.list), a body id for a pose or a placement (default the first body) or a motion id. Leave out for kind garment, which saves the open project."},
             "tags": {"type": "array", "items": {"type": "string"}, "maxItems": 16},
             "thumbnail": {"type": "string", "description": "Optional PNG as base64, at most 1 MiB."}
         },
@@ -150,6 +152,63 @@ fn motion_bytes(s: &Session, id: u64) -> Result<Vec<u8>, CommandError> {
     Ok(out)
 }
 
+fn place_bytes(s: &Session, id: Option<u64>) -> Result<Vec<u8>, CommandError> {
+    let body = match id {
+        Some(id) => s.bodies.iter().find(|b| u64::from(b.id) == id).ok_or_else(|| CommandError::new("not_found", format!("no body with id {id}")))?,
+        None => s.bodies.first().ok_or_else(|| CommandError::new("not_found", "there is no body to take a placement from"))?,
+    };
+    let (volumes, points) = if body.volumes.is_empty() { ffb_body::place_defaults::default_volumes(body) } else { (body.volumes.clone(), body.points.clone()) };
+    if volumes.is_empty() {
+        return Err(CommandError::new("invalid_geometry", "this body has no placement volumes to save; add them with place.volume_set or place.defaults"));
+    }
+    serde_json::to_vec(&json!({"format": "ffplace", "schema": 1, "body": body.name, "volumes": volumes, "points": points})).map_err(|e| CommandError::new("save_failed", e.to_string()))
+}
+
+fn insert_place(s: &mut Session, bytes: &[u8], a: &Value) -> Result<Value, CommandError> {
+    let v: Value = serde_json::from_slice(bytes).map_err(|e| CommandError::new("open_failed", format!("not a placement file: {e}")))?;
+    if v.get("format").and_then(Value::as_str) != Some("ffplace") {
+        return Err(CommandError::new("open_failed", "not a placement file"));
+    }
+    let mut volumes: Vec<ffb_body::PlacementVolume> = serde_json::from_value(v.get("volumes").cloned().unwrap_or(Value::Null)).map_err(|e| CommandError::new("open_failed", format!("the placement volumes are invalid: {e}")))?;
+    let points: Vec<ffb_body::PlacementPoint> = serde_json::from_value(v.get("points").cloned().unwrap_or(Value::Null)).map_err(|e| CommandError::new("open_failed", format!("the arrangement points are invalid: {e}")))?;
+    if volumes.is_empty() || volumes.len() > MAX_PLACE_VOLUMES || points.len() > MAX_PLACE_POINTS {
+        return Err(CommandError::new("open_failed", "the placement file holds no volumes or too many items"));
+    }
+    let finite = |x: &[f64]| x.iter().all(|n| n.is_finite() && n.abs() <= 1e6);
+    if volumes.iter().any(|x| !(finite(&x.center) && finite(&x.axis) && finite(&x.radius) && finite(&[x.height]))) || points.iter().any(|p| !finite(&[p.around, p.along, p.offset])) {
+        return Err(CommandError::new("open_failed", "the placement file holds a value that is not a finite number"));
+    }
+    let ids: Vec<u32> = volumes.iter().map(|x| x.id).collect();
+    if ids.iter().enumerate().any(|(i, id)| ids[..i].contains(id)) || points.iter().any(|p| !ids.contains(&p.volume)) {
+        return Err(CommandError::new("open_failed", "the placement file refers to a volume it does not hold"));
+    }
+    let i = match a.get("body").and_then(Value::as_u64) {
+        Some(id) => s.bodies.iter().position(|b| u64::from(b.id) == id).ok_or_else(|| CommandError::new("not_found", format!("no body with id {id}")))?,
+        None if s.bodies.is_empty() => return Err(CommandError::new("not_found", "there is no body; use body.load_default first")),
+        None => 0,
+    };
+    let joints = s.bodies[i].joints.len();
+    let mut unlinked = 0;
+    for x in &mut volumes {
+        for j in &mut x.joints {
+            if j.is_some_and(|k| usize::from(k) >= joints) {
+                *j = None;
+                unlinked += 1;
+            }
+        }
+    }
+    let before = ffb_body::light_copy(&s.bodies[i]);
+    s.bodies[i].volumes = volumes;
+    s.bodies[i].points = points;
+    let after = ffb_body::light_copy(&s.bodies[i]);
+    let changed = after != before;
+    if changed {
+        let change = ffb_body::BodyChange { id: s.bodies[i].id, index: i, before: Some(Box::new(before)), after: Some(Box::new(after)), light: true };
+        s.record(crate::Edit::Bodies { label: "Insert Placement".into(), changes: vec![change] });
+    }
+    Ok(json!({"body": s.bodies[i].id, "volumes": s.bodies[i].volumes.len(), "points": s.bodies[i].points.len(), "unlinked_joints": unlinked, "changed": changed}))
+}
+
 fn add_run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let kind = kind_arg(a)?;
     let name = name_arg(a)?;
@@ -183,6 +242,10 @@ fn add_run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             let bytes = motion_bytes(s, need_id(a, "motion")?)?;
             store::add_bytes(kind, &name, tags, &bytes, thumb)?
         }
+        Kind::Place => {
+            let bytes = place_bytes(s, from_id(a)?)?;
+            store::add_bytes(kind, &name, tags, &bytes, thumb)?
+        }
     };
     Ok(json!({"item": item}))
 }
@@ -200,7 +263,7 @@ fn insert_schema() -> Value {
         "type": "object",
         "properties": {
             "id": {"type": "string", "minLength": 1, "description": "Library item id from library.list."},
-            "body": {"type": "integer", "minimum": 1, "description": "Pose and motion only: the body to apply it to. Defaults to the first body."},
+            "body": {"type": "integer", "minimum": 1, "description": "Pose, motion and placement only: the body to apply it to. Defaults to the first body."},
             "joins": {"type": "array", "items": {"type": "object"}, "description": "Component only: joins for component.insert, each {port, to: {component, port}, reversed, ease}."}
         },
         "required": ["id"],
@@ -302,6 +365,7 @@ fn insert_run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         Kind::Component => crate::component_cmds::insert_from_bytes(s, &store::read_bytes(&path)?, a.get("joins").unwrap_or(&Value::Null))?,
         Kind::Pose => insert_pose(s, &store::read_bytes(&path)?, a)?,
         Kind::Motion => insert_motion(s, &store::read_bytes(&path)?, a)?,
+        Kind::Place => insert_place(s, &store::read_bytes(&path)?, a)?,
     };
     if let Some(o) = out.as_object_mut() {
         o.insert("inserted".into(), json!(kind.name()));
@@ -345,7 +409,7 @@ pub(crate) fn commands() -> Vec<Command> {
             mcp: "library_list",
             group: Group::File,
             label: "Library",
-            description: "List the user library: fabrics (.ffab), trim and style files (.ffstyle), components (.ffcomp), garments (.ffbrc), poses (.ffpose) and motions (.ffmotion) from every configured library folder, with name, tags, thumbnail path and size. Files placed in the kind folders by hand are listed too.",
+            description: "List the user library: fabrics (.ffab), trim and style files (.ffstyle), components (.ffcomp), garments (.ffbrc), poses (.ffpose), motions (.ffmotion) and placements (.ffplace) from every configured library folder, with name, tags, thumbnail path and size. Files placed in the kind folders by hand are listed too.",
             keys: &[],
             hints: READ,
             schema: list_schema,
@@ -367,7 +431,7 @@ pub(crate) fn commands() -> Vec<Command> {
             mcp: "library_insert",
             group: Group::File,
             label: "Insert from Library",
-            description: "Bring a library fabric, trim, style, component, pose or motion into the open project. One undo step. A garment is not inserted: the error names the path for file.open.",
+            description: "Bring a library fabric, trim, style, component, pose, motion or placement (the placement volumes and arrangement points, set on the current body) into the open project. One undo step. A garment is not inserted: the error names the path for file.open.",
             keys: &[],
             hints: WRITE,
             schema: insert_schema,
