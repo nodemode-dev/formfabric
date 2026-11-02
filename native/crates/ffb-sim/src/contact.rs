@@ -259,7 +259,7 @@ impl Solver {
         SpatialHash::build(&self.x, &self.model.triangles, cell, margin)
     }
 
-    fn seam_flags(&self) -> Vec<bool> {
+    pub(crate) fn seam_flags(&self) -> Vec<bool> {
         let mut seam = vec![false; self.x.len()];
         for l in &self.model.links {
             for &v in &l.v[..l.n] {
@@ -318,7 +318,7 @@ impl Solver {
         PUSH.with(|p| *p.borrow_mut() = delta);
     }
 
-    fn project_links(&mut self) {
+    pub(crate) fn project_links(&mut self) {
         for _ in 0..2 {
             for l in &self.model.links {
                 let mut d = DVec3::ZERO;

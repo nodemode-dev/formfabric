@@ -109,7 +109,7 @@ export function drawPrints(g: CanvasRenderingContext2D, geo: PanelGeo, prints: P
 function drawFinish(g: CanvasRenderingContext2D, f: FinishGeo, map: Map2, zoom: number, c: Colors, picked: TrimItem | null): void {
   const fin = f.finish;
   const color = finishHue(fin.kind);
-  const band = fin.kind === 'tape' || fin.kind === 'bond' || fin.kind === 'press';
+  const band = fin.kind === 'tape' || fin.kind === 'bond' || fin.kind === 'press' || fin.kind === 'skive';
   const px = band ? Math.max(6, fin.width * 2 * zoom) : fin.kind === 'piping' ? Math.max(3, fin.width * zoom * 0.8) : Math.max(4, fin.width * zoom * (fin.kind === 'binding' ? 1 : 0.6));
   const selected = on(picked, 'finish', fin.id);
   if (selected) halo(g, f.lines, map, c, px);
@@ -126,7 +126,7 @@ function drawFinish(g: CanvasRenderingContext2D, f: FinishGeo, map: Map2, zoom: 
   g.globalAlpha = 0.95;
   g.lineWidth = fin.kind === 'piping' ? 1 : 1.2;
   g.strokeStyle = fin.kind === 'piping' ? c.bg : color;
-  g.setLineDash(fin.kind === 'bond' ? [1.5, 3] : fin.kind === 'press' ? [8, 3] : []);
+  g.setLineDash(fin.kind === 'bond' ? [1.5, 3] : fin.kind === 'press' ? [8, 3] : fin.kind === 'skive' ? [5, 2, 1, 2] : []);
   g.beginPath();
   for (const l of f.lines) trace(g, l, map);
   g.stroke();

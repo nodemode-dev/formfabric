@@ -13,7 +13,7 @@ interface BodyRow {
 }
 
 interface SettingsReply {
-  params?: { method?: string };
+  params?: { method?: string; untangle?: string };
   device?: { requested?: string; active?: string; gpu_available?: boolean; message?: string };
 }
 
@@ -21,6 +21,7 @@ const KINDS: Array<[string, string]> = [['directional', 'Directional'], ['radial
 const METHODS: Array<[string, string]> = [['auto', 'Auto'], ['blend', 'Blend'], ['sweep', 'Sweep'], ['redrape', 'Redrape']];
 const SOLVERS: Array<[string, string]> = [['vbd', 'VBD'], ['implicit', 'Implicit']];
 const DEVICES: Array<[string, string]> = [['cpu', 'CPU'], ['gpu', 'GPU']];
+const UNTANGLES: Array<[string, string]> = [['off', 'Off'], ['normal', 'Normal'], ['flipped', 'Flipped normal']];
 const REFIT_TOTAL = 80;
 const POLL_MS = 350;
 
@@ -50,6 +51,7 @@ export class SimPanel {
   private readonly status: HTMLElement;
   private readonly solver: ReturnType<typeof selectField>;
   private readonly device: ReturnType<typeof selectField>;
+  private readonly untangle: ReturnType<typeof selectField>;
   private readonly note: HTMLElement;
   private wind: WindJson | null = null;
   private bodies: BodyRow[] = [];
@@ -102,8 +104,9 @@ export class SimPanel {
     const sbody = this.secSolver.querySelector('.ffd-sec') as HTMLElement;
     this.solver = selectField('Method', SOLVERS, 'implicit', (v) => void this.sendSettings({ method: v }));
     this.device = selectField('Device', DEVICES, 'cpu', (v) => void this.sendSettings({ device: v }));
+    this.untangle = selectField('Untangle', UNTANGLES, 'off', (v) => void this.sendSettings({ untangle: v }));
     this.note = document.createElement('div');
-    sbody.append(this.solver.root, this.device.root, this.note);
+    sbody.append(this.solver.root, this.device.root, this.untangle.root, this.note);
 
     this.secShell = this.section('Fit shell');
     const hbody = this.secShell.querySelector('.ffd-sec') as HTMLElement;
@@ -185,6 +188,7 @@ export class SimPanel {
     try {
       const r = await call<SettingsReply>('sim.settings', {});
       this.solver.set(r.params?.method ?? 'implicit');
+      this.untangle.set(r.params?.untangle ?? 'off');
       this.gpu = r.device?.gpu_available === true;
       this.device.set(r.device?.active ?? 'cpu');
       this.paintDevice();

@@ -45,6 +45,7 @@ export class TrimSection {
   private readonly finishWidth;
   private readonly finishRatio;
   private readonly finishStrength;
+  private readonly finishPercent;
   private readonly finishGen;
   private readonly pname;
   private readonly pimage;
@@ -109,6 +110,7 @@ export class TrimSection {
     this.finishWidth = add(numRow('Width', '', { min: 0, step: 0.5 }, (v) => run('finish.set', { finish: idOf(), width: Math.min(100, Math.max(1, fromUnit(v, this.unit()))) })), ['finish']);
     this.finishRatio = add(numRow('Ratio', '', { min: 0.2, max: 2, step: 0.05 }, (v) => run('finish.set', { finish: idOf(), ratio: Math.min(2, Math.max(0.2, v)) })), ['finish']);
     this.finishStrength = add(numRow('Strength', '', { min: 0, max: 20, step: 0.5 }, (v) => run('finish.set', { finish: idOf(), strength: Math.min(20, Math.max(0, v)) })), ['finish']);
+    this.finishPercent = add(numRow('Percent', '%', { min: 0, max: 100, step: 5 }, (v) => run('finish.set', { finish: idOf(), percent: Math.min(100, Math.max(0, v)) })), ['finish']);
     this.finishGen = add(outRow('Generated panels'), ['finish']);
     this.pname = add(textRow('Name', (v) => { if (v) run('print.set', { print: idOf(), name: v }); }), ['print']);
     this.pimage = add(textRow('Image', (v) => { if (v) run('print.set', { print: idOf(), image: v }); }), ['print']);
@@ -239,7 +241,10 @@ export class TrimSection {
       this.finishWidth.set(toUnit(f.width, u));
       this.finishRatio.show(f.kind === 'elastic');
       this.finishRatio.set(f.ratio);
+      this.finishStrength.show(f.kind !== 'skive');
       this.finishStrength.set(f.strength);
+      this.finishPercent.show(f.kind === 'skive');
+      this.finishPercent.set(f.strength);
       this.finishGen.set(f.generated.length ? f.generated.map((id) => this.doc.panel(id)?.name ?? String(id)).join(', ') : '-');
     } else {
       const found = findPrint(g, it.id);

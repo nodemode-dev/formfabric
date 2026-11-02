@@ -11,6 +11,7 @@ pub const GRAB_STIFFNESS: f64 = 100.0;
 pub const AIR_RATE: f64 = 10.0;
 pub const APPROACH_CAP: f64 = 0.5;
 pub const APPROACH_ZONE: f64 = 8.0;
+pub const DEEP_PUSH_RANGE: f64 = 400.0;
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct PinState {
     pub vertex: u32,
@@ -47,6 +48,7 @@ pub struct Solver {
     vprof: [f64; 6],
     pre_buf: Vec<DVec3>,
     far_buf: Vec<bool>,
+    pub(crate) tangle: crate::untangle::State,
 }
 
 pub(crate) fn v3(p: [f32; 3]) -> DVec3 {
@@ -185,6 +187,7 @@ impl Solver {
             vprof: [0.0; 6],
             pre_buf: Vec::new(),
             far_buf: Vec::new(),
+            tangle: Default::default(),
         };
         s.link_base = s.model.links.iter().map(|l| l.k).collect();
         s.set_pins(cloth.pins);
@@ -237,6 +240,7 @@ impl Solver {
         }
         self.xn.clone_from(&self.x);
         self.y.clone_from(&self.x);
+        self.tangle.clear();
         for i in 0..self.x.len() {
             self.v[i] = DVec3::ZERO;
             self.acc[i] = DVec3::ZERO;
@@ -256,8 +260,17 @@ impl Solver {
         let mut moved = Vec::with_capacity(self.x.len());
         let mut count = 0;
         for (i, x) in self.x.iter().enumerate() {
-            let (p, hit) = resolve(&self.colliders, *x, offset);
-            if hit.is_some() && !self.pinned[i] {
+            let (mut p, hit) = resolve(&self.colliders, *x, offset);
+            let mut deep = false;
+            if hit.is_none() && !self.pinned[i] {
+                if let Some((sd, nrm)) = nearest(&self.colliders, *x, DEEP_PUSH_RANGE) {
+                    if sd < offset {
+                        p = *x + nrm * (offset - sd);
+                        deep = true;
+                    }
+                }
+            }
+            if (hit.is_some() || deep) && !self.pinned[i] {
                 count += 1;
                 moved.push([p.x as f32, p.y as f32, p.z as f32]);
             } else {
@@ -488,6 +501,7 @@ impl Solver {
     }
 
     pub(crate) fn finish_frame(&mut self) {
+        self.untangle_frame();
         for p in self.pins.iter_mut() {
             p.prev = p.target;
         }

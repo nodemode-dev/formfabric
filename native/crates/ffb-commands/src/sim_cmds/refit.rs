@@ -29,6 +29,17 @@ fn schema() -> Value {
             "frames": {"type": "integer", "minimum": 1, "maximum": 30, "default": 4, "description": "Solver frames run at each increment."},
             "settle": {"type": "integer", "minimum": 0, "maximum": 600, "default": 40, "description": "Frames run on the target body at the end."},
             "fix_frames": {"type": "integer", "minimum": 0, "maximum": 1000, "default": 150, "description": "Frame budget after the settle: each frame pushes cloth out of the target body and steps with collisions on, until the deepest vertex is under 1 mm inside or the budget is spent. The result reports inside_mm and the frames used."},
+            "maintain": {
+                "type": "object",
+                "description": "What stays as it was. Refit never edits the pattern, so every option keeps its maintaining value: curvature_pct 100 (the pattern outline curvature is untouched), graphic_size true (prints keep their size in the panel), texture_size true (texture coordinates are untouched), topology true (the cloth mesh is not remeshed). Lower values would need pattern updates and are refused.",
+                "properties": {
+                    "curvature_pct": {"type": "number", "minimum": 0, "maximum": 100, "default": 100},
+                    "graphic_size": {"type": "boolean", "default": true},
+                    "texture_size": {"type": "boolean", "default": true},
+                    "topology": {"type": "boolean", "default": true}
+                },
+                "additionalProperties": false
+            },
             "method": {
                 "type": "string",
                 "enum": ["auto", "blend", "sweep", "redrape"],
@@ -170,6 +181,32 @@ fn scene(s: &Session, skip: &[u32], moving: Collider) -> Vec<Collider> {
     all
 }
 
+fn maintain_of(a: &Value) -> Result<Value, CommandError> {
+    let m = match a.get("maintain").filter(|v| !v.is_null()) {
+        None => return Ok(json!({"curvature_pct": 100.0, "graphic_size": true, "texture_size": true, "topology": true})),
+        Some(v) => v.as_object().ok_or_else(|| bad("maintain must be an object"))?,
+    };
+    if let Some(k) = m.keys().find(|k| !["curvature_pct", "graphic_size", "texture_size", "topology"].contains(&k.as_str())) {
+        return Err(bad(format!("maintain has no option {k}")));
+    }
+    let curvature = match m.get("curvature_pct") {
+        None => 100.0,
+        Some(v) => v.as_f64().filter(|x| (0.0..=100.0).contains(x)).ok_or_else(|| bad("curvature_pct must be a number from 0 to 100"))?,
+    };
+    if curvature < 100.0 {
+        return Err(CommandError::new("unsupported", "Refit never edits the pattern, so curvature_pct stays 100; updating patterns for the new body is a separate feature"));
+    }
+    for key in ["graphic_size", "texture_size", "topology"] {
+        match m.get(key) {
+            None => {}
+            Some(Value::Bool(true)) => {}
+            Some(Value::Bool(false)) => return Err(CommandError::new("unsupported", format!("Refit keeps {key}: it never edits the pattern, the texture coordinates or the cloth mesh"))),
+            Some(_) => return Err(bad(format!("{key} must be true or false"))),
+        }
+    }
+    Ok(json!({"curvature_pct": curvature, "graphic_size": true, "texture_size": true, "topology": true}))
+}
+
 fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let to_id = a.get("to").and_then(Value::as_u64).ok_or_else(|| bad("to must be a body id"))?;
     let from_id = match a.get("from").filter(|v| !v.is_null()) {
@@ -185,6 +222,7 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     if from_id == to_id {
         return Err(bad("from and to are the same body"));
     }
+    let maintain = maintain_of(a)?;
     let (ia, ib) = (find(s, from_id)?, find(s, to_id)?);
     let (body_a, body_b) = (s.bodies[ia].clone(), s.bodies[ib].clone());
     if body_a.triangles.is_empty() || body_b.triangles.is_empty() {
@@ -262,17 +300,24 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             changes.push(BodyChange { id: s.bodies[index].id, index, before: Some(Box::new(old)), after: Some(Box::new(after)), light: true });
         }
     }
+    let mut start_depth = 0.0f32;
     if method == "redrape" {
         if let Err(e) = rebuild(s) {
             restore_visible(s, &old_visible);
             return Err(e);
         }
-        lock(&core).reset();
+        let mut c = lock(&core);
+        c.reset();
+        if let Some(st) = c.stepper.as_mut() {
+            start_depth = st.max_penetration();
+            st.push_out(1.0);
+        }
     } else {
         let colliders = scene(s, &skip, adapter::mesh_collider(posed_b.clone(), &body_b.triangles));
         let mut c = lock(&core);
         if let Some(st) = c.stepper.as_mut() {
             st.set_colliders(colliders);
+            start_depth = st.max_penetration();
             st.push_out(1.0);
         }
     }
@@ -348,6 +393,8 @@ fn refit(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         "settle": settle,
         "fix_frames": fixed,
         "inside_mm": inside,
+        "inside_start_mm": start_depth,
+        "maintain": maintain,
         "panels": moved_panels,
         "body_tapes": tapes,
         "note": if method == "redrape" && tapes > 0 { "body tapes keep their old body points; set them again on the new body" } else { "" }

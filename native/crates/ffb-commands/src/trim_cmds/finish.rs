@@ -6,17 +6,18 @@ use serde_json::{json, Value};
 use super::common::*;
 use crate::{Command, CommandError, Group, Session, DESTROY, WRITE};
 
-const KINDS: [&str; 8] = ["piping", "binding", "elastic", "shirring", "tape", "bond", "press", "crease"];
+const KINDS: [&str; 9] = ["piping", "binding", "elastic", "shirring", "tape", "bond", "press", "crease", "skive"];
 
 fn add_schema() -> Value {
     obj(
         json!({
-            "kind": {"type": "string", "enum": KINDS, "description": "piping and binding generate a strip panel sewn along the spans; elastic and shirring generate a narrow elastic strip (shirring when the spans lie on inner lines); tape, bond and press stiffen a band along the spans; crease adds a fold line between the ends of the spans."},
+            "kind": {"type": "string", "enum": KINDS, "description": "piping and binding generate a strip panel sewn along the spans; elastic and shirring generate a narrow elastic strip (shirring when the spans lie on inner lines); tape, bond and press stiffen a band along the spans; skive softens a band along the spans (the inverse of bond); crease adds a fold line between the ends of the spans."},
             "spans": spans("Spans of one or more panels the finish follows, in walking order."),
             "width": num("Piping 1 to 15 mm (default 6), binding 1 to 50 mm per side (default 12), elastic 1 to 50 mm (default 8), tape, bond and press: band half width on each side, 1 to 100 mm (default 10).", 1.0, 100.0, Some("mm")),
             "ratio": num("Elastic and shirring: length of the elastic at rest over its drawn length, 0.2 to 2 (default 0.8; 0.7 for shirring). Below 1 gathers the edge.", 0.2, 2.0, None),
             "strength": num("Elastic: seam tension, default 1. Tape default 3, bond default 5, press default 1.5: stiffness multiplier of the band. Crease: fold strength 0 to 20, default 1.", 0.0, 20.0, None),
             "fabric": ident("Fabric id of the strip; default is the fabric of the first span panel."),
+            "percent": num("Skive only: how far the band is shaved down, 0 to 100 percent (default 50). Bending stiffness and thickness of the band are scaled by one minus the percent (floor 5 percent for bending, 10 percent for thickness).", 0.0, 100.0, Some("percent")),
             "angle": num("Crease only: fold angle, 180 flat, lower folds to the front, higher to the back. Default 120.", 0.0, 360.0, Some("deg"))
         }),
         &["kind", "spans"],
@@ -49,6 +50,7 @@ fn edge_kind(kind: &str) -> EdgeKind {
         "elastic" | "shirring" => EdgeKind::Elastic,
         "tape" => EdgeKind::Tape,
         "bond" => EdgeKind::Bond,
+        "skive" => EdgeKind::Skive,
         _ => EdgeKind::Press,
     }
 }
@@ -85,7 +87,15 @@ fn add(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         return Err(bad(format!("width for {name} must be between {lo} and {hi} mm")));
     }
     let ratio = number_or(a, "ratio", if name == "shirring" { 0.7 } else { 0.8 });
-    let strength = number(a, "strength");
+    let strength = if name == "skive" {
+        let p = number_or(a, "percent", 50.0);
+        if !(0.0..=100.0).contains(&p) {
+            return Err(bad("percent must be between 0 and 100"));
+        }
+        Some(p)
+    } else {
+        number(a, "strength")
+    };
     let fabric = id(a, "fabric");
     if let Some(f) = fabric {
         if !s.garment.fabrics.iter().any(|x| x.id == f) {
@@ -116,6 +126,7 @@ fn set_schema() -> Value {
             "width": num("New width, in the range of the finish kind (see finish.add).", 1.0, 100.0, Some("mm")),
             "ratio": num("Elastic only: rest length over drawn length, 0.2 to 2.", 0.2, 2.0, None),
             "strength": num("Elastic seam tension, or stiffness multiplier of tape, bond and press, 0 to 20.", 0.0, 20.0, None),
+            "percent": num("Skive only: percent shaved down, 0 to 100.", 0.0, 100.0, Some("percent")),
             "fabric": ident("Piping, binding and elastic only: fabric id of the strip.")
         }),
         &["finish"],
@@ -130,6 +141,7 @@ fn kind_text(kind: EdgeKind) -> &'static str {
         EdgeKind::Tape => "tape",
         EdgeKind::Bond => "bond",
         EdgeKind::Press => "press",
+        EdgeKind::Skive => "skive",
     }
 }
 
@@ -151,8 +163,15 @@ fn set(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         return Err(bad("fabric applies to piping, binding and elastic only"));
     }
     let ratio = number_or(a, "ratio", old.ratio);
-    let strength = number_or(a, "strength", old.strength);
-    if !(0.0..=20.0).contains(&strength) || (strip == Some(StripKind::Elastic) && !(0.2..=2.0).contains(&ratio)) {
+    if a.get("percent").is_some() && old.kind != EdgeKind::Skive {
+        return Err(bad("percent applies to skive only"));
+    }
+    let skive = old.kind == EdgeKind::Skive;
+    if skive && a.get("strength").is_some() {
+        return Err(bad("a skive takes percent, not strength"));
+    }
+    let strength = if skive { number_or(a, "percent", old.strength) } else { number_or(a, "strength", old.strength) };
+    if !(0.0..=if skive { 100.0 } else { 20.0 }).contains(&strength) || (strip == Some(StripKind::Elastic) && !(0.2..=2.0).contains(&ratio)) {
         return Err(bad("strength must be between 0 and 20 and ratio between 0.2 and 2"));
     }
     let fabric = if a.get("fabric").is_some() { id(a, "fabric") } else { old.fabric };

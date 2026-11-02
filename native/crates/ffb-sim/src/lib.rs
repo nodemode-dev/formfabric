@@ -12,6 +12,7 @@ pub mod par;
 pub mod reference;
 pub mod selfcol;
 pub mod solver;
+pub mod untangle;
 
 pub use reference::{compare_positions, reference_step};
 pub use solver::Solver;
@@ -106,9 +107,19 @@ pub enum Method {
     Implicit,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Untangle {
+    #[default]
+    Off,
+    Normal,
+    Flipped,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Params {
+    pub untangle: Untangle,
     pub method: Method,
     pub newton: u32,
     pub cg_iterations: u32,
@@ -151,6 +162,7 @@ impl Params {
 impl Default for Params {
     fn default() -> Self {
         Params {
+            untangle: Untangle::Off,
             method: Method::Implicit,
             newton: 2,
             cg_iterations: 200,

@@ -60,6 +60,17 @@ pub(crate) fn mesh_collider(positions: Vec<[f32; 3]>, triangles: &[[u32; 3]]) ->
     Collider::Mesh { positions, triangles: triangles.to_vec() }
 }
 
+pub(crate) fn skived(m: &Material, factor: f32) -> Material {
+    let k = factor.clamp(0.05, 1.0);
+    Material {
+        bending_weft: m.bending_weft * k,
+        bending_warp: m.bending_warp * k,
+        bending_bias: m.bending_bias * k,
+        thickness: m.thickness * k.max(0.1),
+        ..*m
+    }
+}
+
 pub(crate) fn stiffened(m: &Material, factor: f32) -> Material {
     let k = if factor.is_finite() && factor > 0.0 { factor } else { 1.0 };
     Material {
@@ -117,6 +128,7 @@ pub(crate) fn preset(name: &str, base: Params) -> Option<Params> {
         close_frames: base.close_frames,
         close_gap: base.close_gap,
         seam_boost: base.seam_boost,
+        untangle: base.untangle,
         ..made
     })
 }
@@ -145,7 +157,9 @@ pub(crate) fn stiffen_bands(garment: &ffb_pattern::Garment, meshes: &std::collec
                     have.resize(factors.len(), 1.0);
                 }
                 for (h, f) in have.iter_mut().zip(factors.iter()) {
-                    *h = h.max(*f);
+                    if *f > 1.0 {
+                        *h = if *h < 1.0 { *f } else { h.max(*f) };
+                    }
                 }
             }
             None => {

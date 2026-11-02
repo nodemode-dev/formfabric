@@ -566,7 +566,7 @@ export class FinishTool extends SpanTool {
     const args: Record<string, unknown> = { kind: o.finishKind as FinishKind, spans: sides[0].map(spanArg) };
     if (o.finishWidth !== null) args.width = o.finishWidth;
     if (o.finishKind === 'elastic' && o.finishRatio !== null) args.ratio = o.finishRatio;
-    if (o.finishStrength !== null) args.strength = o.finishStrength;
+    if (o.finishStrength !== null) args[o.finishKind === 'skive' ? 'percent' : 'strength'] = o.finishStrength;
     void submit(this.ctx, 'finish.add', args, 'finish');
   }
 

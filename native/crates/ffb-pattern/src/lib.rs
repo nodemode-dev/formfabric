@@ -391,6 +391,7 @@ pub enum EdgeKind {
     Tape,
     Bond,
     Press,
+    Skive,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]

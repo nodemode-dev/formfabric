@@ -247,6 +247,7 @@ fn settings_schema() -> Value {
             "close_frames": {"type": "integer", "minimum": 0, "maximum": 600, "description": "Seam closing phase at the start of a drape: up to this many frames with stiffened seams, reduced gravity, strong damping and collisions on, then the normal simulation. 0 turns it off. Only applies when the garment has seams or links."},
             "close_gap": {"type": "number", "minimum": 0.1, "maximum": 50, "unit": "mm", "description": "The closing phase may end early once the largest seam gap is under this."},
             "seam_boost": {"type": "number", "minimum": 1, "maximum": 100, "description": "Peak seam stiffness multiplier during the closing phase (1 keeps the seams at their normal stiffness)."},
+            "untangle": {"type": "string", "enum": ["off", "normal", "flipped"], "description": "Intersection resolution after every frame. normal finds intersecting triangle pairs and moves the offending vertices along the triangle normal, to the side they were on before (or, where panel layers differ, the higher layer on the outer side); flipped puts the higher layer on the inner side. Seam vertices and pins are never moved, each vertex moves at most 2 mm per frame, only pairs that began to intersect this frame are corrected (pairs of different layers always), and bodies are respected. off leaves the intersections to self contact."},
             "device": {"type": "string", "enum": ["cpu", "gpu"], "description": "Where the solver runs. gpu needs an engine built with the gpu feature and an adapter; otherwise it is reported unavailable and the simulation stays on the cpu. The gpu path supports the vbd method only."}
         },
         "required": [],
@@ -267,7 +268,8 @@ fn params_json(p: &Params) -> Value {
         "air_damping": p.air_damping, "skin_offset": p.skin_offset, "collision_thickness": p.collision_thickness,
         "friction": p.friction, "self_collision": p.self_collision, "method": adapter::method_name(p),
         "newton": p.newton, "cg_iterations": p.cg_iterations, "cg_tolerance": p.cg_tolerance,
-        "close_frames": p.close_frames, "close_gap": p.close_gap, "seam_boost": p.seam_boost
+        "close_frames": p.close_frames, "close_gap": p.close_gap, "seam_boost": p.seam_boost,
+        "untangle": match p.untangle { ffb_sim::Untangle::Off => "off", ffb_sim::Untangle::Normal => "normal", ffb_sim::Untangle::Flipped => "flipped" }
     })
 }
 
@@ -354,6 +356,15 @@ fn settings(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     }
     if let Some(x) = number(a, "seam_boost", 1.0, 100.0)? {
         p.seam_boost = x;
+        touched = true;
+    }
+    if let Some(name) = a.get("untangle").filter(|v| !v.is_null()) {
+        p.untangle = match name.as_str() {
+            Some("off") => ffb_sim::Untangle::Off,
+            Some("normal") => ffb_sim::Untangle::Normal,
+            Some("flipped") => ffb_sim::Untangle::Flipped,
+            _ => return Err(bad("untangle must be off, normal or flipped")),
+        };
         touched = true;
     }
     let mut requested = s.sim.device.clone();

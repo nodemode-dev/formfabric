@@ -30,7 +30,7 @@ fn gather(garment: &Garment, ends: &[SeamEnd], half: f64, factor: f64, out: &mut
     panels.dedup();
     for panel in panels {
         let lines: Vec<Vec<V2>> = ends.iter().filter(|e| e.panel == panel).map(|e| polyline(garment, e)).filter(|l| l.len() >= 2).collect();
-        if !lines.is_empty() && factor > 1.0 {
+        if !lines.is_empty() && (factor - 1.0).abs() > 1.0e-6 {
             out.push(Band { panel, lines, half, factor });
         }
     }
@@ -43,9 +43,16 @@ fn bands_of(garment: &Garment) -> Vec<Band> {
             EdgeKind::Tape => (3.0, 10.0),
             EdgeKind::Bond => (5.0, 10.0),
             EdgeKind::Press => (1.5, 10.0),
+            EdgeKind::Skive => (1.0, 10.0),
             _ => continue,
         };
-        let strength = if f.strength > 0.0 { f.strength } else { default_strength };
+        let strength = if f.kind == EdgeKind::Skive {
+            (1.0 - f.strength.clamp(0.0, 100.0) / 100.0).max(0.05)
+        } else if f.strength > 0.0 {
+            f.strength
+        } else {
+            default_strength
+        };
         let width = if f.width > 0.0 { f.width } else { default_width };
         gather(garment, &f.spans, width, strength, &mut out);
     }
@@ -89,10 +96,10 @@ pub fn stiffen_bands(garment: &Garment, meshes: &BTreeMap<u32, TrimMesh>) -> BTr
             }
             let centre = [(corners[0][0] + corners[1][0] + corners[2][0]) / 3.0, (corners[0][1] + corners[1][1] + corners[2][1]) / 3.0];
             if corners.iter().chain(std::iter::once(&centre)).any(|p| near(&band.lines, *p) <= band.half) {
-                slot[k] = slot[k].max(band.factor as f32);
+                slot[k] = if band.factor < 1.0 { slot[k] * band.factor as f32 } else if slot[k] < 1.0 { band.factor as f32 } else { slot[k].max(band.factor as f32) };
             }
         }
     }
-    out.retain(|_, v| v.iter().any(|x| *x > 1.0));
+    out.retain(|_, v| v.iter().any(|x| (*x - 1.0).abs() > 1.0e-6));
     out
 }

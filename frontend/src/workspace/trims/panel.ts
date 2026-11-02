@@ -77,7 +77,7 @@ const KIND_NAMES: Record<string, string> = {
 };
 
 const FINISH_NAMES: Record<string, string> = {
-  piping: 'Piping', binding: 'Binding', elastic: 'Elastic', tape: 'Tape', bond: 'Bond', press: 'Press',
+  piping: 'Piping', binding: 'Binding', elastic: 'Elastic', tape: 'Tape', bond: 'Bond', press: 'Press', skive: 'Skive',
 };
 
 const SIDES: Array<[string, string]> = [['auto', 'Auto'], ['front', 'Front'], ['back', 'Back']];

@@ -2,12 +2,12 @@ import type { SeamEnd } from '../pattern-view/sew-types';
 import type { Garment, Panel, Vec } from '../types';
 
 export type StyleKind = 'button' | 'buttonhole' | 'zipper' | 'topstitch' | 'puckering' | 'trim';
-export type FinishKind = 'piping' | 'binding' | 'elastic' | 'tape' | 'bond' | 'press';
+export type FinishKind = 'piping' | 'binding' | 'elastic' | 'tape' | 'bond' | 'press' | 'skive';
 export type ItemKind = 'hardware' | 'zipper' | 'stitch' | 'finish' | 'print';
 export type PrintSide = 'auto' | 'front' | 'back';
 
 export const STYLE_KINDS: StyleKind[] = ['button', 'buttonhole', 'zipper', 'topstitch', 'puckering', 'trim'];
-export const FINISH_KINDS: FinishKind[] = ['piping', 'binding', 'elastic', 'tape', 'bond', 'press'];
+export const FINISH_KINDS: FinishKind[] = ['piping', 'binding', 'elastic', 'tape', 'bond', 'press', 'skive'];
 
 export interface TStyle { id: number; kind: StyleKind; name: string; params: Record<string, unknown> }
 export interface THardware { id: number; style: number; anchor: { panel: number; point: Vec }; rotation: number; fastened_to: number | null }

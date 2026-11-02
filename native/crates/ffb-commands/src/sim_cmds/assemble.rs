@@ -43,7 +43,7 @@ impl Derived {
         if let Some((_, _, made)) = self.list.iter().find(|(b, f, _)| *b == base && *f == bits) {
             return *made;
         }
-        let made = adapter::stiffened(&cloth.materials[base as usize], factor);
+        let made = if factor < 1.0 { adapter::skived(&cloth.materials[base as usize], factor) } else { adapter::stiffened(&cloth.materials[base as usize], factor) };
         cloth.materials.push(made);
         let index = (cloth.materials.len() - 1) as u16;
         self.list.push((base, bits, index));
@@ -166,7 +166,7 @@ pub(crate) fn assemble(garment: &Garment, mesh: &mut MeshState, bodies: &[ffb_bo
     for (id, factors) in adapter::stiffen_bands(garment, &meshes) {
         let Some(&(from, count)) = tri_ranges.get(&id) else { continue };
         for (k, factor) in factors.iter().enumerate().take(count) {
-            if *factor > 1.0001 {
+            if (*factor - 1.0).abs() > 1.0e-4 {
                 let base = cloth.triangle_material[from + k];
                 cloth.triangle_material[from + k] = derived.scaled(&mut cloth, base, *factor);
             }
