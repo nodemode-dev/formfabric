@@ -60,6 +60,7 @@ fn get(s: &mut Session, _a: &Value) -> Result<Value, CommandError> {
         "tracks": anim.tracks,
         "caches": caches,
         "active_cache": anim.active_cache,
+        "auto_key": anim.auto_key,
         "playing": s.anim.playing.load(std::sync::atomic::Ordering::Acquire),
         "job": super::play::job_json(s, false),
     }))
@@ -317,8 +318,11 @@ fn motion_remove(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
 }
 
 fn parse_target(s: &Session, target: &str) -> Result<(), CommandError> {
+    if let Some(id) = super::autokey::pin_target(target) {
+        return if s.garment.pins.iter().any(|p| p.id == id) { Ok(()) } else { Err(CommandError::new("not_found", format!("no pin with id {id}"))) };
+    }
     let parts: Vec<&str> = target.split('.').collect();
-    let unknown = || bad(format!("unknown key target {target}; use body.ID.pose, body.ID.MEASUREMENT, wind.FIELD, panel.ID.state.FIELD or fabric.ID.FIELD"));
+    let unknown = || bad(format!("unknown key target {target}; use body.ID.pose, body.ID.MEASUREMENT, wind.FIELD, panel.ID.state.FIELD, fabric.ID.FIELD or pin:ID"));
     let number = |t: &str| t.parse::<u32>().map_err(|_| unknown());
     match parts.as_slice() {
         ["wind", field] if WIND_FIELDS.contains(field) => Ok(()),
@@ -357,7 +361,9 @@ fn parse_target(s: &Session, target: &str) -> Result<(), CommandError> {
 fn check_value(target: &str, v: &Value) -> Result<(), CommandError> {
     let numeric = |v: &Value| v.as_f64().is_some_and(f64::is_finite);
     let flag = |v: &Value| v.is_boolean() || numeric(v);
-    let ok = if target.ends_with(".pose") {
+    let ok = if target.starts_with("pin:") {
+        v.as_array().is_some_and(|a| a.len() == 3 && a.iter().all(numeric))
+    } else if target.ends_with(".pose") {
         v.is_string() || v.as_object().is_some_and(|m| m.values().all(|q| q.as_array().is_some_and(|a| (a.len() == 4) && a.iter().all(numeric))))
     } else if target == "wind.kind" {
         v.is_string()
@@ -379,7 +385,7 @@ fn key_set_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
-            "target": {"type": "string", "description": "body.ID.pose (a pose name or {joint: [x, y, z, w]}), body.ID.MEASUREMENT, wind.FIELD, panel.ID.state.FIELD, fabric.ID.FIELD, where ID is a number and FIELD or MEASUREMENT a name."},
+            "target": {"type": "string", "description": "body.ID.pose (a pose name or {joint: [x, y, z, w]}), body.ID.MEASUREMENT, wind.FIELD, panel.ID.state.FIELD, fabric.ID.FIELD, where ID is a number and FIELD or MEASUREMENT a name; or pin:ID for a pin, with a value [x, y, z] in mm that is where recording holds the pin."},
             "frame": {"type": "integer", "minimum": 0, "maximum": MAX_FRAME},
             "value": {"description": "A number, a boolean, a vector, a pose name or a joint rotation object, by target."},
             "interp": {"type": "string", "enum": ["step", "linear", "smooth"], "description": "Interpolation from this key to the next. smooth is a cubic Hermite spline through Catmull-Rom tangents. Default linear."}
@@ -472,6 +478,9 @@ fn cache_set(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let k = cache_index(s, a)?;
     if let Some(n) = a.get("name").and_then(Value::as_str) {
         args::clean_name("name", n)?;
+        if n != s.garment.anim.caches[k].name {
+            super::layers::guard(s, k)?;
+        }
     }
     let id = s.garment.anim.caches[k].id;
     let changed = edit_garment(s, "Edit cache", |g| {
@@ -493,6 +502,7 @@ fn cache_set(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
 
 fn cache_remove(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let k = cache_index(s, a)?;
+    super::layers::guard(s, k)?;
     let id = s.garment.anim.caches[k].id;
     edit_garment(s, "Remove cache", |g| {
         g.anim.caches.remove(k);

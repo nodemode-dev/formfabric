@@ -3,7 +3,7 @@ export type Interp = 'step' | 'linear' | 'smooth';
 export interface KeyItem { frame: number; value: unknown; interp: Interp }
 export interface TrackItem { id: number; target: string; keys: KeyItem[] }
 export interface MotionItem { id: number; name: string; source: string; body: number; start: number; frames: number; fps: number; lead_in: number; retarget: unknown }
-export interface CacheItem { id: number; name: string; start: number; frames: number; visible: boolean; entry: string }
+export interface CacheItem { id: number; name: string; start: number; frames: number; visible: boolean; entry: string; kind: 'pattern' | 'trim'; locked: boolean; offset: number }
 
 export interface AnimState {
   fps: number;
@@ -14,6 +14,7 @@ export interface AnimState {
   tracks: TrackItem[];
   caches: CacheItem[];
   active: number | null;
+  autoKey: boolean;
 }
 
 export interface JobInfo { running: boolean; progress: number; text: string; failed: string; playing: boolean; playFrame: number | null }
@@ -23,7 +24,7 @@ export interface Row { kind: RowKind; id: number }
 
 export const INTERPS: Interp[] = ['step', 'linear', 'smooth'];
 
-export const EMPTY: AnimState = { fps: 30, start: 0, end: 120, current: 0, motions: [], tracks: [], caches: [], active: null };
+export const EMPTY: AnimState = { fps: 30, start: 0, end: 120, current: 0, motions: [], tracks: [], caches: [], active: null, autoKey: false };
 
 const rec = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
 const num = (v: unknown, d: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -49,8 +50,10 @@ export function parseAnim(raw: unknown): AnimState {
     })),
     caches: list(r.caches).map((c) => ({
       id: num(c.id, 0), name: typeof c.name === 'string' ? c.name : '', start: num(c.start, 0), frames: num(c.frames, 0), visible: c.visible !== false, entry: typeof c.entry === 'string' ? c.entry : '',
+      kind: c.kind === 'trim' ? 'trim' : 'pattern', locked: c.locked === true, offset: num(c.offset, 0),
     })),
     active: typeof r.active_cache === 'number' ? r.active_cache : null,
+    autoKey: r.auto_key === true,
   };
 }
 

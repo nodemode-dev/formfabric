@@ -45,6 +45,23 @@ fn record(s: &mut Session, label: &str, edit: impl FnOnce(&mut Vec<Pin>) -> Resu
     Ok(true)
 }
 
+pub(crate) fn keyed_vertices(s: &mut Session) -> Vec<(u32, Vec<ffb_pattern::anim::Key>)> {
+    let mut out = Vec::new();
+    let pins = s.garment.pins.clone();
+    for pin in pins {
+        let Some(track) = s.garment.anim.tracks.iter().find(|t| t.target == format!("pin:{}", pin.id)).filter(|t| !t.keys.is_empty()) else { continue };
+        let keys = track.keys.clone();
+        let Some(index) = s.garment.index_of(pin.panel) else { continue };
+        let Ok(mesh) = s.mesh.ensure(&s.garment.panels[index], false).built else { continue };
+        let Some(local) = nearest_vertex(&mesh.mesh, pin.point) else { continue };
+        let c = lock(&s.sim.core);
+        if let Some(sl) = c.slices.iter().find(|sl| sl.id == pin.panel) {
+            out.push(((sl.start + local) as u32, keys));
+        }
+    }
+    out
+}
+
 fn add_schema() -> Value {
     json!({
         "type": "object",
@@ -90,8 +107,19 @@ fn add(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             }
         }
     };
-    if let Some(existing) = s.garment.pins.iter().find(|p| p.panel == panel_id && nearest_vertex(&mesh.mesh, p.point) == Some(local)) {
-        return Ok(json!({"pin": pin_json(existing), "vertex": local, "count": s.garment.pins.len(), "changed": false}));
+    if let Some(existing) = s.garment.pins.iter().find(|p| p.panel == panel_id && nearest_vertex(&mesh.mesh, p.point) == Some(local)).cloned() {
+        if let (Some(t), Some(_)) = (numbers::<3>(a, "target")?, a.get("target").filter(|v| !v.is_null())) {
+            if existing.target != Some(t) {
+                record(s, "Move pin", |pins| {
+                    if let Some(p) = pins.iter_mut().find(|p| p.id == existing.id) {
+                        p.target = Some(t);
+                    }
+                    Ok(())
+                })?;
+                return Ok(json!({"pin": {"id": existing.id, "panel": panel_id, "point": existing.point, "target": t}, "vertex": local, "count": s.garment.pins.len(), "changed": true}));
+            }
+        }
+        return Ok(json!({"pin": pin_json(&existing), "vertex": local, "count": s.garment.pins.len(), "changed": false}));
     }
     if s.garment.pins.len() >= MAX_PINS {
         return Err(bad(format!("a garment holds at most {MAX_PINS} pins")));

@@ -22,7 +22,7 @@ pub(crate) use adapter::self_hits;
 pub(crate) use build::keyed_rebuilder;
 pub(crate) use pinch::current_positions;
 pub(crate) use drape::rigid_fit;
-pub(crate) use pins::MAX_PINS;
+pub(crate) use pins::{keyed_vertices as keyed_pin_vertices, MAX_PINS};
 
 pub struct SimState {
     pub(crate) core: Arc<Mutex<runtime::Core>>,

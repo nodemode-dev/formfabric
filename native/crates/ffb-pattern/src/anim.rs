@@ -40,6 +40,14 @@ pub struct Motion {
     pub retarget: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CacheKind {
+    #[default]
+    Pattern,
+    Trim,
+}
+
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CacheLayer {
@@ -49,6 +57,9 @@ pub struct CacheLayer {
     pub frames: u32,
     pub visible: bool,
     pub entry: String,
+    pub kind: CacheKind,
+    pub locked: bool,
+    pub offset: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -62,10 +73,11 @@ pub struct Anim {
     pub tracks: Vec<Track>,
     pub caches: Vec<CacheLayer>,
     pub active_cache: Option<u32>,
+    pub auto_key: bool,
 }
 
 impl Default for Anim {
     fn default() -> Self {
-        Self { fps: 30.0, start: 0, end: 120, current: 0, motions: Vec::new(), tracks: Vec::new(), caches: Vec::new(), active_cache: None }
+        Self { fps: 30.0, start: 0, end: 120, current: 0, motions: Vec::new(), tracks: Vec::new(), caches: Vec::new(), active_cache: None, auto_key: false }
     }
 }

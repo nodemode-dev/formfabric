@@ -1,10 +1,16 @@
-.ff-an { position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--z-rail); height: 244px; display: flex; flex-direction: column; min-width: 0; background: var(--bg-secondary); border-top: 1px solid var(--border-color); color: var(--text-primary); font-size: var(--fs-11); }
+.ff-an { position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--z-rail); height: 274px; display: flex; flex-direction: column; min-width: 0; background: var(--bg-secondary); border-top: 1px solid var(--border-color); color: var(--text-primary); font-size: var(--fs-11); }
 .ff-an[hidden] { display: none; }
 .ff-an-toggle { flex: none; }
-.ff-an-bar, .ff-an-keys { flex: none; display: flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border-color); }
+.ff-an-layers { height: 30px; }
+.ff-an-lk { flex: none; display: inline-flex; width: 12px; color: var(--text-primary); visibility: hidden; }
+.ff-an-lk.is-on { visibility: visible; }
+.ff-an-item:not([data-kind="cache"]) .ff-an-lk { display: none; }
+.ff-an-item.is-trim .ff-an-name { color: var(--text-secondary); font-style: italic; }
+.ff-an-bar, .ff-an-keys, .ff-an-layers { flex: none; display: flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border-color); }
 .ff-an-bar { height: 32px; }
 .ff-an-keys { height: 30px; }
-.ff-an-bar::-webkit-scrollbar, .ff-an-keys::-webkit-scrollbar { display: none; }
+.ff-an-bar::-webkit-scrollbar, .ff-an-keys::-webkit-scrollbar, .ff-an-layers::-webkit-scrollbar { display: none; }
+.ff-an-layers .ff-an-f .cv-input { width: 52px; }
 .ff-an-sep { flex: none; width: 1px; height: 16px; margin: 0 var(--space-1); background: var(--border-color); }
 .ff-an-gap { flex: 1 1 auto; min-width: 0; }
 .ff-an-hint { flex: none; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }

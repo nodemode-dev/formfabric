@@ -9,7 +9,7 @@ import { textFieldFocused } from '../../ui/native-menu';
 import { MotionPanel } from './motion';
 import { AnimStore, type Change } from './store';
 import { ROW_H, Timeline } from './timeline';
-import { INTERPS, parseValue, showValue, type Interp, type Row } from './types';
+import { INTERPS, parseValue, showValue, type CacheItem, type Interp, type Row } from './types';
 import { label, patchKeyed, repaint, titled } from './widgets';
 
 const OPEN_KEY = 'formfabric.timeline.open';
@@ -46,6 +46,19 @@ const HTML =
   '<button class="ff-btn" type="button" data-k="addkey"></button>' +
   '<button class="ff-btn" type="button" data-k="rmkey"></button>' +
   '</div>' +
+  '<div class="ff-an-layers">' +
+  '<button class="cv-icon-btn" type="button" data-k="autokey"></button>' +
+  '<i class="ff-an-sep"></i>' +
+  '<button class="cv-icon-btn" type="button" data-k="cut"></button>' +
+  '<button class="cv-icon-btn" type="button" data-k="merge"></button>' +
+  '<button class="cv-icon-btn" type="button" data-k="lock"></button>' +
+  '<i class="ff-an-sep"></i>' +
+  '<button class="cv-icon-btn" type="button" data-k="earlier"></button>' +
+  '<label class="ff-an-f"><span data-k="l-shift"></span><input class="cv-input" type="number" step="1" min="1" max="100000" value="1" data-k="shift"></label>' +
+  '<button class="cv-icon-btn" type="button" data-k="later"></button>' +
+  '<span class="ff-an-gap"></span>' +
+  '<span class="ff-an-hint" data-k="layerhint"></span>' +
+  '</div>' +
   '<div class="ff-an-main">' +
   '<div class="ff-an-list"><div class="ff-an-list-head"></div><div class="ff-an-rows" data-k="rows"></div></div>' +
   '<div class="ff-an-cv"><canvas data-k="canvas"></canvas></div>' +
@@ -74,6 +87,7 @@ export class AnimDock {
   private over = false;
   private menuKey: { track: number; frame: number } | null = null;
   private renaming: number | null = null;
+  private readonly picked = new Set<number>();
 
   constructor(private readonly pane: HTMLElement, bar: HTMLElement, private readonly deps: ShellDeps) {
     this.store = new AnimStore(deps.engine, (m) => deps.toast(m, 'error'));
@@ -87,14 +101,14 @@ export class AnimDock {
     zoom.parentElement?.insertBefore(this.toggle, zoom);
 
     this.f = {};
-    for (const k of ['frame', 'start', 'end', 'fps', 'target', 'value']) this.f[k] = q<HTMLInputElement>(this.root, `[data-k="${k}"]`);
+    for (const k of ['frame', 'start', 'end', 'fps', 'target', 'value', 'shift']) this.f[k] = q<HTMLInputElement>(this.root, `[data-k="${k}"]`);
     this.b = {};
-    for (const k of ['motion', 'record', 'cancel', 'back', 'play', 'step', 'loop', 'fit', 'addkey', 'rmkey']) this.b[k] = q<HTMLButtonElement>(this.root, `[data-k="${k}"]`);
+    for (const k of ['motion', 'record', 'cancel', 'back', 'play', 'step', 'loop', 'fit', 'addkey', 'rmkey', 'autokey', 'cut', 'merge', 'lock', 'earlier', 'later']) this.b[k] = q<HTMLButtonElement>(this.root, `[data-k="${k}"]`);
     this.rows = q(this.root, '[data-k="rows"]');
     this.menu = q(this.root, '[data-k="menu"]');
     this.interp = q<HTMLSelectElement>(this.root, '[data-k="interp"]');
 
-    for (const [k, text] of [['frame', 'Frame'], ['start', 'Start'], ['end', 'End'], ['fps', 'FPS'], ['target', 'Target'], ['value', 'Value'], ['interp', 'Interpolation']]) label(q(this.root, `[data-k="l-${k}"]`), text);
+    for (const [k, text] of [['frame', 'Frame'], ['start', 'Start'], ['end', 'End'], ['fps', 'FPS'], ['target', 'Target'], ['value', 'Value'], ['interp', 'Interpolation'], ['shift', 'Frames']]) label(q(this.root, `[data-k="l-${k}"]`), text);
     for (const i of INTERPS) {
       const o = document.createElement('option');
       o.value = i;
@@ -117,6 +131,12 @@ export class AnimDock {
     this.b.fit.innerHTML = icon('frameAll', 16);
     this.b.addkey.innerHTML = `${icon('tlKey', 12)}<span></span>`;
     this.b.rmkey.innerHTML = `${icon('delete', 12)}<span></span>`;
+    this.b.autokey.innerHTML = icon('tlKey', 16);
+    this.b.cut.innerHTML = icon('split', 16);
+    this.b.merge.innerHTML = icon('layers', 16);
+    this.b.lock.innerHTML = `<span data-p="lock">${icon('lock', 16)}</span><span data-p="unlock" hidden>${icon('unlock', 16)}</span>`;
+    this.b.earlier.innerHTML = icon('tlStepBack', 16);
+    this.b.later.innerHTML = icon('simStep', 16);
     label(this.b.addkey.children[1] as HTMLElement, 'Add Key');
     label(this.b.rmkey.children[1] as HTMLElement, 'Remove Key');
 
@@ -130,6 +150,13 @@ export class AnimDock {
     this.tip(this.b.fit, 'Fit', '', []);
     this.tip(this.b.addkey, 'Add Key', 'key.set', ['key.set']);
     this.tip(this.b.rmkey, 'Remove Key', 'key.remove', ['key.remove']);
+    this.tip(this.b.autokey, 'Auto Key', 'anim.auto_key', ['anim.auto_key']);
+    this.tip(this.b.cut, 'Cut Layer', 'cache.cut', ['cache.cut']);
+    this.tip(this.b.merge, 'Merge Layers', 'cache.merge', ['cache.merge']);
+    this.tip(this.b.lock, 'Lock Layer', 'cache.lock', ['cache.lock']);
+    this.tip(this.b.earlier, 'Move Earlier', 'cache.move', ['cache.move']);
+    this.tip(this.b.later, 'Move Later', 'cache.move', ['cache.move']);
+    this.needs.push({ node: this.f.shift, any: ['cache.move'] });
     for (const k of ['frame', 'start', 'end', 'fps']) this.needs.push({ node: this.f[k], any: ['anim.set'] });
     for (const k of ['target', 'value']) this.needs.push({ node: this.f[k], any: ['key.set'] });
     this.needs.push({ node: this.interp, any: ['key.set'] });
@@ -214,6 +241,12 @@ export class AnimDock {
     this.b.fit.addEventListener('click', () => { this.line.fit(); });
     this.b.addkey.addEventListener('click', () => { void this.addKey(); });
     this.b.rmkey.addEventListener('click', () => { void this.removeKey(); });
+    this.b.autokey.addEventListener('click', () => { void this.store.run('anim.auto_key', { on: !this.store.anim.autoKey }); });
+    this.b.cut.addEventListener('click', () => { const c = this.selCache(); if (c) void this.store.run('cache.cut', { id: c.id, frame: this.store.current }); });
+    this.b.merge.addEventListener('click', () => { if (this.picked.size > 1) void this.store.run('cache.merge', { ids: Array.from(this.picked) }); });
+    this.b.lock.addEventListener('click', () => { const c = this.selCache(); if (c) void this.store.run('cache.lock', { id: c.id, locked: !c.locked }); });
+    this.b.earlier.addEventListener('click', () => { this.shiftBy(-1); });
+    this.b.later.addEventListener('click', () => { this.shiftBy(1); });
     for (const k of Object.keys(this.b)) this.b[k].addEventListener('click', () => this.b[k].blur());
     setClass(this.b.loop, 'is-on', this.store.loop);
 
@@ -293,6 +326,39 @@ export class AnimDock {
     void this.store.record(ok ? s : a.start, ok ? e : a.end, `Rec ${a.caches.length + 1}`);
   }
 
+  private selCache(): CacheItem | undefined {
+    const row = this.line.selRow;
+    return row && row.kind === 'cache' ? this.store.anim.caches.find((c) => c.id === row.id) : undefined;
+  }
+
+  private shiftBy(dir: number): void {
+    const c = this.selCache();
+    const n = Math.round(Number(this.f.shift.value));
+    if (!c || !Number.isFinite(n) || n < 1) return;
+    void this.store.run('cache.move', { id: c.id, frames: dir * n });
+  }
+
+  private paintLayers(): void {
+    const s = this.store;
+    const a = s.anim;
+    const c = this.selCache();
+    const run = s.job.running;
+    setClass(this.b.autokey, 'is-on', a.autoKey);
+    this.b.autokey.setAttribute('aria-pressed', String(a.autoKey));
+    const free = !!c && !c.locked && !run;
+    const inside = !!c && s.current > c.start && s.current < c.start + c.frames;
+    if (!this.missing(['cache.cut'])) setDisabled(this.b.cut, !free || !inside);
+    if (!this.missing(['cache.merge'])) setDisabled(this.b.merge, run || this.picked.size < 2 || Array.from(this.picked).some((id) => a.caches.find((k) => k.id === id)?.locked));
+    if (!this.missing(['cache.lock'])) setDisabled(this.b.lock, !c || run);
+    for (const k of ['earlier', 'later']) if (!this.missing(['cache.move'])) setDisabled(this.b[k], !free);
+    setDisabled(this.f.shift, this.missing(['cache.move']));
+    setClass(this.b.lock, 'is-on', !!c && c.locked);
+    setHidden(q(this.b.lock, '[data-p="lock"]'), !(c && c.locked));
+    setHidden(q(this.b.lock, '[data-p="unlock"]'), !!(c && c.locked));
+    const hint = !c ? '' : c.locked ? t('Locked') : c.offset !== 0 ? `${t('Offset')} ${c.offset > 0 ? '+' : ''}${c.offset}` : '';
+    setText(q(this.root, '[data-k="layerhint"]'), hint);
+  }
+
   private trackOf(id: number | null): { id: number; target: string } | undefined {
     return id === null ? undefined : this.store.anim.tracks.find((x) => x.id === id);
   }
@@ -357,8 +423,15 @@ export class AnimDock {
     setHidden(this.menu, true);
   }
 
-  private pickRow(row: Row | null): void {
+  private pickRow(row: Row | null, multi = false): void {
     this.line.selRow = row;
+    if (row?.kind === 'cache') {
+      if (multi && this.picked.has(row.id)) this.picked.delete(row.id);
+      else {
+        if (!multi) this.picked.clear();
+        this.picked.add(row.id);
+      }
+    } else if (!multi) this.picked.clear();
     if (row?.kind === 'cache') {
       this.store.activeId = row.id;
       if ('active' in this.store.props('cache.set')) void this.store.run('cache.set', { id: row.id, active: true }, true);
@@ -368,6 +441,7 @@ export class AnimDock {
       if (tr) setValue(this.f.target, tr.target);
     }
     this.paintList();
+    this.paintLayers();
     this.line.invalidate();
   }
 
@@ -386,7 +460,7 @@ export class AnimDock {
 
   private changed(c: Change): void {
     if (c === 'frame') { this.paintFrame(); return; }
-    if (c === 'job') { this.paintJob(); this.paintFields(); return; }
+    if (c === 'job') { this.paintJob(); this.paintFields(); this.paintLayers(); return; }
     this.paintAll();
   }
 
@@ -398,6 +472,7 @@ export class AnimDock {
     this.paintList();
     this.paintJob();
     this.paintKeys();
+    this.paintLayers();
     this.motion.sync();
     this.line.invalidate();
   }
@@ -426,6 +501,7 @@ export class AnimDock {
     setHidden(this.playIcon, s.playing);
     setHidden(this.pauseIcon, !s.playing);
     setClass(this.b.play, 'is-on', s.playing);
+    this.paintLayers();
     const key = s.playing ? 'Pause' : 'Play';
     if (this.playTip.key !== key) { this.playTip.key = key; this.paintTip(this.playTip); }
     this.line.invalidate();
@@ -468,11 +544,13 @@ export class AnimDock {
     const n = el(
       `<div class="ff-an-item" data-kind="${r.kind}" style="height:${ROW_H}px">` +
       '<button class="cv-icon-btn ff-an-vis" type="button" data-a="vis"><span data-v="on"></span><span data-v="off" hidden></span></button>' +
-      '<span class="ff-an-ico"></span><span class="ff-an-name"></span><input class="cv-input ff-an-ren" type="text" hidden>' +
+      '<span class="ff-an-ico"></span><span class="ff-an-name"></span><input class="cv-input ff-an-ren" type="text" hidden><span class="ff-an-lk"></span>' +
       '<button class="cv-icon-btn ff-an-del" type="button" data-a="del"></button></div>');
     q(n, '[data-v="on"]').innerHTML = icon('eye', 14);
     q(n, '[data-v="off"]').innerHTML = icon('eyeOff', 14);
-    q(n, '.ff-an-ico').innerHTML = icon(r.kind === 'track' ? 'tlKey' : r.kind === 'motion' ? 'pose' : 'layers', 12);
+    const pinned = r.kind === 'track' && (this.store.anim.tracks.find((k) => k.id === r.id)?.target ?? '').startsWith('pin:');
+    q(n, '.ff-an-ico').innerHTML = icon(pinned ? 'pinTool' : r.kind === 'track' ? 'tlKey' : r.kind === 'motion' ? 'pose' : 'layers', 12);
+    q(n, '.ff-an-lk').innerHTML = icon('lock', 11);
     q(n, '.ff-an-del').innerHTML = icon('delete', 14);
     const vis = q<HTMLElement>(n, '[data-a="vis"]');
     const del = q<HTMLElement>(n, '[data-a="del"]');
@@ -483,7 +561,7 @@ export class AnimDock {
     n.dataset.id = String(r.id);
     n.addEventListener('click', (e) => {
       if (e.target instanceof Element && e.target.closest('button,input')) return;
-      this.pickRow({ kind: r.kind, id: id() });
+      this.pickRow({ kind: r.kind, id: id() }, e.shiftKey || e.ctrlKey || e.metaKey);
     });
     vis.addEventListener('click', () => {
       const c = this.store.anim.caches.find((k) => k.id === id());
@@ -535,6 +613,8 @@ export class AnimDock {
     if (r.kind === 'cache') {
       const c = a.caches.find((k) => k.id === r.id);
       text = c?.name ?? '';
+      setClass(q(n, '.ff-an-lk'), 'is-on', !!c?.locked);
+      setClass(n, 'is-trim', c?.kind === 'trim');
       hiddenRow = c ? !c.visible : false;
       active = r.id === this.store.activeId;
       setHidden(q(n, '[data-v="on"]'), hiddenRow);
@@ -549,7 +629,7 @@ export class AnimDock {
     setClass(n, 'is-hidden', hiddenRow);
     setClass(n, 'is-active', active);
     const sel = this.line.selRow;
-    setClass(n, 'is-sel', !!sel && sel.kind === r.kind && sel.id === r.id);
+    setClass(n, 'is-sel', (!!sel && sel.kind === r.kind && sel.id === r.id) || (r.kind === 'cache' && this.picked.has(r.id)));
   }
 }
 

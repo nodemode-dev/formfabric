@@ -114,10 +114,9 @@ export class AnimStore {
   }
 
   cacheAt(frame: number): CacheItem | undefined {
-    const covers = (c: CacheItem): boolean => c.frames > 0 && frame >= c.start && frame < c.start + c.frames;
-    const active = this.anim.caches.find((c) => c.id === this.activeId);
-    if (active && covers(active)) return active;
-    return this.anim.caches.find((c) => c.visible && covers(c));
+    const covers = (c: CacheItem): boolean => c.kind === 'pattern' && c.visible && c.frames > 0 && frame >= c.start && frame < c.start + c.frames;
+    for (let i = this.anim.caches.length - 1; i >= 0; i -= 1) if (covers(this.anim.caches[i])) return this.anim.caches[i];
+    return undefined;
   }
 
   setCurrent(frame: number, persist: boolean): void {
@@ -157,7 +156,7 @@ export class AnimStore {
           const f = this.streamWant;
           this.streamWant = -1;
           const cache = this.cacheAt(f);
-          if (cache) await this.run('cache.frame', { id: cache.id, frame: f }, true);
+          if (cache) await this.run('cache.frame', { frame: f }, true);
         }
       } finally { this.streamBusy = false; }
     })();
@@ -173,10 +172,10 @@ export class AnimStore {
     const from = this.current >= a.end || this.current < a.start ? a.start : this.current;
     this.current = from;
     this.playing = true;
-    const cache = this.cacheAt(from) ?? a.caches.find((c) => c.visible && c.frames > 0);
+    const cache = this.cacheAt(from) ?? a.caches.find((c) => c.kind === 'pattern' && c.visible && c.frames > 0);
     if (cache && this.has('anim.play')) {
       const inside = from >= cache.start && from < cache.start + cache.frames;
-      void this.serverStart(cache.id, inside ? from : cache.start);
+      void this.serverStart(inside ? from : cache.start);
     } else {
       this.clientStart(from);
     }
@@ -189,8 +188,8 @@ export class AnimStore {
     this.raf = requestAnimationFrame(this.tick);
   }
 
-  private async serverStart(id: number, from: number): Promise<void> {
-    const r = await this.run('anim.play', { id, from, loop: this.loop }, true);
+  private async serverStart(from: number): Promise<void> {
+    const r = await this.run('anim.play', { from, loop: this.loop }, true);
     if (!this.playing) {
       if (r !== undefined) void this.run('anim.pause', {}, true);
       return;

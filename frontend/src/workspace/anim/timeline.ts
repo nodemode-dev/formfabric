@@ -256,8 +256,13 @@ export class Timeline {
     const x = this.x(c.start);
     const wd = Math.max(2, c.frames * this.ppf);
     ctx.globalAlpha = c.visible ? 1 : 0.4;
-    ctx.fillStyle = id === this.store.activeId ? p.accent : p.muted;
+    ctx.fillStyle = c.kind === 'trim' ? p.dim : id === this.store.activeId ? p.accent : p.muted;
     ctx.fillRect(x, y + 4, wd, ROW_H - 8);
+    if (c.kind === 'trim' || c.locked) {
+      ctx.strokeStyle = c.locked ? p.text : p.muted;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 4.5, Math.max(1, wd - 1), ROW_H - 9);
+    }
     ctx.globalAlpha = 1;
     if (wd > 40) { ctx.fillStyle = p.bg; ctx.textAlign = 'left'; ctx.fillText(c.name, x + 5, y + ROW_H / 2, wd - 8); }
   }

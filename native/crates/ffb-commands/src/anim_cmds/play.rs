@@ -4,7 +4,7 @@ use std::sync::Arc;
 use ffb_anim::cachefmt::{BodyFrame, BodySpec, Cache};
 use ffb_body::math::IDENTITY;
 use ffb_body::{skin, Body};
-use ffb_pattern::anim::CacheLayer;
+use ffb_pattern::anim::{CacheKind, CacheLayer};
 use serde_json::{json, Value};
 
 use super::ops::cache_index;
@@ -48,17 +48,46 @@ fn harvest(s: &mut Session) -> Result<Option<u32>, CommandError> {
         lock_job(&s.anim.job).finished = None;
         return Err(CommandError::new("too_large", format!("the recording ({} MiB) does not fit the project size limit of 1 GiB next to the {} MiB already stored; it was discarded. Remove a cache layer or record with storage quantized", size >> 20, stored >> 20)));
     }
+    let replace = lock_job(&s.anim.job).replace;
+    if let Some(target) = replace {
+        if s.garment.anim.caches.iter().any(|c| c.id == target && c.locked) {
+            return Err(CommandError::new("locked", format!("cache layer {target} is locked; the recording is kept until it is unlocked or stored as a new layer")));
+        }
+    }
     let finished = lock_job(&s.anim.job).finished.take();
+    lock_job(&s.anim.job).replace = None;
     let Some(done) = finished else { return Ok(None) };
     let id = super::alloc_cache_id(s);
     let name = cache_entry(id);
+    let trims = super::layers::trim_cache(s, &done.bytes, &done.name);
     put_entry(s, name.clone(), done.bytes);
+    let trim_id = trims.map(|bytes| {
+        let tid = super::alloc_cache_id(s);
+        put_entry(s, cache_entry(tid), bytes);
+        tid
+    });
+    let target = replace.filter(|t| s.garment.anim.caches.iter().any(|c| c.id == *t && c.kind == CacheKind::Pattern));
     edit_garment(s, "Record animation", |g| {
-        g.anim.caches.push(CacheLayer { id, name: done.name.clone(), start: done.start, frames: done.frames, visible: true, entry: name.clone() });
-        g.anim.active_cache = Some(id);
+        let mut stored = id;
+        match target.and_then(|t| g.anim.caches.iter().position(|c| c.id == t)) {
+            Some(at) => {
+                let c = &mut g.anim.caches[at];
+                c.start = done.start;
+                c.frames = done.frames;
+                c.entry = name.clone();
+                c.offset = 0;
+                stored = c.id;
+            }
+            None => g.anim.caches.push(CacheLayer { id, name: done.name.clone(), start: done.start, frames: done.frames, visible: true, entry: name.clone(), kind: CacheKind::Pattern, locked: false, offset: 0 }),
+        }
+        if let Some(tid) = trim_id {
+            g.anim.caches.retain(|c| !(c.kind == CacheKind::Trim && c.name == format!("{} trims", done.name)));
+            g.anim.caches.push(CacheLayer { id: tid, name: format!("{} trims", done.name), start: done.start, frames: done.frames, visible: true, entry: cache_entry(tid), kind: CacheKind::Trim, locked: false, offset: 0 });
+        }
+        g.anim.active_cache = Some(stored);
         Ok(())
     })?;
-    Ok(Some(id))
+    Ok(Some(target.unwrap_or(id)))
 }
 
 const PROJECT_BUDGET: usize = 900 << 20;
@@ -86,7 +115,8 @@ fn record_schema() -> Value {
             "steps": {"type": "integer", "minimum": 1, "maximum": 8, "description": "Solver frames per timeline frame; the body moves between them. Default 2."},
             "storage": {"type": "string", "enum": ["f32", "quantized"], "description": "f32 keeps exact positions; quantized stores 16 bit positions per panel and frame (half the size, error under extent / 131070)."},
             "validate": {"type": "boolean", "description": "Measure body penetration, self intersections and vertex displacement every frame. Default true."},
-            "reset": {"type": "boolean", "description": "Rebuild the cloth from its placed state first. Default false: recording continues from the current draped state."}
+            "reset": {"type": "boolean", "description": "Rebuild the cloth from its placed state first. Default false: recording continues from the current draped state."},
+            "layer": {"type": "integer", "description": "Re-record into this cache layer instead of adding a new one. A locked layer refuses."}
         },
         "required": [],
         "additionalProperties": false
@@ -97,6 +127,14 @@ fn record(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     if lock_job(&s.anim.job).phase == "running" {
         return Err(CommandError::new("busy", "a recording is already running; anim.stop ends it"));
     }
+    let replace = match a.get("layer").filter(|v| !v.is_null()) {
+        None => None,
+        Some(_) => {
+            let k = cache_index(s, &json!({"id": a.get("layer")}))?;
+            super::layers::guard(s, k)?;
+            Some(s.garment.anim.caches[k].id)
+        }
+    };
     let _ = harvest(s);
     let anim = &s.garment.anim;
     let get = |k: &str, d: u32| -> Result<u32, CommandError> {
@@ -141,7 +179,7 @@ fn record(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     {
         let mut j = lock_job(&s.anim.job);
         let warnings = std::mem::take(&mut j.warnings);
-        *j = super::Job { phase: "running", total: end - start + 1, start, end, name, warnings, ..super::Job::default() };
+        *j = super::Job { phase: "running", total: end - start + 1, start, end, name, warnings, replace, ..super::Job::default() };
     }
     s.anim.alive.store(true, Ordering::Release);
     if !spawn(plan) {
@@ -196,16 +234,26 @@ fn cache_pick(s: &Session, a: &Value) -> Result<usize, CommandError> {
         return cache_index(s, a);
     }
     let active = s.garment.anim.active_cache.and_then(|id| s.garment.anim.caches.iter().position(|c| c.id == id));
-    active.or_else(|| s.garment.anim.caches.len().checked_sub(1)).ok_or_else(|| CommandError::new("not_found", "there is no cache; record one with anim.record"))
+    active.or_else(|| s.garment.anim.caches.iter().rposition(|c| c.kind == CacheKind::Pattern)).ok_or_else(|| CommandError::new("not_found", "there is no cache; record one with anim.record"))
 }
 
 fn cache_frame(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
-    let k = cache_pick(s, a)?;
-    let layer = s.garment.anim.caches[k].clone();
     let frame = a.get("frame").and_then(Value::as_u64).filter(|f| *f <= 100_000).ok_or_else(|| bad("frame must be a frame number"))? as u32;
+    let k = match super::layers::resolve(&s.garment.anim, frame, CacheKind::Pattern) {
+        Some(top) if !a.get("id").is_some_and(|v| !v.is_null()) => top,
+        _ => cache_pick(s, a)?,
+    };
+    let layer = s.garment.anim.caches[k].clone();
     let data = entry(s, &layer.entry).ok_or_else(|| CommandError::new("not_found", "the cache data is missing"))?;
     let cache = Cache::parse(data).map_err(|e| CommandError::new("invalid_geometry", e))?;
-    let rel = frame.checked_sub(cache.header.start).filter(|r| *r < cache.header.frames).ok_or_else(|| bad(format!("frame {frame} is outside the cache range {} to {}", cache.header.start, cache.header.start + cache.header.frames.saturating_sub(1))))?;
+    let rel = frame.checked_sub(layer.start).filter(|r| *r < cache.header.frames).ok_or_else(|| bad(format!("frame {frame} is outside the cache range {} to {}", layer.start, layer.start + cache.header.frames.saturating_sub(1))))?;
+    let trims: Vec<Value> = super::layers::resolve(&s.garment.anim, frame, CacheKind::Trim)
+        .and_then(|t| {
+            let tl = &s.garment.anim.caches[t];
+            entry(s, &tl.entry).and_then(|b| super::layers::trim_points(b, frame - tl.start))
+        })
+        .map(|list| list.into_iter().map(|(id, p)| json!({"id": id, "point": p})).collect())
+        .unwrap_or_default();
     let mut count = 0usize;
     let mut sent = Vec::new();
     for (i, p) in cache.header.panels.iter().enumerate() {
@@ -236,7 +284,7 @@ fn cache_frame(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     };
     let stat = cache.header.stats.get(rel as usize).cloned();
     s.garment.anim.current = frame;
-    Ok(json!({"id": layer.id, "frame": frame, "count": count, "panels": sent.len(), "bodies": bodies_out.len(), "streamed": streamed, "stats": stat}))
+    Ok(json!({"id": layer.id, "frame": frame, "count": count, "panels": sent.len(), "bodies": bodies_out.len(), "streamed": streamed, "stats": stat, "trims": trims}))
 }
 
 fn play_schema() -> Value {
@@ -256,22 +304,38 @@ fn play_schema() -> Value {
 #[cfg(not(target_arch = "wasm32"))]
 fn play(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     use std::time::{Duration, Instant};
-    let k = cache_pick(s, a)?;
-    let layer = s.garment.anim.caches[k].clone();
-    let shared_data = match s.anim.play_data.as_ref() {
-        Some((name, data)) if *name == layer.entry => data.clone(),
-        _ => {
-            let copy = Arc::new(entry(s, &layer.entry).ok_or_else(|| CommandError::new("not_found", "the cache data is missing"))?.to_vec());
-            s.anim.play_data = Some((layer.entry.clone(), copy.clone()));
-            copy
+    let picks: Vec<usize> = if a.get("id").is_some_and(|v| !v.is_null()) {
+        vec![cache_pick(s, a)?]
+    } else {
+        let visible: Vec<usize> = (0..s.garment.anim.caches.len()).filter(|i| s.garment.anim.caches[*i].kind == CacheKind::Pattern && s.garment.anim.caches[*i].visible).collect();
+        if visible.is_empty() {
+            vec![cache_pick(s, a)?]
+        } else {
+            visible
         }
     };
-    let data = shared_data;
-    let header = Cache::parse(&data).map_err(|e| CommandError::new("invalid_geometry", e))?.header;
+    let mut layers: Vec<(u32, Arc<Vec<u8>>)> = Vec::new();
+    let mut ids = Vec::new();
+    for k in &picks {
+        let layer = s.garment.anim.caches[*k].clone();
+        let data = match s.anim.play_data.as_ref() {
+            Some((name, data)) if *name == layer.entry => data.clone(),
+            _ => {
+                let copy = Arc::new(entry(s, &layer.entry).ok_or_else(|| CommandError::new("not_found", "the cache data is missing"))?.to_vec());
+                s.anim.play_data = Some((layer.entry.clone(), copy.clone()));
+                copy
+            }
+        };
+        Cache::parse(&data).map_err(|e| CommandError::new("invalid_geometry", e))?;
+        layers.push((layer.start, data));
+        ids.push(layer.id);
+    }
+    let first_frame = picks.iter().map(|k| s.garment.anim.caches[*k].start).min().unwrap_or(0);
+    let last = picks.iter().map(|k| s.garment.anim.caches[*k].start + s.garment.anim.caches[*k].frames.saturating_sub(1)).max().unwrap_or(0);
+    let fps = Cache::parse(&layers[layers.len() - 1].1).map(|c| c.header.fps).unwrap_or(30.0);
     let sink = s.sink.clone().ok_or_else(|| CommandError::new("unsupported", "playback needs a connected viewer"))?;
-    let last = header.start + header.frames.saturating_sub(1);
     let from = a.get("from").and_then(Value::as_u64).map_or(s.garment.anim.current, |x| x.min(100_000) as u32);
-    let from = if from < header.start || from > last { header.start } else { from };
+    let from = if from < first_frame || from > last { first_frame } else { from };
     let looped = a.get("loop").and_then(Value::as_bool).unwrap_or(false);
     let speed = a.get("speed").and_then(Value::as_f64).map_or(1.0, |x| x.clamp(0.1, 8.0));
     let bodies: Vec<Body> = s.bodies.clone();
@@ -281,33 +345,39 @@ fn play(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     s.anim.play_frame.store(from, Ordering::Release);
     let (playing, generation, position) = (s.anim.playing.clone(), s.anim.play_generation.clone(), s.anim.play_frame.clone());
     let work = move || {
-        let Ok(cache) = Cache::parse(&data) else { return };
-        let mut scratch: Vec<Option<Body>> = cache.header.bodies.iter().map(|spec| bodies.iter().find(|b| b.id == spec.id).cloned()).collect();
+        let parsed: Vec<(u32, Cache)> = layers.iter().filter_map(|(st, d)| Cache::parse(d).ok().map(|c| (*st, c))).collect();
+        if parsed.is_empty() {
+            return;
+        }
+        let mut scratch: Vec<Vec<Option<Body>>> = parsed.iter().map(|(_, c)| c.header.bodies.iter().map(|spec| bodies.iter().find(|b| b.id == spec.id).cloned()).collect()).collect();
         let began = Instant::now();
         let mut frame = from;
         let mut shown = 0u64;
-        let period = 1.0 / (f64::from(cache.header.fps.max(1.0)) * speed);
+        let period = 1.0 / (f64::from(fps.max(1.0)) * speed);
         loop {
             if !playing.load(Ordering::Acquire) || generation.load(Ordering::Acquire) != mine {
                 break;
             }
-            let rel = frame - cache.header.start;
-            for (i, p) in cache.header.panels.iter().enumerate() {
-                if let Some(v) = cache.panel_frame(rel, i) {
-                    sink.positions(p.id, &v);
+            if let Some(li) = parsed.iter().rposition(|(st, c)| frame >= *st && frame - *st < c.header.frames) {
+                let (st, cache) = &parsed[li];
+                let rel = frame - *st;
+                for (i, p) in cache.header.panels.iter().enumerate() {
+                    if let Some(v) = cache.panel_frame(rel, i) {
+                        sink.positions(p.id, &v);
+                    }
                 }
-            }
-            for (i, spec) in cache.header.bodies.iter().enumerate() {
-                if let (Some(bf), Some(Some(body))) = (cache.body_frame(rel, i), scratch.get_mut(i)) {
-                    let pos = pose_body(&bodies, spec, &bf, body);
-                    sink.positions(OBJECT_BASE + spec.id, &flat(&pos));
+                for (i, spec) in cache.header.bodies.iter().enumerate() {
+                    if let (Some(bf), Some(Some(body))) = (cache.body_frame(rel, i), scratch[li].get_mut(i)) {
+                        let pos = pose_body(&bodies, spec, &bf, body);
+                        sink.positions(OBJECT_BASE + spec.id, &flat(&pos));
+                    }
                 }
             }
             position.store(frame, Ordering::Release);
             shown += 1;
             if frame >= last {
                 if looped {
-                    frame = cache.header.start;
+                    frame = first_frame;
                 } else {
                     break;
                 }
@@ -328,7 +398,7 @@ fn play(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         s.anim.playing.store(false, Ordering::Release);
         return Err(CommandError::new("unsupported", "could not start the playback thread"));
     }
-    Ok(json!({"playing": true, "id": layer.id, "from": from, "to": last, "fps": header.fps}))
+    Ok(json!({"playing": true, "id": ids.last(), "layers": ids, "from": from, "to": last, "fps": fps}))
 }
 
 #[cfg(target_arch = "wasm32")]

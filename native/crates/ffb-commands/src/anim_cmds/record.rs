@@ -28,12 +28,13 @@ pub(crate) const MAX_RECORD_FRAMES: u32 = 20_000;
 pub(crate) struct CoreOps {
     pub begin: Box<dyn FnOnce() -> Result<Vec<ffb_sim::Collider>, String> + Send>,
     pub snapshot: Box<dyn Fn() -> Vec<(u32, Vec<f32>)> + Send>,
-    pub step: Box<dyn Fn(Vec<ffb_sim::Collider>, Wind) + Send>,
+    pub step: Box<dyn Fn(Vec<ffb_sim::Collider>, Wind, PinTargets) + Send>,
     pub measure: Box<dyn Fn(bool) -> (f32, f32, u32) + Send>,
     pub end: Box<dyn Fn() + Send>,
     pub rekey: Option<Rekey>,
 }
 
+pub(crate) type PinTargets = Vec<(u32, [f32; 3])>;
 pub(crate) type Rekey = Box<dyn FnMut(&ffb_pattern::Garment, &[Body]) -> Result<(), String> + Send>;
 
 pub(crate) fn has_cloth_keys(anim: &Anim) -> bool {
@@ -127,6 +128,17 @@ pub(crate) struct Plan {
     pub wind: Wind,
     pub sink: Option<Arc<dyn FrameSink>>,
     pub garment: Option<ffb_pattern::Garment>,
+    pub pin_keys: Vec<(u32, Vec<ffb_anim::Key>)>,
+}
+
+fn pin_targets(keys: &[(u32, Vec<ffb_anim::Key>)], frame: f64) -> Vec<(u32, [f32; 3])> {
+    keys.iter()
+        .filter_map(|(vertex, k)| {
+            let v = interp::evaluate(k, frame)?;
+            let a = v.as_array()?;
+            (a.len() == 3).then(|| (*vertex, [a[0].as_f64().unwrap_or(0.0) as f32, a[1].as_f64().unwrap_or(0.0) as f32, a[2].as_f64().unwrap_or(0.0) as f32]))
+        })
+        .collect()
 }
 
 fn wind_at(base: &Wind, anim: &Anim, frame: f64) -> Wind {
@@ -212,12 +224,24 @@ pub(crate) fn plan_for(s: &mut Session, start: u32, end: u32, name: String, step
             Ok(core.colliders.clone())
         }),
         snapshot: Box::new(move || b.lock().unwrap_or_else(|x| x.into_inner()).snapshot()),
-        step: Box::new(move |colliders, wind| {
+        step: Box::new(move |colliders, wind, targets| {
             let mut core = c.lock().unwrap_or_else(|x| x.into_inner());
             core.wind = wind;
             core.colliders.clone_from(&colliders);
             if let Some(st) = core.stepper.as_mut() {
                 st.set_colliders(colliders);
+            }
+            if !targets.is_empty() {
+                let mut pins = core.pins.clone();
+                for (vertex, target) in &targets {
+                    match pins.iter_mut().find(|p| p.vertex == *vertex) {
+                        Some(p) => p.target = *target,
+                        None => pins.push(ffb_sim::PinPoint { vertex: *vertex, target: *target }),
+                    }
+                }
+                if let Some(st) = core.stepper.as_mut() {
+                    st.set_pins(pins);
+                }
             }
             core.step_frames(1);
         }),
@@ -252,6 +276,7 @@ pub(crate) fn plan_for(s: &mut Session, start: u32, end: u32, name: String, step
         wind: s.garment.wind.clone(),
         sink: s.sink.clone(),
         garment: if keyed { Some(s.garment.clone()) } else { None },
+        pin_keys: crate::sim_cmds::keyed_pin_vertices(s),
     })
 }
 
@@ -375,7 +400,7 @@ fn run(mut p: Plan) {
                 colliders.push(ffb_sim::Collider::Mesh { positions, triangles: working[*i].triangles.clone() });
             }
             colliders.extend(tail.iter().cloned());
-            (p.ops.step)(colliders, wind_at(&p.wind, &p.anim, ft));
+            (p.ops.step)(colliders, wind_at(&p.wind, &p.anim, ft), pin_targets(&p.pin_keys, ft));
         }
         let snap = (p.ops.snapshot)();
         let (gap, penetration, crossings) = (p.ops.measure)(p.validate);
@@ -386,7 +411,7 @@ fn run(mut p: Plan) {
         }
         let mut worst = 0.0f32;
         for ((_, now), before) in snap.iter().zip(&previous) {
-            for (a, b) in now.chunks_exact(3).zip(before.chunks_exact(3)) {
+            for (a, b) in now.as_chunks::<3>().0.iter().zip(before.as_chunks::<3>().0) {
                 let d = ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt();
                 worst = worst.max(d);
             }

@@ -102,7 +102,7 @@ impl Writer {
             if self.header.quantized {
                 let mut lo = [f32::MAX; 3];
                 let mut hi = [f32::MIN; 3];
-                for v in p.chunks_exact(3) {
+                for v in p.as_chunks::<3>().0 {
                     for k in 0..3 {
                         lo[k] = lo[k].min(v[k]);
                         hi[k] = hi[k].max(v[k]);
@@ -116,7 +116,7 @@ impl Writer {
                 for x in lo.iter().chain(ext.iter()) {
                     self.payload.extend_from_slice(&x.to_le_bytes());
                 }
-                for v in p.chunks_exact(3) {
+                for v in p.as_chunks::<3>().0 {
                     for k in 0..3 {
                         let u = if ext[k] > 1e-9 { ((v[k] - lo[k]) / ext[k] * 65535.0).round().clamp(0.0, 65535.0) as u16 } else { 0 };
                         self.payload.extend_from_slice(&u.to_le_bytes());
@@ -263,4 +263,113 @@ impl<'a> Cache<'a> {
 
 pub fn read_header(bytes: &[u8]) -> Result<Header, String> {
     Cache::parse(bytes).map(|c| c.header)
+}
+
+fn same_layout(a: &Header, b: &Header) -> bool {
+    a.panels == b.panels && a.bodies == b.bodies && a.quantized == b.quantized
+}
+
+fn encode(header: &Header, payload: &[u8]) -> Result<Vec<u8>, String> {
+    let json = serde_json::to_vec(header).map_err(|e| e.to_string())?;
+    let mut out = Vec::with_capacity(12 + json.len() + payload.len());
+    out.extend_from_slice(MAGIC);
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&u16::from(header.quantized).to_le_bytes());
+    out.extend_from_slice(&(json.len() as u32).to_le_bytes());
+    out.extend_from_slice(&json);
+    out.extend_from_slice(payload);
+    Ok(out)
+}
+
+pub fn slice(bytes: &[u8], from: u32, count: u32, new_start: u32) -> Result<Vec<u8>, String> {
+    let cache = Cache::parse(bytes)?;
+    if count == 0 || from.checked_add(count).is_none_or(|e| e > cache.header.frames) {
+        return Err("the frame range is outside the cache".into());
+    }
+    let mut header = cache.header.clone();
+    header.start = new_start;
+    header.frames = count;
+    header.stats = cache.header.stats[from as usize..(from + count) as usize].to_vec();
+    let a = from as usize * cache.frame_size;
+    let b = (from + count) as usize * cache.frame_size;
+    encode(&header, &cache.payload[a..b])
+}
+
+pub struct Composed {
+    pub bytes: Vec<u8>,
+    pub start: u32,
+    pub frames: u32,
+}
+
+struct Pulled {
+    panels: Vec<Vec<f32>>,
+    bodies: Vec<BodyFrame>,
+    stat: FrameStat,
+}
+
+fn pull(c: &Cache, rel: u32) -> Option<Pulled> {
+    let panels = (0..c.header.panels.len()).map(|i| c.panel_frame(rel, i)).collect::<Option<Vec<_>>>()?;
+    let bodies = (0..c.header.bodies.len()).map(|i| c.body_frame(rel, i)).collect::<Option<Vec<_>>>()?;
+    Some(Pulled { panels, bodies, stat: c.header.stats.get(rel as usize).cloned().unwrap_or_default() })
+}
+
+fn blend(a: &Pulled, b: &Pulled, t: f32) -> Pulled {
+    let mix = |x: f32, y: f32| x + (y - x) * t;
+    let panels = a.panels.iter().zip(&b.panels).map(|(p, q)| p.iter().zip(q).map(|(x, y)| mix(*x, *y)).collect()).collect();
+    let bodies = a
+        .bodies
+        .iter()
+        .zip(&b.bodies)
+        .map(|(p, q)| {
+            let quats = p
+                .quats
+                .iter()
+                .zip(&q.quats)
+                .map(|(x, y)| {
+                    let sign = if x.iter().zip(y).map(|(m, n)| m * n).sum::<f32>() < 0.0 { -1.0 } else { 1.0 };
+                    let mut o = [0.0f32; 4];
+                    for k in 0..4 {
+                        o[k] = mix(x[k], y[k] * sign);
+                    }
+                    let n = o.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-9);
+                    o.map(|v| v / n)
+                })
+                .collect();
+            BodyFrame { id: p.id, offset: [mix(p.offset[0], q.offset[0]), mix(p.offset[1], q.offset[1]), mix(p.offset[2], q.offset[2])], morph: mix(p.morph, q.morph), quats }
+        })
+        .collect();
+    Pulled { panels, bodies, stat: a.stat.clone() }
+}
+
+pub fn compose(layers: &[(u32, &[u8])]) -> Result<Composed, String> {
+    let caches: Vec<(u32, Cache)> = layers.iter().map(|(s, b)| Cache::parse(b).map(|c| (*s, c))).collect::<Result<_, _>>()?;
+    let Some((_, top)) = caches.last() else { return Err("nothing to merge".into()) };
+    if caches.iter().any(|(_, c)| !same_layout(&c.header, &top.header)) {
+        return Err("the layers were recorded with different panels or bodies and cannot be merged".into());
+    }
+    let first = caches.iter().map(|(s, _)| *s).min().unwrap_or(0);
+    let last = caches.iter().map(|(s, c)| s + c.header.frames.saturating_sub(1)).max().unwrap_or(0);
+    let at = |f: u32| -> Option<Pulled> {
+        caches.iter().rev().find(|(s, c)| f >= *s && f - *s < c.header.frames).and_then(|(s, c)| pull(c, f - *s))
+    };
+    let mut header = top.header.clone();
+    header.start = first;
+    header.frames = 0;
+    header.stats = Vec::new();
+    let mut writer = Writer::new(header);
+    for f in first..=last {
+        let mut got = at(f);
+        if got.is_none() {
+            let prev = (first..f).rev().find_map(|p| at(p).map(|x| (p, x)));
+            let next = (f + 1..=last).find_map(|n| at(n).map(|x| (n, x)));
+            if let (Some((p, a)), Some((n, b))) = (prev, next) {
+                got = Some(blend(&a, &b, (f - p) as f32 / (n - p) as f32));
+            }
+        }
+        let mut one = got.ok_or("a frame could not be resolved")?;
+        one.stat.frame = f;
+        writer.push(&one.panels, &one.bodies, one.stat)?;
+    }
+    let frames = writer.header().frames;
+    Ok(Composed { bytes: writer.finish()?, start: first, frames })
 }

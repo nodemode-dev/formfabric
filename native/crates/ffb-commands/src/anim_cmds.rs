@@ -1,3 +1,5 @@
+mod autokey;
+mod layers;
 mod ops;
 mod play;
 mod record;
@@ -32,11 +34,12 @@ pub(crate) struct Job {
     pub stats: Vec<FrameStat>,
     pub warnings: Vec<String>,
     pub finished: Option<Finished>,
+    pub replace: Option<u32>,
 }
 
 impl Default for Job {
     fn default() -> Self {
-        Job { phase: "idle", frame: 0, total: 0, start: 0, end: 0, name: String::new(), message: String::new(), ms: 0.0, stats: Vec::new(), warnings: Vec::new(), finished: None }
+        Job { phase: "idle", frame: 0, total: 0, start: 0, end: 0, name: String::new(), message: String::new(), ms: 0.0, stats: Vec::new(), warnings: Vec::new(), finished: None, replace: None }
     }
 }
 
@@ -55,11 +58,13 @@ pub struct AnimState {
     pub(crate) next_motion: u32,
     pub(crate) next_cache: u32,
     pub(crate) play_data: Option<(String, Arc<Vec<u8>>)>,
+    pub(crate) auto_prev: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 impl Default for AnimState {
     fn default() -> Self {
         AnimState {
+            auto_prev: std::collections::BTreeMap::new(),
             alive: Arc::new(AtomicBool::new(false)),
             next_motion: 1,
             next_cache: 1,
@@ -178,10 +183,12 @@ pub(crate) fn after_change(session: &mut Session, command: &str) {
         session.anim.job = Arc::new(Mutex::new(Job::default()));
     }
     sweep(session);
+    autokey::run(session, command);
 }
 
 pub(crate) fn commands() -> Vec<Command> {
     let mut all = ops::commands();
     all.extend(play::commands());
+    all.extend(layers::commands());
     all
 }
