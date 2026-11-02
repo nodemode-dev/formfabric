@@ -1,5 +1,6 @@
 import type { Command, Commands } from '../ui/commands';
 import { promptName } from '../ui/dialogs';
+import { t } from '../ui/i18n';
 import { textFieldFocused } from '../ui/native-menu';
 import { loadPrefs, updatePrefs, UNITS, type Prefs } from '../ui/prefs';
 import { PREF_SECTIONS } from '../ui/settings';
@@ -21,6 +22,9 @@ export interface WindowCtx {
   setUnits: (u: string) => void;
   openPath: (path: string) => void;
 }
+
+export const SAMPLES: ReadonlyArray<readonly [string, string]> = [['tshirt', 'T-shirt'], ['skirt', 'A-line skirt'], ['dress', 'Sleeveless dress']];
+export const SAMPLE_BODIES: ReadonlyArray<readonly [string, string, string | null]> = [['current', 'Current body', null], ['female', 'MPFB2 Female', 'MPFB2 Female'], ['male', 'MPFB2 Male', 'MPFB2 Male']];
 
 const REPO = 'https://github.com/nodemode-dev/formfabric';
 const inTauri = (): boolean => '__TAURI_INTERNALS__' in window;
@@ -74,5 +78,22 @@ export function registerWindowCommands(ctx: WindowCtx): void {
   for (const s of PREF_SECTIONS) list.push({ id: `app.prefs.${s}`, label: s, run: () => ctx.openSettings(s) });
   for (const w of WORKSPACES) list.push({ id: `app.ws_${w.id}`, label: w.label, enabled: () => w.ready, run: () => ctx.workspace(w.id) });
   for (let i = 0; i < 10; i++) list.push({ id: `app.recent.${i}`, label: () => session.recent()[i]?.split(/[\\/]/).pop() ?? '', enabled: () => !!session.recent()[i], run: () => { const p = session.recent()[i]; if (p) ctx.openPath(p); } });
+  const openSample = async (name: string, body: string | null): Promise<void> => {
+    const loaded = await commands.call('sample.load', body ? { name, body } : { name });
+    if (!loaded.ran) return;
+    session.set(null, false);
+    await commands.call('sim.reset', {});
+    layout.set('3d');
+    const canvas = document.querySelector<HTMLElement>('[data-k="canvas3d"]');
+    if (canvas) {
+      if (!canvas.hasAttribute('tabindex')) canvas.tabIndex = -1;
+      canvas.focus({ preventScroll: true });
+    }
+  };
+  for (const [name, sample] of SAMPLES) {
+    for (const [slot, text, body] of SAMPLE_BODIES) {
+      list.push({ id: `app.sample.${name}.${slot}`, label: () => `${t(sample)}: ${t(text)}`, enabled: () => !!commands.get('sample.load'), run: () => openSample(name, body) });
+    }
+  }
   commands.add(...list);
 }

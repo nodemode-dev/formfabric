@@ -4,6 +4,7 @@ import { q, setDisabled, setText, setValue } from '../../ui/dom';
 import type { DocStore } from '../doc';
 import { mmText } from '../pattern-view/render-sew';
 import { decimals, fmtArea, fmtLen, fromUnit, toUnit, type Selection } from '../state';
+import { StyleLineSection } from '../styleline/section';
 import { TrimSection } from '../trims/section';
 import type { Panel } from '../types';
 
@@ -78,6 +79,7 @@ export class Inspector {
     host.className = 'ff-tr-host';
     root.appendChild(host);
     this.trims = new TrimSection(host, doc, sel, unit, onInner);
+    new StyleLineSection(root, doc);
     for (const el of root.querySelectorAll<HTMLInputElement>('input[data-k]')) this.input.set(el.dataset.k ?? '', el);
     for (const el of root.querySelectorAll<HTMLSelectElement>('select[data-k]')) this.choice.set(el.dataset.k ?? '', el);
     const paint = (): void => {

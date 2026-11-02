@@ -2,6 +2,7 @@ import { el, patchList, q, setClass, setHidden, setText } from '../ui/dom';
 import { icon } from '../ui/icons';
 import { brandMark } from '../ui/brand';
 import { t } from '../ui/i18n';
+import { SAMPLES } from './window-commands';
 
 export interface HomeDeps {
   autoShow: () => boolean;
@@ -15,7 +16,6 @@ export interface HomeDeps {
 
 type Page = 'start' | 'recent';
 
-const TEMPLATES = ['T-shirt', 'Trousers', 'Dress', 'Jacket'];
 
 const baseName = (p: string): string => p.split(/[\\/]/).pop() ?? p;
 
@@ -32,7 +32,7 @@ export class HomeScreen {
     const navItem = (v: Page, ic: string, label: string): string => `<button class="cv-home-nav-item" type="button" data-v="${v}">${icon(ic, 16)}<span>${label}</span></button>`;
     const cmdItem = (cmd: string, ic: string, label: string): string => `<button class="cv-home-nav-item" type="button" data-cmd="${cmd}">${icon(ic, 16)}<span>${label}</span></button>`;
     const key = (k: string): string => `<kbd class="cv-key">${mod}</kbd><kbd class="cv-key">${k}</kbd>`;
-    const tiles = TEMPLATES.map((n) => `<button class="cv-home-size" type="button" disabled><span class="cv-home-size-box">${icon('panel', 28)}</span><span class="cv-home-size-name">${n}</span><span class="cv-home-size-meta">Not available yet</span></button>`).join('');
+    const tiles = SAMPLES.map(([n, label]) => `<button class="cv-home-size" type="button" data-cmd="app.sample.${n}.current" disabled><span class="cv-home-size-box">${icon('panel', 28)}</span><span class="cv-home-size-name">${t(label)}</span><span class="cv-home-size-meta">${t('Sample garment')}</span></button>`).join('');
     this.root.innerHTML = `<nav class="cv-home-nav" aria-label="Home">
       <div class="cv-home-brand">${brandMark(18)}FormFabric <span>by NodeMode</span></div>
       ${navItem('start', 'panel', 'Start')}${navItem('recent', 'history', 'Recent')}

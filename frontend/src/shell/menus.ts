@@ -1,6 +1,7 @@
 import type { Commands } from '../ui/commands';
 import type { MenuDef, MenuItem } from '../ui/menu';
 import { PREF_SECTIONS } from '../ui/settings';
+import { SAMPLES, SAMPLE_BODIES } from './window-commands';
 
 const NONE: MenuItem[] = ['app.none'];
 
@@ -37,7 +38,8 @@ export function buildMenus(commands: Commands, recent: () => string[]): MenuDef[
       fixed(['export.formats', 'export.run']);
       const others = group('Export');
       const sub: MenuItem[] = [...exports, ...(exports.length && others.length ? ['-' as const] : []), ...others];
-      return tidy([...fixed(['file.new', 'file.open']), { label: 'Open Recent', items: files.length ? [...files, '-', 'app.clear_recent'] : NONE }, '-', ...fixed(['file.save', 'app.save_as', '-', 'app.home']), ...(sub.length ? ['-' as const, { label: 'Export', items: sub }] : []), '-', ...fixed(['app.exit'])]);
+      const samples: MenuItem[] = SAMPLES.map(([n, label]) => ({ label, items: fixed(SAMPLE_BODIES.map(([slot]) => `app.sample.${n}.${slot}`)) }));
+      return tidy([...fixed(['file.new', 'file.open']), { label: 'Open Recent', items: files.length ? [...files, '-', 'app.clear_recent'] : NONE }, { label: 'Open Sample', items: samples }, '-', ...fixed(['file.save', 'app.save_as', '-', 'app.home']), ...(sub.length ? ['-' as const, { label: 'Export', items: sub }] : []), '-', ...fixed(['app.exit'])]);
     } },
     { label: 'Edit', items: () => {
       used.clear();

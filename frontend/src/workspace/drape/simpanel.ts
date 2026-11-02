@@ -33,6 +33,10 @@ export class SimPanel {
   private readonly secWind: HTMLElement;
   private readonly secRefit: HTMLElement;
   private readonly secSolver: HTMLElement;
+  private readonly secShell: HTMLElement;
+  private readonly shellBody: ReturnType<typeof selectField>;
+  private readonly shellOn: Field<boolean>;
+  private readonly shellOffset: Field<number>;
   private readonly enable: Field<boolean>;
   private readonly kind: ReturnType<typeof selectField>;
   private readonly dir: HTMLInputElement[] = [];
@@ -101,11 +105,18 @@ export class SimPanel {
     this.note = document.createElement('div');
     sbody.append(this.solver.root, this.device.root, this.note);
 
-    root.append(this.secWind, this.secRefit, this.secSolver);
+    this.secShell = this.section('Fit shell');
+    const hbody = this.secShell.querySelector('.ffd-sec') as HTMLElement;
+    this.shellBody = selectField('Body', [], '', () => void this.refreshShell());
+    this.shellOn = toggleField('Enable', (on) => this.sendShell({ enabled: on }));
+    this.shellOffset = sliderField({ english: 'Offset', min: 0, max: 100, step: 0.5, value: 10, fmt: (v) => `${v.toFixed(1)} mm`, commit: (v) => this.sendShell({ offset: v }), row: true });
+    hbody.append(this.shellBody.root, this.shellOn.root, this.shellOffset.root);
+
+    root.append(this.secWind, this.secRefit, this.secShell, this.secSolver);
     pane.appendChild(root);
     this.paintDevice();
     onLanguage(() => this.paintDevice());
-    onEngineChanged((e) => { if (!this.root.hidden && /^(body|file|history)\./.test(e.name)) void this.refreshBodies(); });
+    onEngineChanged((e) => { if (!this.root.hidden && /^(body|file|history|fitshell|sample)\./.test(e.name)) void this.refreshBodies(); });
   }
 
   private section(english: string): HTMLElement {
@@ -121,7 +132,8 @@ export class SimPanel {
 
   get open(): boolean { return !this.root.hidden; }
 
-  setCaps(caps: { wind: boolean; refit: boolean; settings: boolean }): void {
+  setCaps(caps: { wind: boolean; refit: boolean; settings: boolean; shell: boolean }): void {
+    setHidden(this.secShell, !caps.shell);
     setHidden(this.secWind, !caps.wind);
     setHidden(this.secRefit, !caps.refit);
     setHidden(this.secSolver, !caps.settings);
@@ -214,6 +226,36 @@ export class SimPanel {
     });
     if (keep && Array.from(sel.options).some((o) => o.value === keep)) sel.value = keep;
     setDisabled(this.run, sel.options.length === 0 || this.busy);
+    const shellSel = this.shellBody.select;
+    const shellKeep = shellSel.value;
+    patchList(shellSel, this.bodies, {
+      key: (b) => String(b.id),
+      create: () => document.createElement('option'),
+      update: (node, b) => {
+        const o = node as HTMLOptionElement;
+        if (o.value !== String(b.id)) o.value = String(b.id);
+        setText(o, b.name);
+      },
+    });
+    const wanted = shellKeep && this.bodies.some((b) => String(b.id) === shellKeep) ? shellKeep : String(this.from || '');
+    if (wanted && shellSel.value !== wanted) shellSel.value = wanted;
+    await this.refreshShell();
+  }
+
+  private async refreshShell(): Promise<void> {
+    const body = Number(this.shellBody.select.value);
+    if (!body) return;
+    try {
+      const r = await call<{ offset?: number; enabled?: boolean }>('fitshell.get', { body });
+      this.shellOn.set(r.enabled === true);
+      this.shellOffset.set(Number.isFinite(Number(r.offset)) ? Number(r.offset) : 10);
+    } catch { /* the engine may lack fitshell.get */ }
+  }
+
+  private sendShell(args: Record<string, unknown>): void {
+    const body = Number(this.shellBody.select.value);
+    if (!body) return;
+    call('fitshell.set', { body, ...args }).then(() => this.refreshShell()).catch(fail);
   }
 
   private async refit(): Promise<void> {

@@ -8,6 +8,7 @@ import type { Garment, Vec } from '../types';
 import type { SewSnapshot } from './sew-types';
 import type { Cam, Colors, Ptr, SnapResult, Tool, ViewCtx } from './ctx';
 import { drawScene, gridStep } from './render';
+import { StyleLineTool } from '../styleline/tool';
 import { DrawPanelTool, EllipseTool, InnerLineTool, InnerShapeTool, RectangleTool } from './tools-create';
 import { CurvatureTool, EditTool, MeasureTool, SelectTool, SplitTool } from './tools-edit';
 import { GrainTool, MatchTool, NotchTool, SeamTool } from './tools-garment';
@@ -61,7 +62,7 @@ export class PatternView implements ViewCtx {
     this.rulersOn = localStorage.getItem('formfabric.rulers') === '1';
     this.tools = [
       new SelectTool(this), new EditTool(this), new DrawPanelTool(this), new RectangleTool(this), new EllipseTool(this),
-      new InnerShapeTool(this), new InnerLineTool(this), new SplitTool(this), new CurvatureTool(this), new MeasureTool(this),
+      new InnerShapeTool(this), new InnerLineTool(this), new StyleLineTool(this), new SplitTool(this), new CurvatureTool(this), new MeasureTool(this),
       new SeamTool(this), new NotchTool(this), new GrainTool(this), new DartTool(this), new SlashTool(this), new MirrorTool(this),
       new InstanceTool(this), new UnfoldTool(this), new SpiralTool(this), new TraceTool(this), new MatchTool(this),
       new SewTool(this), new FreeSeamTool(this), new EditSeamTool(this), new TackTool(this), new PleatTool(this), new GatherTool(this),

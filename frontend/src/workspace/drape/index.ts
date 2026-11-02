@@ -68,6 +68,7 @@ interface Caps {
   wind: boolean;
   refit: boolean;
   settings: boolean;
+  shell: boolean;
 }
 
 interface TapeReply {
@@ -80,7 +81,7 @@ interface TapeReply {
 export class Drape {
   readonly state: SimState = { running: false, frame: 0, vertices: 0, ms: 0, preset: 'normal', panels: 0 };
   private pinOn = false;
-  private caps: Caps = { sim: false, pin: false, sew: false, mesh: false, apply: false, state: false, wind: false, refit: false, settings: false };
+  private caps: Caps = { sim: false, pin: false, sew: false, mesh: false, apply: false, state: false, wind: false, refit: false, settings: false, shell: false };
   readonly tools: Tools;
   readonly tapes: TapeMark[] = [];
   wind: WindJson | null = null;
@@ -221,7 +222,7 @@ export class Drape {
     setDisabled(this.applyBtn, !c.apply);
     setDisabled(this.pinBtn, !c.pin);
     setDisabled(this.clearBtn, !c.pin);
-    setDisabled(this.gearBtn, !(c.wind || c.refit || c.settings));
+    setDisabled(this.gearBtn, !(c.wind || c.refit || c.settings || c.shell));
     setClass(this.pinBtn, 'is-on', this.pinOn);
     setClass(this.gearBtn, 'is-on', this.panel.open);
     for (const [id, b] of this.presetBtns) {
@@ -238,7 +239,7 @@ export class Drape {
       const has = (id: string): boolean => cat.commands.some((x) => x.id === id);
       this.caps = {
         sim: has('sim.state') && has('sim.toggle'), pin: has('pin.add') && has('pin.remove'), sew: has('sew.list'), mesh: has('mesh.get'), apply: has('sim.apply'),
-        state: has('panel.state'), wind: has('wind.set'), refit: has('refit') && has('body.list'), settings: has('sim.settings'),
+        state: has('panel.state'), wind: has('wind.set'), refit: has('refit') && has('body.list'), settings: has('sim.settings'), shell: has('fitshell.set') && has('fitshell.get'),
       };
       this.tools.configure(cat.commands);
       this.panel.setCaps(this.caps);
