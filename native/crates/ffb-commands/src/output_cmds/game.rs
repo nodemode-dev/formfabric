@@ -44,7 +44,7 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let mut objects: Vec<SrcObject> = Vec::new();
     let mut rows = Vec::new();
     for (i, geo) in geos.iter().enumerate() {
-        let tris: Vec<[u32; 3]> = geo.indices.chunks_exact(3).map(|t| [t[0], t[1], t[2]]).collect();
+        let tris: Vec<[u32; 3]> = geo.indices.as_chunks::<3>().0.to_vec();
         let share = ((target as f64) * (tris.len() as f64) / (total.max(1) as f64)).round() as usize;
         let mut options = DecimateOptions::new(share.max(2));
         let mut lock = vec![false; geo.pos3.len()];
@@ -62,6 +62,7 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             positions: result.positions,
             uvs,
             indices: result.triangles.iter().flatten().copied().collect(),
+            quads: Vec::new(),
             front: mats.per_panel[i][0],
             back: mats.per_panel[i][1],
             side: mats.per_panel[i][2],

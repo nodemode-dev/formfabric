@@ -1,5 +1,5 @@
 import { Dialog } from '../../ui/dialogs';
-import { el, q, setHidden, setText } from '../../ui/dom';
+import { el, q, setClass, setHidden, setText } from '../../ui/dom';
 import { t } from '../../ui/i18n';
 import { icon } from '../../ui/icons';
 import { browseSave, canBrowse, recall, remember, swapExt } from './files';
@@ -25,6 +25,9 @@ export class ExportDialog extends Dialog {
   private readonly path = textRow('Path');
   private readonly browse = el<HTMLButtonElement>(`<button class="cv-icon-btn" type="button">${icon('folderOpen', 16)}</button>`);
   private readonly host = el('<div class="ou-fmts"></div>');
+  private readonly weldBox = el('<div class="ou-weldpick is-off" hidden><span class="ou-weldpick-title"></span><div class="ou-weldpick-list"><span class="ou-weldpick-empty"></span></div></div>');
+  private readonly pickRows = new Map<number, { el: HTMLElement; input: HTMLInputElement; name: HTMLElement }>();
+  private readonly chosen = new Set<number>(recall<number[]>('export.weldPanels', []));
   private readonly note = el('<p class="cv-note ou-note"></p>');
   private readonly status = el('<p class="ou-status"></p>');
   private readonly progress = bar();
@@ -42,7 +45,9 @@ export class ExportDialog extends Dialog {
     pathLine.append(this.path.el, this.browse);
     titled(this.browse, 'Browse');
     setHidden(this.browse, !canBrowse());
-    this.body.append(this.format.el, pathLine, this.host, this.note, this.progress.el, this.status);
+    setText(q(this.weldBox, '.ou-weldpick-title'), t('Panels to weld'));
+    setText(q(this.weldBox, '.ou-weldpick-empty'), t('No panels to list yet.'));
+    this.body.append(this.format.el, pathLine, this.host, this.weldBox, this.note, this.progress.el, this.status);
     this.button('Close', 'ghost', () => this.close());
     this.go = this.button('Export', 'primary', () => { void this.run(); });
     this.format.onInput(() => this.select(this.format.get()));
@@ -75,6 +80,7 @@ export class ExportDialog extends Dialog {
         const v = saved[spec.key] ?? spec.def;
         (row as Row<Value>).set(v as Value);
         row.onInput(() => this.save(f.id));
+        if (spec.key === 'weld') row.onInput(() => this.paintPick());
         box.appendChild(row.el);
       }
       this.host.appendChild(box);
@@ -137,7 +143,47 @@ export class ExportDialog extends Dialog {
     this.paint();
   }
 
+  private syncPanels(): void {
+    const seen = new Set<number>();
+    const empty = q(this.weldBox, '.ou-weldpick-empty');
+    const list = q(this.weldBox, '.ou-weldpick-list');
+    for (const island of this.store.uv.islands) {
+      seen.add(island.panel);
+      let row = this.pickRows.get(island.panel);
+      if (!row) {
+        const node = el('<label class="ou-weldrow"><input type="checkbox"><span></span></label>');
+        row = { el: node, input: q<HTMLInputElement>(node, 'input'), name: q(node, 'span') };
+        const id = island.panel;
+        row.input.addEventListener('change', () => {
+          if (row?.input.checked) this.chosen.add(id); else this.chosen.delete(id);
+          remember('export.weldPanels', [...this.chosen]);
+        });
+        this.pickRows.set(id, row);
+        list.appendChild(node);
+      }
+      setText(row.name, island.name);
+      if (row.input.checked !== this.chosen.has(island.panel)) row.input.checked = this.chosen.has(island.panel);
+    }
+    for (const [id, row] of [...this.pickRows]) {
+      if (seen.has(id)) continue;
+      row.el.remove();
+      this.pickRows.delete(id);
+    }
+    setHidden(empty, this.pickRows.size > 0);
+  }
+
+  private paintPick(): void {
+    const b = this.built.get(this.current);
+    const has = this.store.formats.some((f) => f.opts.some((o) => o.key === 'weld'));
+    setHidden(this.weldBox, !has);
+    const weld = b ? (b.rows.get('weld')?.row as unknown as Row<string> | undefined)?.get() : undefined;
+    const on = weld === 'weld_selected';
+    setClass(this.weldBox, 'is-off', !on);
+    for (const row of this.pickRows.values()) if (row.input.disabled !== !on) row.input.disabled = !on;
+  }
+
   private paint(): void {
+    this.paintPick();
     const have = this.store.has('export.run');
     const formats = this.store.formats.length > 0;
     const b = this.built.get(this.current);
@@ -161,8 +207,9 @@ export class ExportDialog extends Dialog {
   }
 
   async show(formatId?: string): Promise<void> {
-    await Promise.all([this.store.loadFormats(), this.store.loadRange()]);
+    await Promise.all([this.store.loadFormats(), this.store.loadRange(), this.store.loadUv()]);
     this.rebuild();
+    this.syncPanels();
     const want = formatId && this.built.has(formatId) ? formatId : this.current && this.built.has(this.current) ? this.current : this.store.formats[0]?.id ?? '';
     if (this.current && this.current !== want) {
       const prev = this.built.get(this.current);
@@ -194,7 +241,13 @@ export class ExportDialog extends Dialog {
     const opts = this.values(b.info.id);
     if (opts.animation !== true) for (const k of ['cache', 'start', 'end', 'step']) delete opts[k];
     else if (!(Number(opts.cache) >= 1)) delete opts.cache;
-    const r = await this.store.attempt<Record<string, unknown>>('export.run', { ...opts, format: b.info.id, path });
+    const args: Record<string, unknown> = { ...opts, format: b.info.id, path };
+    if (opts.weld === 'weld_selected') {
+      const ids = [...this.chosen].filter((id) => this.pickRows.has(id));
+      if (ids.length < 2) { this.busy = false; this.progress.show(false); this.paint(); setText(this.status, t('Pick at least two panels to weld.')); return; }
+      args.panels = ids;
+    }
+    const r = await this.store.attempt<Record<string, unknown>>('export.run', args);
     this.busy = false;
     this.progress.show(false);
     this.paint();

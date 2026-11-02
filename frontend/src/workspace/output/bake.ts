@@ -85,11 +85,14 @@ abstract class JobDialog extends Dialog {
 export class BakeDialog extends JobDialog {
   private readonly maps: Array<[string, ReturnType<typeof toggleRow>]> = [];
   private readonly size = selectRow('Size', [['512', '512'], ['1024', '1024'], ['2048', '2048'], ['4096', '4096']]);
+  private readonly fill = numRow('Seam fill', 'px', '1', 0, 256);
 
   constructor(store: OutputStore, notify: Notify) {
     super('Bake Maps', 'bake.run', store, notify, 'bake', 'bake/garment', 'png', 'Image', 'Bake');
-    const saved = recall<{ maps: string[]; size: string }>('bake.opts', { maps: ['normal', 'ao'], size: '2048' });
-    for (const [id, text] of [['normal', 'Normal'], ['ao', 'Ambient occlusion'], ['displacement', 'Displacement']] as const) {
+    const saved = recall<{ maps: string[]; size: string; fill?: number }>('bake.opts', { maps: ['normal', 'ao'], size: '2048', fill: 4 });
+    this.fill.set(typeof saved.fill === 'number' ? saved.fill : 4);
+    this.fill.onInput(() => this.keep());
+    for (const [id, text] of [['diffuse', 'Diffuse'], ['metalness', 'Metalness'], ['roughness', 'Roughness'], ['opacity', 'Opacity'], ['normal', 'Normal'], ['ao', 'Ambient occlusion'], ['displacement', 'Displacement']] as const) {
       const row = toggleRow(text);
       row.set(saved.maps.includes(id));
       row.onInput(() => this.keep());
@@ -98,12 +101,12 @@ export class BakeDialog extends JobDialog {
     }
     this.size.set(saved.size);
     this.size.onInput(() => this.keep());
-    this.body.append(this.size.el, this.pathLine());
+    this.body.append(this.size.el, this.fill.el, this.pathLine());
     this.tail();
   }
 
   private keep(): void {
-    remember('bake.opts', { maps: this.chosen(), size: this.size.get() });
+    remember('bake.opts', { maps: this.chosen(), size: this.size.get(), fill: this.fill.get() });
   }
 
   private chosen(): string[] {
@@ -111,7 +114,7 @@ export class BakeDialog extends JobDialog {
   }
 
   protected args(): Record<string, unknown> {
-    return { maps: this.chosen(), size: Number(this.size.get()), path: this.pathRow.get().trim() };
+    return { maps: this.chosen(), size: Number(this.size.get()), fill_px: Math.min(256, Math.max(0, Math.round(this.fill.get()))), path: this.pathRow.get().trim() };
   }
 
   protected override paint(): void {

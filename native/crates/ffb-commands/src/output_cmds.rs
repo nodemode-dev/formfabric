@@ -4,6 +4,7 @@ mod game;
 mod link_scene;
 mod scene;
 mod uv_cmds;
+mod weld;
 
 pub(crate) use link_scene::{link_scene, LinkScene};
 

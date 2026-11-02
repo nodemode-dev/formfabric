@@ -38,7 +38,7 @@ fn body(scene: &Scene, positions: Option<&[V3]>, o: &Options) -> String {
         let _ = writeln!(s, "mtllib {}.mtl", o.stem);
     }
     let uv = o.uv;
-    let (mut vb, mut at) = (1usize, 0usize);
+    let (mut vb, mut at, mut ub) = (1usize, 0usize, 1usize);
     for obj in &scene.objects {
         let _ = writeln!(s, "o {}", clean(&obj.name));
         let n = obj.positions.len();
@@ -55,43 +55,39 @@ fn body(scene: &Scene, positions: Option<&[V3]>, o: &Options) -> String {
                 let _ = writeln!(s, "vt {} {}", t[0], t[1]);
             }
         }
-        let normals = if positions.is_some() { super::vertex_normals(pos, &obj.indices) } else { obj.normals.clone() };
+        let normals = if positions.is_some() { super::vertex_normals(pos, &obj.triangulated().indices) } else { obj.normals.clone() };
         for nn in &normals {
             let _ = writeln!(s, "vn {} {} {}", nn[0], nn[1], nn[2]);
         }
-        for (gi, g) in obj.groups.iter().enumerate() {
+        let tris = obj.indices.len() / 3;
+        let f = |i: u32, corner: usize| {
+            let k = vb + i as usize;
+            if uv {
+                let t = ub + if obj.uv_ix.is_empty() { i as usize } else { obj.uv_ix[corner] as usize };
+                format!("{k}/{t}/{k}")
+            } else {
+                format!("{k}//{k}")
+            }
+        };
+        for g in &obj.groups {
             if o.materials {
                 if let Some(m) = scene.materials.get(g.material) {
                     let _ = writeln!(s, "usemtl {}", clean(&m.name));
                 }
             }
             let _ = writeln!(s, "g {}_{}", clean(&obj.name), g.first);
-            for t in obj.indices[g.first * 3..(g.first + g.count) * 3].chunks_exact(3) {
-                let f = |i: u32| {
-                    let k = vb + i as usize;
-                    if uv {
-                        format!("{k}/{k}/{k}")
-                    } else {
-                        format!("{k}//{k}")
-                    }
-                };
-                let _ = writeln!(s, "f {} {} {}", f(t[0]), f(t[1]), f(t[2]));
-            }
-            if gi == 0 {
-                for q in &obj.quads {
-                    let f = |i: u32| {
-                        let k = vb + i as usize;
-                        if uv {
-                            format!("{k}/{k}/{k}")
-                        } else {
-                            format!("{k}//{k}")
-                        }
-                    };
-                    let _ = writeln!(s, "f {} {} {} {}", f(q[0]), f(q[1]), f(q[2]), f(q[3]));
+            for face in g.first..(g.first + g.count).min(tris + obj.quads.len()) {
+                if face < tris {
+                    let t = &obj.indices[face * 3..face * 3 + 3];
+                    let _ = writeln!(s, "f {} {} {}", f(t[0], face * 3), f(t[1], face * 3 + 1), f(t[2], face * 3 + 2));
+                } else {
+                    let (q, c) = (obj.quads[face - tris], tris * 3 + (face - tris) * 4);
+                    let _ = writeln!(s, "f {} {} {} {}", f(q[0], c), f(q[1], c + 1), f(q[2], c + 2), f(q[3], c + 3));
                 }
             }
         }
         vb += n;
+        ub += obj.uvs.len();
     }
     s
 }

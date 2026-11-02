@@ -190,7 +190,7 @@ pub(super) fn source_objects(geos: &[PanelGeo], islands: &[Island], mats: &Mater
                 name = format!("{}_{}", name, geo.id);
             }
             used_names.push(name.clone());
-            SrcObject { name, positions: geo.pos3.clone(), uvs: uvs_for(geo, &islands[i], mode), indices: geo.indices.clone(), front: mats.per_panel[i][0], back: mats.per_panel[i][1], side: mats.per_panel[i][2] }
+            SrcObject { name, positions: geo.pos3.clone(), uvs: uvs_for(geo, &islands[i], mode), indices: geo.indices.clone(), quads: Vec::new(), front: mats.per_panel[i][0], back: mats.per_panel[i][1], side: mats.per_panel[i][2] }
         })
         .collect()
 }

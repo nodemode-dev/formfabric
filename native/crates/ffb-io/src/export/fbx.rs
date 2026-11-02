@@ -245,7 +245,7 @@ pub fn write(scene: &Scene, animation: Option<&Animation>, o: &Options) -> Resul
         let model = ids.next();
         geometry_count += 1;
         let mut poly = Vec::with_capacity(obj.indices.len());
-        for t in obj.indices.chunks_exact(3) {
+        for t in obj.indices.as_chunks::<3>().0 {
             poly.push(t[0] as i32);
             poly.push(t[1] as i32);
             poly.push(!(t[2] as i32));
@@ -284,7 +284,7 @@ pub fn write(scene: &Scene, animation: Option<&Animation>, o: &Options) -> Resul
                     n("MappingInformationType", vec![s("ByPolygonVertex")], vec![]),
                     n("ReferenceInformationType", vec![s("IndexToDirect")], vec![]),
                     n("UV", vec![P::Doubles(uv)], vec![]),
-                    n("UVIndex", vec![P::Ints(corners.iter().map(|i| *i as i32).collect())], vec![]),
+                    n("UVIndex", vec![P::Ints(if obj.uv_ix.is_empty() { corners.iter().map(|i| *i as i32).collect() } else { obj.uv_ix.iter().map(|i| *i as i32).collect() })], vec![]),
                 ],
             ));
             layer.push(n("LayerElement", vec![], vec![n("Type", vec![s("LayerElementUV")], vec![]), n("TypedIndex", vec![P::I(0)], vec![])]));
@@ -300,7 +300,8 @@ pub fn write(scene: &Scene, animation: Option<&Animation>, o: &Options) -> Resul
                 let mut per_face = vec![0i32; obj.indices.len() / 3 + obj.quads.len()];
                 for g in &obj.groups {
                     let local = used.iter().position(|u| *u == g.material).unwrap_or(0) as i32;
-                    per_face[g.first..g.first + g.count].fill(local);
+                    let end = (g.first + g.count).min(per_face.len());
+                    per_face[g.first.min(end)..end].fill(local);
                 }
                 kids.push(n(
                     "LayerElementMaterial",

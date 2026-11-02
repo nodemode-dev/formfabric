@@ -117,7 +117,12 @@ pub fn write(scene: &Scene, animation: Option<&Animation>, o: &Options) -> Resul
                 let _ = write!(t, "({}, {})", p[0], p[1]);
             }
             t.push(']');
-            let _ = writeln!(s, "        texCoord2f[] primvars:st = {t} (\n            interpolation = \"vertex\"\n        )");
+            if obj.uv_ix.is_empty() {
+                let _ = writeln!(s, "        texCoord2f[] primvars:st = {t} (\n            interpolation = \"vertex\"\n        )");
+            } else {
+                let _ = writeln!(s, "        texCoord2f[] primvars:st = {t} (\n            interpolation = \"faceVarying\"\n        )");
+                let _ = writeln!(s, "        int[] primvars:st:indices = {}", ints(obj.uv_ix.iter().copied()));
+            }
         }
         s.push_str("        uniform token subdivisionScheme = \"none\"\n");
         if single {

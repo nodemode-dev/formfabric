@@ -17,6 +17,15 @@
 .ou-fmts { display: block; }
 .ou-fmt { display: flex; flex-direction: column; gap: var(--space-2); }
 .ou-fmt[hidden] { display: none; }
+.ou-weldpick { display: grid; grid-template-rows: 16px 88px; gap: var(--space-1); margin-top: var(--space-2); }
+.ou-weldpick[hidden] { display: none; }
+.ou-weldpick.is-off { opacity: 0.55; }
+.ou-weldpick-title { color: var(--text-muted); font-size: var(--fs-11); line-height: 16px; }
+.ou-weldpick-list { position: relative; overflow: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: var(--space-1) var(--space-2); padding: var(--space-1) var(--space-2); border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-primary); }
+.ou-weldrow { display: flex; align-items: center; gap: var(--space-2); min-width: 0; min-height: 20px; font-size: var(--fs-12); }
+.ou-weldrow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ou-weldpick-empty { grid-column: 1 / -1; color: var(--text-muted); font-size: var(--fs-11); }
+.ou-weldpick-empty[hidden] { display: none; }
 .ou-pathline { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; }
 .ou-pathline[hidden], .ou-pathline > [hidden] { display: none; }
 .ou-note { margin: var(--space-2) 0 0; min-height: 16px; }
