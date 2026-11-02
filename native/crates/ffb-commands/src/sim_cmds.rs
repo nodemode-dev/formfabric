@@ -18,6 +18,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::{Command, Session};
 
+pub(crate) use adapter::self_hits;
+pub(crate) use build::keyed_rebuilder;
 pub(crate) use pinch::current_positions;
 pub(crate) use drape::rigid_fit;
 pub(crate) use pins::MAX_PINS;
