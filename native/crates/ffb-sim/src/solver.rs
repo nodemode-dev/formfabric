@@ -412,6 +412,7 @@ impl Solver {
         if self.params.self_collision && n > 0 {
             self.resolve_self_contact();
         }
+        let mut pre = vec![DVec3::ZERO; if self.colliders.is_empty() { 0 } else { n }];
         if !self.colliders.is_empty() {
             for i in 0..n {
                 if self.pinned[i] {
@@ -426,6 +427,9 @@ impl Solver {
                             self.x[i] += n * (inward - cap);
                         }
                     }
+                }
+                if let Some(p) = pre.get_mut(i) {
+                    *p = self.x[i];
                 }
                 let moved = (self.x[i] - self.xn[i]).length();
                 if moved > 0.5 * offset.max(0.5) {
@@ -443,7 +447,14 @@ impl Solver {
         let mut vmax: f64 = 0.0;
         let mut contacts = 0;
         for i in 0..n {
-            let nv = (self.x[i] - self.xn[i]) / h;
+            let mut nv = (self.x[i] - self.xn[i]) / h;
+            if let (Some(c), Some(p)) = (self.contact[i], pre.get(i)) {
+                nv = (*p - self.xn[i]) / h;
+                let vn = nv.dot(c.normal);
+                if vn < 0.0 {
+                    nv -= c.normal * vn;
+                }
+            }
             self.acc[i] = (nv - self.v[i]) / h;
             self.v[i] = nv;
             vmax = vmax.max(nv.length());
