@@ -43,7 +43,7 @@ function firstMap(maps: unknown): string | null {
   if (Array.isArray(maps)) return maps.find((m): m is string => typeof m === 'string' && m.length > 0) ?? null;
   if (maps && typeof maps === 'object') {
     const o = maps as Record<string, unknown>;
-    for (const k of ['base', 'color', 'albedo', 'diffuse']) if (typeof o[k] === 'string' && o[k]) return o[k] as string;
+    for (const k of ['base_color', 'base', 'color', 'albedo', 'diffuse']) if (typeof o[k] === 'string' && o[k]) return o[k] as string;
   }
   return null;
 }
