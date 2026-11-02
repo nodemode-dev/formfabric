@@ -43,12 +43,15 @@ class RecoveryDialog extends Dialog {
 }
 
 let offered = false;
+let asking = false;
 
 export async function offerRecovery(refreshDocument: () => void): Promise<boolean> {
-  if (offered) return false;
+  if (offered || asking) return false;
+  asking = true;
+  const info = await recoveryInfo().finally(() => { asking = false; });
+  if (!info) return false;
   offered = true;
-  const info = await recoveryInfo();
-  if (!info || !info.present) return false;
+  if (!info.present) return false;
   new RecoveryDialog(refreshDocument).show(info);
   return true;
 }

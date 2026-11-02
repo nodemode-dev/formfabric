@@ -112,7 +112,7 @@ ffb_say "python $("$py" -c 'import platform; print(platform.python_version())'),
 step "installing the service, the engine module and the window"
 if [ -f backend/venv/bin/activate ] && [ -d frontend/node_modules ]; then
   ( cd backend && ./oc_install ) >/dev/null
-  ( cd frontend && npm install --no-audit --no-fund )
+  ( cd frontend && if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi )
 else
   setup/install_all
 fi

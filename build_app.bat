@@ -18,7 +18,7 @@ echo.
 echo [formfabric] == installing the service and the window
 call backend\oc_install.bat || goto :failed
 pushd frontend
-call npm install --no-audit --no-fund || ( popd & goto :failed )
+if exist package-lock.json ( call npm ci --no-audit --no-fund || ( popd & goto :failed ) ) else ( call npm install --no-audit --no-fund || ( popd & goto :failed ) )
 popd
 
 echo.

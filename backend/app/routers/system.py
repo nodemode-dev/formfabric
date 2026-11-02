@@ -36,8 +36,14 @@ def file_image(path: str):
     if kind is None or not target.is_absolute():
         return JSONResponse({"ok": False, "error": "Not an absolute image path"}, status_code=400)
     try:
+        if target.is_symlink():
+            raise OSError
         resolved = target.resolve(strict=True)
-        if not resolved.is_file() or resolved.stat().st_size > IMAGE_LIMIT:
+        if resolved.suffix.lower() not in IMAGE_TYPES or not resolved.is_file() or resolved.stat().st_size > IMAGE_LIMIT:
+            raise OSError
+        with resolved.open("rb") as handle:
+            head = handle.read(12)
+        if not (head.startswith((b"\x89PNG", b"\xff\xd8\xff", b"GIF8")) or (head[:4] == b"RIFF" and head[8:12] == b"WEBP")):
             raise OSError
     except OSError:
         return JSONResponse({"ok": False, "error": "No such image, or larger than 20 MB"}, status_code=404)

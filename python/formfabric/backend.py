@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -12,6 +13,19 @@ DEFAULT_PORT = 8280
 WINDOW_HEADER = "x-ffb-window"
 INAPP_HEADER = "x-formfabric-inapp"
 TOKEN_MIN = 32
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect, urllib.request.ProxyHandler({}))
+
+
+def is_loopback(url: str) -> bool:
+    parts = urllib.parse.urlsplit(url)
+    return parts.scheme == "http" and parts.hostname in ("127.0.0.1", "localhost")
 
 
 class Backend:
@@ -81,6 +95,8 @@ class HttpBackend(Backend):
         self._header, self._token = resolve_token(token)
         if self._header == WINDOW_HEADER and self._token is not None and len(self._token) < TOKEN_MIN:
             raise BackendError(f"the window token must be at least {TOKEN_MIN} characters; the service refuses a shorter one")
+        if self._token and not is_loopback(self.url):
+            raise BackendError("refusing to send the window token to a URL that is not http on 127.0.0.1 or localhost; unset the token or use the local service")
         self._catalogue: dict | None = None
 
     def _request(self, path: str, body: dict | None = None) -> Any:
@@ -93,7 +109,7 @@ class HttpBackend(Backend):
             headers[self._header] = self._token
         request = urllib.request.Request(self.url + path, data=data, headers=headers, method="POST" if body is not None else "GET")
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with _OPENER.open(request, timeout=self.timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             detail = ""
@@ -108,6 +124,8 @@ class HttpBackend(Backend):
             raise BackendError(f"{path}: HTTP {exc.code} {detail}".strip()) from exc
         except urllib.error.URLError as exc:
             raise BackendError(f"cannot reach the formfabric service at {self.url}: {exc.reason}") from exc
+        except (OSError, ValueError) as exc:
+            raise BackendError(f"the formfabric service at {self.url} gave no usable reply: {exc.__class__.__name__}") from exc
 
     def dispatch(self, name: str, args: dict | None = None) -> dict:
         return self._request("/api/engine/dispatch", {"name": name, "args": args or {}})

@@ -14,5 +14,5 @@ if [ "$(ffb_os)" = linux ] && ! pkg-config --exists webkit2gtk-4.1 2>/dev/null; 
   ffb_say "sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf"
   exit 1
 fi
-[ -x "$FFB_ROOT/frontend/node_modules/.bin/tauri" ] || ( cd "$FFB_ROOT/frontend" && npm install )
+[ -x "$FFB_ROOT/frontend/node_modules/.bin/tauri" ] || ( cd "$FFB_ROOT/frontend" && if [ -f package-lock.json ]; then npm ci; else npm install; fi )
 ffb_say "desktop toolchain ready: rustc $(rustc --version | awk '{print $2}')"

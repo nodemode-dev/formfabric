@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0..\frontend"
-if not exist node_modules call npm install
+if not exist node_modules ( if exist package-lock.json ( call npm ci ) else ( call npm install ) )
 if not exist public\engine\ffb_wasm.wasm (
   where cargo >nul 2>nul && (
     pushd ..\native

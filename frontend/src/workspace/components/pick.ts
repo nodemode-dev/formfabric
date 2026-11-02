@@ -120,8 +120,8 @@ export class PortPicker {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     const css = getComputedStyle(document.documentElement);
-    const accent = css.getPropertyValue('--accent-color').trim() || '#f97316';
-    const dim = css.getPropertyValue('--text-secondary').trim() || '#a4a4a4';
+    const accent = css.getPropertyValue('--accent-color').trim() || 'currentColor';
+    const dim = css.getPropertyValue('--text-secondary').trim() || 'currentColor';
     const geos = this.doc.geos();
     const line = (s: Span, color: string, width: number): void => {
       const seg = lineSegs(geos.find((g) => g.panel.id === s.panel), null)[s.segment];

@@ -34,6 +34,18 @@ def read(path: Path, how: str) -> str | None:
     return found.group(1) if found else None
 
 
+LOCKS = ["native/Cargo.lock", "src-tauri/Cargo.lock"]
+
+
+def lock_entries(path: Path) -> list[tuple[str, str]] | None:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    found = re.findall(r'^name = "(ffb-[a-z0-9-]+|formfabric)"\nversion = "([^"]+)"', text, re.M)
+    return found
+
+
 def changelog_has(version: str) -> bool:
     try:
         text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
@@ -51,6 +63,9 @@ def main(argv: list[str]) -> int:
     if command == "sites":
         for name, value in values:
             print(f"{name:34} {value if value is not None else 'MISSING'}")
+        for lock in LOCKS:
+            entries = lock_entries(ROOT / lock)
+            print(f"{lock:34} {', '.join(sorted({v for _, v in entries})) if entries else 'MISSING'}")
         return 0
     anchor = read(ROOT / "src-tauri/tauri.conf.json", "json:version")
     if command == "print":
@@ -59,6 +74,16 @@ def main(argv: list[str]) -> int:
     bad = [(n, v) for n, v in values if v != anchor]
     for name, value in bad:
         print(f"[formfabric] {name}: {value if value is not None else 'missing'} (expected {anchor})")
+    for lock in LOCKS:
+        entries = lock_entries(ROOT / lock)
+        if entries is None:
+            print(f"[formfabric] {lock}: missing")
+            bad.append((lock, None))
+            continue
+        for crate, value in entries:
+            if value != anchor:
+                print(f"[formfabric] {lock}: {crate} {value} (expected {anchor})")
+                bad.append((f"{lock}:{crate}", value))
     if anchor and not changelog_has(anchor):
         print(f"[formfabric] CHANGELOG.md has no heading for {anchor}")
         bad.append(("CHANGELOG.md", None))

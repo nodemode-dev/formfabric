@@ -191,7 +191,7 @@ def install(dry: bool, targets: list[str]) -> int:
             say("Claude Code's claude command was not found; the project's .mcp.json still works inside this folder")
     if "codex" in targets:
         cfg = Path.home() / ".codex" / "config.toml"
-        block = f'\n[mcp_servers.formfabric]\ncommand = "{command}"\nargs = ["mcp"]\nstartup_timeout_sec = 90\ntool_timeout_sec = 600\n'
+        block = f'\n[mcp_servers.formfabric]\ncommand = {json.dumps(command)}\nargs = ["mcp"]\nstartup_timeout_sec = 90\ntool_timeout_sec = 600\n'
         existing = cfg.read_text(encoding="utf-8") if cfg.exists() else ""
         if "[mcp_servers.formfabric]" in existing:
             say(f"{cfg} already has formfabric")
@@ -204,8 +204,18 @@ def install(dry: bool, targets: list[str]) -> int:
                 cfg.write_text(existing + block, encoding="utf-8")
     if "cursor" in targets:
         cfg = Path.home() / ".cursor" / "mcp.json"
-        data = json.loads(cfg.read_text(encoding="utf-8")) if cfg.exists() else {}
+        try:
+            data = json.loads(cfg.read_text(encoding="utf-8")) if cfg.exists() else {}
+        except (OSError, ValueError):
+            say(f"{cfg} is not readable JSON; left untouched")
+            return 1
+        if not isinstance(data, dict):
+            say(f"{cfg} is not a JSON object; left untouched")
+            return 1
         servers = data.setdefault("mcpServers", {})
+        if not isinstance(servers, dict):
+            say(f"{cfg} has a malformed mcpServers; left untouched")
+            return 1
         if servers.get("formfabric", {}).get("command") == command:
             say(f"{cfg} already has formfabric")
         else:

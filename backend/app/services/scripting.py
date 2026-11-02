@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+"""Plugins are trusted code: a plugin is arbitrary Python that runs in the service process with the
+user's rights. Install only plugins you wrote or reviewed. A plugin that runs past FFB_PLUGIN_TIMEOUT
+seconds (default 300) is reported as timed out and refused further commands, but Python cannot stop
+its thread, so a plugin stuck outside ffb calls keeps running until the service exits."""
 import ast
-import contextlib
 import io
 import os
 import runpy
+import sys
+import threading
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -21,8 +27,14 @@ class ScriptError(RuntimeError):
 class Ffb:
     def __init__(self, dispatch: Callable[[str, dict], dict]):
         self._dispatch = dispatch
+        self.deadline: float | None = None
+
+    def _check(self) -> None:
+        if self.deadline is not None and time.monotonic() > self.deadline:
+            raise ScriptError("the plugin ran past its time limit", "timeout")
 
     def call(self, command: str, given: dict | None = None, /, **args: Any) -> Any:
+        self._check()
         reply = self._dispatch(command, {**(given or {}), **args})
         if not reply.get("ok"):
             error = reply.get("error") or {}
@@ -30,6 +42,7 @@ class Ffb:
         return reply.get("result")
 
     def try_call(self, command: str, given: dict | None = None, /, **args: Any) -> dict:
+        self._check()
         return self._dispatch(command, {**(given or {}), **args})
 
     def commands(self) -> list[str]:
@@ -90,7 +103,7 @@ def list_plugins() -> list[dict]:
 
 
 def resolve_args(params: dict, given: dict | None) -> dict:
-    out = dict(given or {})
+    out = {k: v for k, v in (given or {}).items() if k in params}
     for key, spec in params.items():
         if key not in out:
             if "default" in spec:
@@ -113,9 +126,10 @@ def resolve_args(params: dict, given: dict | None) -> dict:
                 if value != int(value):
                     raise ScriptError(f"{key} must be a whole number", "bad_args")
                 value = int(value)
-            if "min" in spec and value < spec["min"]:
+            lo, hi = spec.get("min"), spec.get("max")
+            if isinstance(lo, (int, float)) and not isinstance(lo, bool) and value < lo:
                 raise ScriptError(f"{key} must be at least {spec['min']}", "bad_args")
-            if "max" in spec and value > spec["max"]:
+            if isinstance(hi, (int, float)) and not isinstance(hi, bool) and value > hi:
                 raise ScriptError(f"{key} must be at most {spec['max']}", "bad_args")
         elif kind == "choice":
             if str(value) not in spec.get("options", []):
@@ -128,9 +142,59 @@ def resolve_args(params: dict, given: dict | None) -> dict:
     return out
 
 
-def run_file(path: str | Path, ffb: Ffb, args: dict | None = None) -> dict:
+class _Capture(io.TextIOBase):
+    def __init__(self, fallback: Any):
+        self.fallback = fallback
+        self.local = threading.local()
+
+    def write(self, text: str) -> int:
+        target = getattr(self.local, "buffer", None)
+        return (target or self.fallback).write(text)
+
+    def flush(self) -> None:
+        target = getattr(self.local, "buffer", None)
+        (target or self.fallback).flush()
+
+
+_capture_lock = threading.Lock()
+
+
+def _capture() -> _Capture:
+    with _capture_lock:
+        if not isinstance(sys.stdout, _Capture):
+            sys.stdout = _Capture(sys.stdout)
+        return sys.stdout
+
+
+def plugin_timeout() -> float:
+    try:
+        return max(1.0, float(os.environ.get("FFB_PLUGIN_TIMEOUT", "300")))
+    except ValueError:
+        return 300.0
+
+
+def run_file(path: str | Path, ffb: Ffb, args: dict | None = None, timeout: float | None = None) -> dict:
+    limit = timeout if timeout else plugin_timeout()
+    ffb.deadline = time.monotonic() + limit
+    capture = _capture()
     out = io.StringIO()
-    with contextlib.redirect_stdout(out):
-        module = runpy.run_path(str(path), init_globals={"ffb": ffb, "args": args or {}}, run_name="__formfabric__")
-        result = module["run"](ffb, args or {}) if callable(module.get("run")) else None
-    return {"result": result, "output": out.getvalue()}
+    box: dict[str, Any] = {}
+
+    def work() -> None:
+        capture.local.buffer = out
+        try:
+            module = runpy.run_path(str(path), init_globals={"ffb": ffb, "args": args or {}}, run_name="__formfabric__")
+            box["result"] = module["run"](ffb, args or {}) if callable(module.get("run")) else None
+        except BaseException as err:
+            box["error"] = err
+        finally:
+            capture.local.buffer = None
+
+    worker = threading.Thread(target=work, name="ffb-plugin", daemon=True)
+    worker.start()
+    worker.join(limit)
+    if worker.is_alive():
+        raise ScriptError(f"the plugin did not finish within {int(limit)} seconds; it can no longer call commands", "timeout")
+    if "error" in box:
+        raise box["error"]
+    return {"result": box.get("result"), "output": out.getvalue()}
