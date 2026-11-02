@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.23.0 · 2026-11-02
+
+Phases 19 to 23, released together. They close the parity rows that were partial at v0.18.0: of 125 rows, 115 are landed, 1 is partial and 9 are deferred, six of them pending the owner's sign-off. v1.0.0 follows that sign-off.
+
+Workspace and viewer (Phase 19):
+
+- The Animate and Render workspace tabs, each applying its layout; UV and Retopo open the Output drawer section.
+- An Object Browser drawer: scene tree and typed fabric, graphic, button, buttonhole, topstitch, puckering, trim and zipper lists, with copy, merge and fabric order.
+- Arrangement files (`.ffplace`) in the Library.
+- A background image on the Stage.
+- Capture: multi-view layouts of 2 to 10 camera views, separate images, ppi in the PNG, a transparent GIF turntable.
+
+Animation (Phase 20):
+
+- Cache layers can be cut, merged, moved and locked; the top layer wins where layers overlap.
+- Auto key, keyable pins, and trims recorded into their own cache layer.
+
+Export and retopology (Phase 21):
+
+- Weld, Unweld and Weld Selected for every mesh and cache format.
+- Thick export with quad output; FBX trims; diffuse, metalness, roughness and opacity bakes with seam fill.
+- Retopo: draw points and faces on panels, merge, divide, remesh, with ghost points across seams.
+
+Solver and finishing (Phase 22):
+
+- Refit pushes cloth out of the new body first (0.0 mm inside the male body, from 22.3 mm).
+- Skive, the softening counterpart of Bond.
+- An opt-in Untangle pass (Normal or Flipped Normal).
+
+Alembic and quad regularity (Phase 23):
+
+- Alembic export (static and animated caches) and Alembic body import, from formfabric's own Ogawa code, checked with the Alembic 1.8.12 library's tools.
+- An integer edge regularity pass for the quad remesher (min-cost flow), behind a flag.
+
+Also: an independent audit's 22 findings fixed (hostile Alembic files, cache arithmetic, topology loading, texture reads, export rollback), the toolchain's new clippy lints cleared, every new string in all 29 languages, 255 commands.
+
 ## v0.18.0 · 2026-11-02
 
 Phases 16, 17 and 18, plus the solver work carried from v0.15.0, released together. The plan names v1.0.0 for Phase 18, but its exit (every parity row landed or explicitly deferred) is not met: 92 rows are landed, 3 deferred and 30 partial, so this is v0.18.0.
