@@ -21,7 +21,7 @@ One garment document lives in the Rust engine; the window, MCP, the Python API a
 | `python/` | the standard-library `formfabric` package; `catalogue.json` is a snapshot of the registry |
 | `src-tauri/` | Tauri 2 shell with its own `Cargo.lock`; `setup/` scripts; `build_app` |
 | `.claude/`, `.agents/`, `.mcp.json`, `.codex/`, `.cursor/` | agent kit: the harness and modeling skills, MCP registration |
-| `docs/` | `encyclopedia/` (behaviour specification) and `integration/` (family drafts) |
+| `docs/` | `integration/` (family drafts) |
 
 How to build and verify:
 
@@ -46,7 +46,7 @@ How to build and verify:
 
 ## Repo layout notes
 
-- `docs/encyclopedia/` is the behaviour specification: what the reference app does, from primary sources. Read `00-INDEX.md`, then `14-PARITY-MATRIX.md` (its Status column says landed, partial or deferred per feature), then the chapter for the area being built, and `15-OPEN-GAPS.md` (it also lists the open build gaps) before choosing any unpublished default.
+- The behaviour specification (the encyclopedia: what the reference app does, from primary sources) lives in the planning sidecar's `encyclopedia/` folder, not in this tree. Read its `00-INDEX.md`, then `14-PARITY-MATRIX.md` (its Status column says landed, partial or deferred per feature), then the chapter for the area being built, and `15-OPEN-GAPS.md` (it also lists the open build gaps) before choosing any unpublished default.
 - `.docs/wiki/` is the wiki source and `.docs/BRANCHING.md` the branch model. Change a page in the same pull request as the behaviour it describes; cite command names as the generated skill reference spells them (`sim_step`).
 - `README.md` uses the house compression style (`&` for and, `w/` for with); every other markdown file is written in full words. The version badge line in `README.md` is bumped by the lead.
 - `docs/integration/` holds drafts for other repositories (registry, catalogue, product entries, GoF, Unreal Live Link). They are data and proposals; nothing from formcompiler or formportal is copied into them.

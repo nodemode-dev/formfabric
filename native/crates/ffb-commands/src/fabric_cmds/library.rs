@@ -32,7 +32,7 @@ fn presets_run(_: &mut Session, a: &Value) -> Result<Value, CommandError> {
         "fields": fields,
         "slider_max": units::SLIDER_MAX,
         "sources": presets::SOURCES.iter().map(|(k, v)| json!({"key": k, "citation": v})).collect::<Vec<_>>(),
-        "data_file": "docs/encyclopedia/16-FABRIC-DATA.md"
+        "data_file": "encyclopedia/16-FABRIC-DATA.md (planning sidecar)"
     }))
 }
 

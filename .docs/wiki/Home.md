@@ -22,7 +22,7 @@ Version in the root `VERSION` file · Rust engine, vanilla TypeScript and Vite w
 | Live Link to Unreal | untested | written and checked as files only; never run against Unreal |
 | Desktop builds | not run here | `./build_app --dry-run` passes; the three-OS build is an owner run |
 
-The full list of what is open is in `docs/encyclopedia/15-OPEN-GAPS.md`, and every feature's status is in the Status column of `docs/encyclopedia/14-PARITY-MATRIX.md`.
+`CHANGELOG.md` lists what each release delivered and what it left open.
 
 ## Where to go
 

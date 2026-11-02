@@ -8,7 +8,6 @@ Trims are the details added to a garment: buttons, zippers, stitching, edge fini
 | --- | --- |
 | `native/crates/ffb-commands/src/trim_cmds/` | trim commands and the hardware model |
 | `frontend/src/workspace/trims/` | the Trims panel, tools, 3D hook, images |
-| `docs/encyclopedia/07-trims-details.md` | the behaviour specification |
 
 ## Commands
 

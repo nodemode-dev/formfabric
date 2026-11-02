@@ -9,7 +9,6 @@ A fabric is a set of physical properties in SI-based units plus a look. Each pan
 | `native/crates/ffb-fabric/src/` | the fabric model, presets, validation, Fabric Lab formulas, the `.ffab` container |
 | `native/crates/ffb-commands/src/fabric_cmds/` | fabric and colorway commands |
 | `frontend/src/workspace/fabric/` | the Fabric drawer: list, physical values, look, Lab, colorways, files |
-| `docs/encyclopedia/16-FABRIC-DATA.md` | the published measurements and literature the values come from |
 
 ## Commands
 
@@ -24,7 +23,7 @@ A fabric is a set of physical properties in SI-based units plus a look. Each pan
 
 ## Presets and honesty about the numbers
 
-There are 15 presets. Eight are provisional (silk, chiffon, taffeta, rib, fleece, spandex jersey, poplin bending, leather) because no measured data was found for them; the provisional flag is shown in the drawer and returned by `fabric_presets`. The values are formfabric's own, derived from published measurements and textile-testing literature, and no dataset is redistributed. Fabric Lab formulas are cited once verified; the FAST and KES bending formulas are partly unverified (see `docs/encyclopedia/15-OPEN-GAPS.md`).
+There are 15 presets. Eight are provisional (silk, chiffon, taffeta, rib, fleece, spandex jersey, poplin bending, leather) because no measured data was found for them; the provisional flag is shown in the drawer and returned by `fabric_presets`. The values are formfabric's own, derived from published measurements and textile-testing literature, and no dataset is redistributed. Fabric Lab formulas are cited once verified; the FAST and KES bending formulas are partly unverified.
 
 ## Using fabrics
 

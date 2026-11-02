@@ -2,7 +2,7 @@
 
 ## Changing formfabric's code
 
-Read `CLAUDE.md` first, then route through `.claude/skills/formfabric-harness/SKILL.md`. Commands are declared only in the Rust registry, `native/crates/ffb-commands`. Behaviour specs are in `docs/encyclopedia/` (start at `00-INDEX.md` and `14-PARITY-MATRIX.md`); formfabric's features carry its own names, never another product's.
+Read `CLAUDE.md` first, then route through `.claude/skills/formfabric-harness/SKILL.md`. Commands are declared only in the Rust registry, `native/crates/ffb-commands`. Behaviour specs are in the planning sidecar's `encyclopedia/` folder, outside this tree (start at `00-INDEX.md` and `14-PARITY-MATRIX.md`); formfabric's features carry its own names, never another product's.
 
 Rules that apply to every edit:
 

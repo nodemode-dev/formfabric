@@ -7,7 +7,7 @@ description: "Covers formfabric 2D pattern work: the Garment, Panel, Point and I
 
 ## Purpose
 
-Own the 2D pattern model and tools. Behaviour is specified in `docs/encyclopedia/02-pattern-2d.md` and `02b-pattern-2d-gaps.md`; names come from `14-PARITY-MATRIX.md`.
+Own the 2D pattern model and tools. Behaviour is specified in the planning sidecar's `encyclopedia/02-pattern-2d.md` and `02b-pattern-2d-gaps.md`; names come from `14-PARITY-MATRIX.md`.
 
 ## Procedure
 

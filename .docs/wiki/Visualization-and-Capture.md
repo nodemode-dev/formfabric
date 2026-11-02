@@ -9,7 +9,6 @@ Analysis maps drawn on the draped garment, comparison between states, 3D measure
 | `native/crates/ffb-commands/src/viz_cmds/` | maps, measures, stage, lights, schematic, capture |
 | `frontend/src/workspace/viz/` | the Visualization panel: maps, ramps, measure, stage, views, capture |
 | `frontend/src/workspace/view3d/` | the renderer: look, stage, fur, annotations, picking |
-| `docs/encyclopedia/10-render-visualization.md` | the behaviour specification |
 
 ## Maps
 

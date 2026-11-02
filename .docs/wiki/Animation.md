@@ -9,7 +9,6 @@ An animation is a timeline of body motion and key tracks, recorded into a cache 
 | `native/crates/ffb-anim/src/` | BVH, glTF and FBX readers, retargeting, interpolation, clips, the cache format |
 | `native/crates/ffb-commands/src/anim_cmds/` | timeline, motions, keys, recording, playback |
 | `frontend/src/workspace/anim/` | the timeline dock, motion panel, key widgets |
-| `docs/encyclopedia/08-animation.md` | the behaviour specification |
 
 ## Motions
 

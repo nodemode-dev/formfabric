@@ -15,13 +15,13 @@ formfabric is licensed under the Apache License 2.0 (see `LICENSE`). Copyright 2
 
 Default bodies: the female and male base bodies are derived from the MakeHuman community assets distributed with MPFB2 (base mesh, macro targets, default rig and skin weights), dedicated to the public domain under CC0 1.0 Universal. Source: https://github.com/makehumancommunity/mpfb2 (assets, not the GPLv3 code; no MPFB code is included). Licence text: `assets/bodies/mpfb2-female/LICENSE.txt` and `assets/bodies/mpfb2-male/LICENSE.txt`. Converted, scaled and re-skinned by formfabric. The Basic Form body is formfabric's own.
 
-Fabric presets and Fabric Lab formulas are derived from published measurements and textile-testing literature cited in `docs/encyclopedia/16-FABRIC-DATA.md`; the values are formfabric's own and no dataset is redistributed.
+Fabric presets and Fabric Lab formulas are derived from published measurements and textile-testing literature cited in the project's research notes (kept with its planning documents, not distributed); the values are formfabric's own and no dataset is redistributed.
 
 The DXF-AAMA reader and writer follow the public ASTM D6673 conventions as described in the sources cited in the build notes; no code from any CAD vendor is included.
 
 ## Referenced, not included
 
-`docs/encyclopedia/` describes Marvelous Designer (CLO Virtual Fashion Inc.) from public sources, paraphrased and linked. No code, artwork, avatars, presets or manual text from it are included. Marvelous Designer and CLO are trademarks of CLO Virtual Fashion Inc.
+formfabric's research notes (kept with its planning documents, not in this repository) describe Marvelous Designer (CLO Virtual Fashion Inc.) from public sources, paraphrased and linked. No code, artwork, avatars, presets or manual text from it are included. Marvelous Designer and CLO are trademarks of CLO Virtual Fashion Inc.
 
 Alembic (`.abc`) files are written and read by formfabric's own implementation of the Ogawa container (`native/crates/ffb-io/src/abc`, `native/crates/ffb-body/src/import/abc.rs`), written from a format description. The Alembic format and library are Copyright Lucasfilm Entertainment Company Ltd. and Sony Pictures Imageworks Inc. and licensed BSD-3-Clause; no Alembic code is included, and Alembic is named for file compatibility only, with no endorsement implied. The sample keys use the MurmurHash3 x64 128-bit algorithm by Austin Appleby, placed in the public domain by its author, implemented in `native/crates/ffb-io/src/abc/murmur.rs`.
 

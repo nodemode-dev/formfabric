@@ -9,7 +9,7 @@ metadata:
 
 # Formfabric Harness
 
-formfabric is the Form-family garment app (Apache-2.0): draw sewing patterns in 2D, sew them, drape them on bodies with a cloth simulation, animate and export. The behaviour specification is `docs/encyclopedia/` (start with `00-INDEX.md`, then `14-PARITY-MATRIX.md`, then the chapter for the area). Plan of record: DEV_PLAN.md in the planning sidecar. Read the code before trusting any claim here; features not yet built are planned, not present.
+formfabric is the Form-family garment app (Apache-2.0): draw sewing patterns in 2D, sew them, drape them on bodies with a cloth simulation, animate and export. The behaviour specification is the encyclopedia in the planning sidecar's `encyclopedia/` folder, outside this tree (start with `00-INDEX.md`, then `14-PARITY-MATRIX.md`, then the chapter for the area). Plan of record: DEV_PLAN.md in the planning sidecar. Read the code before trusting any claim here; features not yet built are planned, not present.
 
 ## Layout
 
@@ -90,7 +90,7 @@ A cross-cutting task loads every row it touches. A new pattern command loads eng
 ## Start-of-session reading order
 
 1. This file and `CLAUDE.md`.
-2. `docs/encyclopedia/00-INDEX.md`, `14-PARITY-MATRIX.md`, then the chapter for the area.
+2. The sidecar's `encyclopedia/00-INDEX.md`, `14-PARITY-MATRIX.md`, then the chapter for the area.
 3. Orientation: list `native/`, `frontend/src/`, `backend/app/`, `src-tauri/`, `setup/`.
 4. `native/Cargo.toml` for crates and the workspace version.
 5. The matching sub-skill, then the HASHOUT_LOG of the layer.

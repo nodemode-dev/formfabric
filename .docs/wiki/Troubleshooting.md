@@ -27,4 +27,4 @@ Start with `./formfabric doctor`: it checks the toolchain, the installs and the 
 
 ## Getting help
 
-Run the narrowest failing command through the Python API or the MCP server and read the engine's `code` and message; they are the engine's own. Report issues from Help, Report Issue. Include the version (`system_info`), the platform and the steps. Open items are listed in `docs/encyclopedia/15-OPEN-GAPS.md`.
+Run the narrowest failing command through the Python API or the MCP server and read the engine's `code` and message; they are the engine's own. Report issues from Help, Report Issue. Include the version (`system_info`), the platform and the steps. Known open items are listed in `CHANGELOG.md`.

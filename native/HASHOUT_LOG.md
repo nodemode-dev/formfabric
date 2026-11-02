@@ -115,7 +115,7 @@ Living context for the Rust engine. What would be comments in the crates lives h
 ### Fabric
 
 - Stored in SI: stretch and shear N/m, bending micro newton metres per metre width, density g/m2, thickness mm, ratios 0 to 1. Validation lives in `validate.rs` so nested values report paths such as `physical.density`.
-- Presets come from encyclopedia chapter 16 with source keys; provisional ones are flagged. The default preset is cotton poplin shirting; `file.new` creates the default fabric.
+- Presets come from encyclopedia chapter 16 (in the planning sidecar since v0.23.2) with source keys; provisional ones are flagged. The default preset is cotton poplin shirting; `file.new` creates the default fabric.
 - Every fabric and colorway change records one `Edit::Garment` snapshot. Colorways override `look.front.color` per fabric at render time.
 - `.ffab` is a zip: `fabric.json` (`format formfabric-fabric`, schema 1) plus `maps/` images.
 
