@@ -3,6 +3,7 @@ mod args;
 mod exchange_cmds;
 mod output_cmds;
 mod remesh_cmds;
+mod sample_cmds;
 mod viz_cmds;
 mod fabric_cmds;
 mod file_cmds;
@@ -205,6 +206,7 @@ static COMMANDS: LazyLock<Vec<Command>> = LazyLock::new(|| {
     let mut all = Vec::new();
     all.extend(system_cmds::commands());
     all.extend(file_cmds::commands());
+    all.extend(sample_cmds::commands());
     all.extend(history_cmds::commands());
     all.extend(view_cmds::commands());
     all.extend(pattern_cmds::commands());
