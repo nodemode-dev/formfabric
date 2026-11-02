@@ -61,7 +61,7 @@ The tool reference below is generated from the engine's command registry by `./f
 ## Tool reference
 
 [ffb-tools:begin]
-Generated from the engine's command registry (formfabric 0.15.0) by `./formfabric agents sync`; do not edit between the markers by hand.
+Generated from the engine's command registry (formfabric 0.18.0) by `./formfabric agents sync`; do not edit between the markers by hand.
 
 - Engine: `system_info`, `system_capabilities`
 - Files: `file_new`, `file_save`, `file_open`, `sample_list`, `sample_load`, `exchange_import_dxf`, `exchange_export_dxf`, `snapshot_save`, `snapshot_list`, `snapshot_restore`, `snapshot_remove`, `library_list`, `library_add`, `library_insert`, `library_remove`, `library_roots`, `library_set_roots`, `component_save`
@@ -2267,7 +2267,8 @@ Store the whole garment state as a snapshot inside the project (entry snapshot/I
 
 List the snapshots stored in the project: id, name, created (unix seconds), panels, bytes and whether a thumbnail exists. With thumbnails true each item carries thumbnail_png (base64).
 
-- `thumbnails`: boolean; default false; Include each thumbnail as base64 PNG in thumbnail_png.
+- `ids`: array of integer; Only these snapshots.
+- `thumbnails`: boolean; default false; Include each thumbnail as base64 PNG in thumbnail_png. Pair with ids to fetch one at a time.
 
 Note: read-only.
 
@@ -2330,11 +2331,12 @@ Note: read-only.
 
 ### library_set_roots
 
-Set the library folders (absolute paths, created when missing, at most 8). The first receives new items. The list is stored in [data dir]/library_roots.json. An empty list returns to the default folder.
+Set the library folders (absolute paths the user chose and confirmed, at most 8; created when missing after the checks). System folders, the filesystem root, the home folder and any folder holding the data folder are refused. The first receives new items. The list is stored in [data dir]/library_roots.json. An empty list returns to the default folder.
 
-- `paths`: array of string; required; Absolute folders. The first one receives new items. An empty list returns to the default [data dir]/library.
+- `confirmed`: boolean; required; Must be true, and only after the user has chosen and confirmed these folders.
+- `paths`: array of string; required; Absolute folders chosen by the user. The first one receives new items. System folders, the filesystem root and the home folder are refused. An empty list returns to the default [data dir]/library.
 
-Note: safe to repeat.
+Note: removes or replaces (undoable).
 
 ### component_create
 
@@ -2342,7 +2344,7 @@ Group panels into a component: the author lists the panels, and names ports as e
 
 - `name`: string; required; Component name, for example Sleeve L.
 - `panels`: array of integer; required; Panel ids the author groups into the component. A panel belongs to at most one component.
-- `ports`: array of object; Named edge spans of the component's own panels: [{name, spans: [{panel, segment, t0, t1}], tolerance}]. tolerance is a length in mm (default 5); t0 and t1 default to the whole segment.
+- `ports`: array of object; Named edge spans of the component's own panels: [{name, spans: [{panel, segment, t0, t1}], groups?, tolerance}]. tolerance is a length in mm (default 5); t0 and t1 default to the whole segment. groups splits the spans into runs, for example [6, 6] for a front and a back edge chain; a join sews run k of one port to run k of the other when both have the same number of runs.
 
 ### component_list
 

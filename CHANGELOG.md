@@ -1,5 +1,48 @@
 # Changelog
 
+## v0.18.0 · 2026-11-02
+
+Phases 16, 17 and 18, plus the solver work carried from v0.15.0, released together. The plan names v1.0.0 for Phase 18, but its exit (every parity row landed or explicitly deferred) is not met: 92 rows are landed, 3 deferred and 30 partial, so this is v0.18.0.
+
+Workspace (Phase 16):
+
+- Library drawer with roots, kinds, search, tags, thumbnails and insert.
+- Snapshots with 3D thumbnails, restore and compare.
+- Garment components with named ports, joins, swap and a port check (the drafted T-shirt's sleeve swaps for a sleeveless variant and back).
+- Crash recovery: the service keeps a journal of commands since the last autosave and offers to restore it on the next start (checked by killing the service during a drape).
+- Named layouts that persist; settings, shortcuts and layouts export and import.
+- Key Hints, and per-scope conflict detection in the Shortcut Editor.
+
+Agents and family (Phase 17):
+
+- A Python package, `python/formfabric`, with every command as a function and in-process and HTTP backends.
+- Python plugins with argument validation and timeouts, and a sample drape-and-export plugin.
+- Live Link: a USD layer rewritten while draping, for Unreal's USD Stage (untested against Unreal).
+- The packaged engine serves MCP and agents correctly; 232 MCP tools.
+- Drafts for formcompiler (`apps/formfabric.json`), the formportal catalogue and product entries, and a GoF hand-off proposal, in `docs/integration`.
+- A VERSION file with a version check across every site, and `build_app --dry-run`.
+
+Documentation (Phase 18):
+
+- README, a 19-page wiki in `.docs/wiki`, and updated CLAUDE.md and AGENTS.md.
+- A NOTICE audit of every distributed dependency (433 Rust crates, 6 npm and 22 Python packages, all permissive).
+- A status for every parity-matrix row; current open gaps in 15-OPEN-GAPS.
+
+Solver:
+
+- Self contact is stable on sewn garments in motion and on at every preset. On the walk, seams stay within 3.3 mm and no cloth goes inside the body. Before, Quality exploded with 177 mm moves and 51 mm seams. The T-shirt still shows up to 61 intersecting pairs.
+- Desktop builds use every core for both solvers. On the 2-core sandbox, 5,041 vertices went from 206 ms to 150 to 180 ms of CPU per frame; the 8 ms and 50 ms targets are not met there.
+- GPU path: hinge gradients and collisions now match the CPU. The reported wind and layer bugs were test artefacts.
+
+Security and fixes from the release audit:
+
+- The library is confined to its roots, and its index recovers from corruption.
+- Component and snapshot files are validated.
+- Crash recovery cannot be taken over by a second running backend.
+- The Python client sends the window token only to loopback addresses.
+- Paths written to the Codex config are escaped.
+- Build scripts use `npm ci`.
+
 ## v0.15.0 · 2026-11-02
 
 Phases 13, 14 and 15, plus the drape problems reported from testing v0.9.0, built together and released as one version.

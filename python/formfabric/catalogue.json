@@ -12291,9 +12291,18 @@
    "inputSchema": {
     "additionalProperties": false,
     "properties": {
+     "ids": {
+      "description": "Only these snapshots.",
+      "items": {
+       "minimum": 1,
+       "type": "integer"
+      },
+      "maxItems": 64,
+      "type": "array"
+     },
      "thumbnails": {
       "default": false,
-      "description": "Include each thumbnail as base64 PNG in thumbnail_png.",
+      "description": "Include each thumbnail as base64 PNG in thumbnail_png. Pair with ids to fetch one at a time.",
       "type": "boolean"
      }
     },
@@ -12548,19 +12557,23 @@
   },
   {
    "annotations": {
-    "destructiveHint": false,
-    "idempotentHint": true,
+    "destructiveHint": true,
+    "idempotentHint": false,
     "openWorldHint": false,
     "readOnlyHint": false
    },
-   "description": "Set the library folders (absolute paths, created when missing, at most 8). The first receives new items. The list is stored in [data dir]/library_roots.json. An empty list returns to the default folder.",
+   "description": "Set the library folders (absolute paths the user chose and confirmed, at most 8; created when missing after the checks). System folders, the filesystem root, the home folder and any folder holding the data folder are refused. The first receives new items. The list is stored in [data dir]/library_roots.json. An empty list returns to the default folder.",
    "group": "file",
    "id": "library.set_roots",
    "inputSchema": {
     "additionalProperties": false,
     "properties": {
+     "confirmed": {
+      "description": "Must be true, and only after the user has chosen and confirmed these folders.",
+      "type": "boolean"
+     },
      "paths": {
-      "description": "Absolute folders. The first one receives new items. An empty list returns to the default [data dir]/library.",
+      "description": "Absolute folders chosen by the user. The first one receives new items. System folders, the filesystem root and the home folder are refused. An empty list returns to the default [data dir]/library.",
       "items": {
        "type": "string"
       },
@@ -12569,7 +12582,8 @@
      }
     },
     "required": [
-     "paths"
+     "paths",
+     "confirmed"
     ],
     "type": "object"
    },
@@ -12606,7 +12620,7 @@
       "type": "array"
      },
      "ports": {
-      "description": "Named edge spans of the component's own panels: [{name, spans: [{panel, segment, t0, t1}], tolerance}]. tolerance is a length in mm (default 5); t0 and t1 default to the whole segment.",
+      "description": "Named edge spans of the component's own panels: [{name, spans: [{panel, segment, t0, t1}], groups?, tolerance}]. tolerance is a length in mm (default 5); t0 and t1 default to the whole segment. groups splits the spans into runs, for example [6, 6] for a front and a back edge chain; a join sews run k of one port to run k of the other when both have the same number of runs.",
       "items": {
        "type": "object"
       },
@@ -12923,5 +12937,5 @@
   }
  ],
  "engine": "formfabric",
- "version": "0.15.0"
+ "version": "0.18.0"
 }

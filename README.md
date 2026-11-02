@@ -2,7 +2,7 @@
 
 **Garment pattern design and cloth simulation, in the NodeMode style**
 
-![version](https://img.shields.io/badge/version-0.15.0-f97316) ![status](https://img.shields.io/badge/status-in%20development-f97316) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
+![version](https://img.shields.io/badge/version-0.18.0-f97316) ![status](https://img.shields.io/badge/status-in%20development-f97316) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 ## What it is
 
@@ -12,7 +12,7 @@ Stack · Rust engine (`native/`, one Cargo workspace of 14 crates, wgpu compute 
 
 ## Status
 
-Phases 1 to 17 of 18 have landed: the family window shell, the Rust engine, pattern drafting with DXF-AAMA exchange, meshing & the 3D View, fabrics, cloth simulation, sewing, bodies with placement, 3D editing, trims, animation, export with UV & quad remeshing, visualization, the workspace (Library, snapshots, Components, crash recovery, layouts), & agents with family integration (Python API, plugins, Live Link, GoF hand-off). Phase 18 is this documentation pass & the parity audit; the status of every feature is in the Status column of [14-PARITY-MATRIX.md](docs/encyclopedia/14-PARITY-MATRIX.md).
+Phases 1 to 18 have been worked through (release v0.18.0; v1.0.0 waits until every parity row is landed or explicitly deferred, and 30 are still partial): the family window shell, the Rust engine, pattern drafting with DXF-AAMA exchange, meshing & the 3D View, fabrics, cloth simulation, sewing, bodies with placement, 3D editing, trims, animation, export with UV & quad remeshing, visualization, the workspace (Library, snapshots, Components, crash recovery, layouts), & agents with family integration (Python API, plugins, Live Link, GoF hand-off). Phase 18 was the documentation pass & the parity audit; the status of every feature is in the Status column of [14-PARITY-MATRIX.md](docs/encyclopedia/14-PARITY-MATRIX.md).
 
 You can:
 - Open a drafted T-shirt, skirt or dress from File, Open Sample, or draft & sew your own.
