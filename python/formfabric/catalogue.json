@@ -5286,6 +5286,117 @@
     "openWorldHint": false,
     "readOnlyHint": false
    },
+   "description": "Copy a fabric to a new fabric with its own id, placed right after the original, with the same colorway colours. Panels keep their assignment. One undo step.",
+   "group": "fabric",
+   "id": "fabric.copy",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "id": {
+      "description": "Fabric to copy.",
+      "maximum": 4294967295,
+      "minimum": 1,
+      "type": "integer"
+     },
+     "name": {
+      "description": "Name of the copy. Defaults to the original name with copy added.",
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+     }
+    },
+    "required": [
+     "id"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Copy Fabric",
+   "name": "fabric_copy"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Merge two or more fabrics into one new fabric that takes the values of the first. Panels that used any of them move to the new fabric, the originals are removed and the default follows. One undo step.",
+   "group": "fabric",
+   "id": "fabric.merge",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "ids": {
+      "description": "Two or more fabrics. The first one supplies the physical values and look of the new fabric.",
+      "items": {
+       "description": "Fabric id.",
+       "maximum": 4294967295,
+       "minimum": 1,
+       "type": "integer"
+      },
+      "maxItems": 64,
+      "minItems": 2,
+      "type": "array"
+     },
+     "name": {
+      "description": "Name of the new fabric. Defaults to the first name with merged added.",
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+     }
+    },
+    "required": [
+     "ids"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Merge Fabrics",
+   "name": "fabric_merge"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Set the order of the fabric list. Ids not listed follow in their current order. Panels and the default fabric are not touched. One undo step.",
+   "group": "fabric",
+   "id": "fabric.order",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "ids": {
+      "description": "Fabric ids in the wanted order. Fabrics left out follow in their current order.",
+      "items": {
+       "description": "Fabric id.",
+       "maximum": 4294967295,
+       "minimum": 1,
+       "type": "integer"
+      },
+      "maxItems": 4096,
+      "minItems": 1,
+      "type": "array"
+     }
+    },
+    "required": [
+     "ids"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Order Fabrics",
+   "name": "fabric_order"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
    "description": "Sew one whole segment to another. reversed (default true) pairs the start of side a with the end of side b, which is right for counter-clockwise outlines meeting along a shared edge. With ratio 1 and full segments both segments get the same number of mesh vertices. Returns the seam with both side lengths and the mismatch in mm.",
    "group": "sew",
    "id": "sew.segment",
@@ -6559,6 +6670,15 @@
       "minimum": 0.004,
       "type": "number",
       "unit": "s"
+     },
+     "untangle": {
+      "description": "Intersection resolution after every frame. normal finds intersecting triangle pairs and moves the offending vertices along the triangle normal, to the side they were on before (or, where panel layers differ, the higher layer on the outer side); flipped puts the higher layer on the inner side. Seam vertices and pins are never moved, each vertex moves at most 2 mm per frame, only pairs that began to intersect this frame are corrected (pairs of different layers always), and bodies are respected. off leaves the intersections to self contact.",
+      "enum": [
+       "off",
+       "normal",
+       "flipped"
+      ],
+      "type": "string"
      }
     },
     "required": [],
@@ -6962,6 +7082,31 @@
       "minimum": 1,
       "type": "integer"
      },
+     "maintain": {
+      "additionalProperties": false,
+      "description": "What stays as it was. Refit never edits the pattern, so every option keeps its maintaining value: curvature_pct 100 (the pattern outline curvature is untouched), graphic_size true (prints keep their size in the panel), texture_size true (texture coordinates are untouched), topology true (the cloth mesh is not remeshed). Lower values would need pattern updates and are refused.",
+      "properties": {
+       "curvature_pct": {
+        "default": 100,
+        "maximum": 100,
+        "minimum": 0,
+        "type": "number"
+       },
+       "graphic_size": {
+        "default": true,
+        "type": "boolean"
+       },
+       "texture_size": {
+        "default": true,
+        "type": "boolean"
+       },
+       "topology": {
+        "default": true,
+        "type": "boolean"
+       }
+      },
+      "type": "object"
+     },
      "method": {
       "default": "auto",
       "description": "blend: bodies of identical topology, per-vertex linear blend from A to B. sweep: other bodies, body A is stepped through a measurement sweep to B's measurements, then the garment settles on B. redrape: no morph, the garment returns to its placed layout and drapes on B. auto picks blend when the topology matches, else sweep.",
@@ -7034,7 +7179,7 @@
     "openWorldHint": true,
     "readOnlyHint": false
    },
-   "description": "Import a body from an OBJ, glTF, GLB or FBX file (FBX on native builds only), convert to millimetres with y up and stand it on the ground. Skins and skeletons are read from glTF and FBX; Alembic is deferred. One undo step.",
+   "description": "Import a body from an OBJ, glTF, GLB or FBX file (FBX on native builds only), convert to millimetres with y up and stand it on the ground. Skins and skeletons are read from glTF and FBX. Alembic (.abc, Ogawa) imports the polygon meshes of one sample (first by default, or sample), faces reversed from clockwise, transforms ignored. One undo step.",
    "group": "body",
    "id": "body.import",
    "inputSchema": {
@@ -7051,6 +7196,11 @@
      "path": {
       "description": "File path of the body.",
       "type": "string"
+     },
+     "sample": {
+      "description": "Alembic (.abc) only: which sample (frame) of an animated mesh to import; default 0, the first.",
+      "minimum": 0,
+      "type": "integer"
      },
      "units": {
       "description": "Units of the file; auto reads glTF as metres and guesses OBJ from its height.",
@@ -8519,6 +8669,78 @@
     "openWorldHint": false,
     "readOnlyHint": false
    },
+   "description": "Copy a style (any kind, including an imported trim with its mesh) to a new style with its own id. One undo step.",
+   "group": "pattern",
+   "id": "style.copy",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "id": {
+      "description": "Style to copy, as listed by style.list.",
+      "maximum": 4294967295.0,
+      "minimum": 1.0,
+      "type": "integer"
+     },
+     "name": {
+      "description": "Name of the copy. Defaults to the original name with copy added.",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Copy Style",
+   "name": "style_copy"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Merge two or more styles of the same kind into one new style that takes the parameters of the first. Hardware, zippers and stitches that used any of them move to the new style and the originals are removed. One undo step.",
+   "group": "pattern",
+   "id": "style.merge",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "ids": {
+      "description": "Two or more styles of the same kind. The first one supplies the parameters of the new style.",
+      "items": {
+       "description": "Style id.",
+       "maximum": 4294967295.0,
+       "minimum": 1.0,
+       "type": "integer"
+      },
+      "maxItems": 64,
+      "minItems": 2,
+      "type": "array"
+     },
+     "name": {
+      "description": "Name of the new style. Defaults to the first name with merged added.",
+      "type": "string"
+     }
+    },
+    "required": [
+     "ids"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Merge Styles",
+   "name": "style_merge"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
    "description": "Create a named style for buttons, buttonholes, zippers, topstitch, puckering or imported trims. Parameters merge over the defaults of the kind and are range checked. Returns the style with its id.",
    "group": "pattern",
    "id": "style.create",
@@ -9455,7 +9677,7 @@
       "type": "integer"
      },
      "kind": {
-      "description": "piping and binding generate a strip panel sewn along the spans; elastic and shirring generate a narrow elastic strip (shirring when the spans lie on inner lines); tape, bond and press stiffen a band along the spans; crease adds a fold line between the ends of the spans.",
+      "description": "piping and binding generate a strip panel sewn along the spans; elastic and shirring generate a narrow elastic strip (shirring when the spans lie on inner lines); tape, bond and press stiffen a band along the spans; skive softens a band along the spans (the inverse of bond); crease adds a fold line between the ends of the spans.",
       "enum": [
        "piping",
        "binding",
@@ -9464,9 +9686,17 @@
        "tape",
        "bond",
        "press",
-       "crease"
+       "crease",
+       "skive"
       ],
       "type": "string"
+     },
+     "percent": {
+      "description": "Skive only: how far the band is shaved down, 0 to 100 percent (default 50). Bending stiffness and thickness of the band are scaled by one minus the percent (floor 5 percent for bending, 10 percent for thickness).",
+      "maximum": 100.0,
+      "minimum": 0.0,
+      "type": "number",
+      "unit": "percent"
      },
      "ratio": {
       "description": "Elastic and shirring: length of the elastic at rest over its drawn length, 0.2 to 2 (default 0.8; 0.7 for shirring). Below 1 gathers the edge.",
@@ -9570,6 +9800,13 @@
       "maximum": 4294967295.0,
       "minimum": 1.0,
       "type": "integer"
+     },
+     "percent": {
+      "description": "Skive only: percent shaved down, 0 to 100.",
+      "maximum": 100.0,
+      "minimum": 0.0,
+      "type": "number",
+      "unit": "percent"
      },
      "ratio": {
       "description": "Elastic only: rest length over drawn length, 0.2 to 2.",
@@ -9990,7 +10227,7 @@
     "openWorldHint": true,
     "readOnlyHint": false
    },
-   "description": "Import an OBJ file as a rigid trim glued to a panel point. The mesh is recentred (x and y on the anchor, base at z 0), scaled to millimetres and stored inside the document as a trim style, so the project does not depend on the file afterwards. One undo step.",
+   "description": "Import an OBJ or FBX file as a rigid trim glued to a panel point. The mesh is recentred (x and y on the anchor, base at z 0), scaled to millimetres and stored inside the document as a trim style, so the project does not depend on the file afterwards. One undo step.",
    "group": "sew",
    "id": "trim.import",
    "inputSchema": {
@@ -10012,7 +10249,7 @@
       "type": "integer"
      },
      "path": {
-      "description": "Absolute path of an .obj file, at most 8 MB and 20,000 triangles after fan triangulation.",
+      "description": "Absolute path of an .obj or .fbx file, at most 8 MB and 20,000 triangles after triangulation. FBX (ASCII or binary) reads every mesh in the file as one trim in world space, takes its unit and up axis from the file header (millimetres and Y up after conversion) and ignores animation and skin.",
       "type": "string"
      },
      "point": {
@@ -10035,7 +10272,7 @@
       "unit": "deg"
      },
      "scale": {
-      "description": "Millimetres per unit of the file. Default 1.",
+      "description": "Millimetres per unit of the file (OBJ), or an extra multiplier on the FBX header unit. Default 1.",
       "maximum": 1000000.0,
       "minimum": 1e-06,
       "type": "number"
@@ -10051,7 +10288,7 @@
      },
      "up": {
       "default": "z",
-      "description": "Axis of the file that points out of the cloth.",
+      "description": "OBJ: axis of the file that points out of the cloth. FBX: ignored, the up axis of the file header points out of the cloth.",
       "enum": [
        "z",
        "y"
@@ -10332,7 +10569,7 @@
       "type": "string"
      },
      "target": {
-      "description": "body.ID.pose (a pose name or {joint: [x, y, z, w]}), body.ID.MEASUREMENT, wind.FIELD, panel.ID.state.FIELD, fabric.ID.FIELD, where ID is a number and FIELD or MEASUREMENT a name.",
+      "description": "body.ID.pose (a pose name or {joint: [x, y, z, w]}), body.ID.MEASUREMENT, wind.FIELD, panel.ID.state.FIELD, fabric.ID.FIELD, where ID is a number and FIELD or MEASUREMENT a name; or pin:ID for a pin, with a value [x, y, z] in mm that is where recording holds the pin.",
       "type": "string"
      },
      "value": {
@@ -10506,6 +10743,10 @@
      "end": {
       "description": "Last frame to record. Default the play range end.",
       "minimum": 0,
+      "type": "integer"
+     },
+     "layer": {
+      "description": "Re-record into this cache layer instead of adding a new one. A locked layer refuses.",
       "type": "integer"
      },
      "name": {
@@ -10702,11 +10943,167 @@
   {
    "annotations": {
     "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Split a recorded cache layer at a frame: the layer keeps the frames before it and the rest becomes a new layer above it. New stored entries are made; one undo step. A locked layer refuses.",
+   "group": "anim",
+   "id": "cache.cut",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "frame": {
+      "description": "Timeline frame inside the layer. The layer keeps the frames before it; this frame and the ones after become a new layer above it.",
+      "minimum": 1,
+      "type": "integer"
+     },
+     "id": {
+      "description": "Cache layer id.",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "frame"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Cut cache layer",
+   "name": "cache_cut"
+  },
+  {
+   "annotations": {
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Merge two or more cache layers of one kind into the top selected layer. Where layers overlap the top one wins; a gap between layers is filled by linear interpolation. The other layers are removed. One undo step.",
+   "group": "anim",
+   "id": "cache.merge",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "ids": {
+      "description": "Cache layer ids of one kind. They merge into the top selected layer, which wins where layers overlap; gaps between layers are filled by linear interpolation.",
+      "items": {
+       "type": "integer"
+      },
+      "minItems": 2,
+      "type": "array"
+     }
+    },
+    "required": [
+     "ids"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Merge cache layers",
+   "name": "cache_merge"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Shift a cache layer in time by a number of frames (negative is earlier). The stored frames are not changed; the layer start and offset are.",
+   "group": "anim",
+   "id": "cache.move",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "frames": {
+      "description": "Frames to shift the layer start by; negative moves it earlier.",
+      "maximum": 100000,
+      "minimum": -100000,
+      "type": "integer"
+     },
+     "id": {
+      "description": "Cache layer id.",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "frames"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Move cache layer",
+   "name": "cache_move"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Lock or unlock a cache layer. A locked layer refuses cut, merge, move, rename, removal and re-recording.",
+   "group": "anim",
+   "id": "cache.lock",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "id": {
+      "type": "integer"
+     },
+     "locked": {
+      "description": "A locked layer refuses cut, merge, move, rename, removal and re-recording.",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "locked"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Lock cache layer",
+   "name": "cache_lock"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Turn auto keying on or off. When on, a change to a property that already has a key (wind, panel state, fabric physical, or a pin position), made at the current frame, writes a key at that frame in the same undo step. The first key stays manual.",
+   "group": "anim",
+   "id": "anim.auto_key",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "on": {
+      "description": "When on, changing a keyed property at the current frame adds or updates a key there. The first key of a property stays manual (key.set).",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "on"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Auto key",
+   "name": "anim_auto_key"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
     "idempotentHint": true,
     "openWorldHint": false,
     "readOnlyHint": true
    },
-   "description": "List the export formats (obj with mtl, gltf, glb, fbx 7.4 ASCII or binary, usd as usda text, mdd, pc2; abc is reported unavailable) with their file sets, how animation is stored and the option schema of each.",
+   "description": "List the export formats (obj with mtl, gltf, glb, fbx 7.4 ASCII or binary, usd as usda text, mdd, pc2, abc as an Alembic Ogawa archive) with their file sets, how animation is stored and the option schema of each.",
    "group": "export",
    "id": "export.formats",
    "inputSchema": {
@@ -10762,7 +11159,7 @@
       "type": "integer"
      },
      "format": {
-      "description": "Output format. abc (Alembic) is not available; the call explains what to use instead.",
+      "description": "Output format. abc writes an Alembic Ogawa archive (Xform plus PolyMesh per panel, Y up, metres by default; animation is uniform time sampling at the cache fps).",
       "enum": [
        "obj",
        "gltf",
@@ -10781,7 +11178,7 @@
       "type": "boolean"
      },
      "panels": {
-      "description": "Panel ids to export. Omit for every panel.",
+      "description": "Panel ids to export. Omit for every panel. With weld weld_selected this list names the panels to weld together (at least two) and every panel is exported.",
       "items": {
        "type": "integer"
       },
@@ -10792,7 +11189,7 @@
       "type": "string"
      },
      "quads": {
-      "description": "Write the quad mesh made by quad.remesh (OBJ, FBX and USD keep quads; glTF is triangulated by the format). Defaults to true when the project mesh kind is quad and there is no thickness or animation. Cannot be combined with thickness or animation.",
+      "description": "Write the quad mesh made by quad.remesh (OBJ, FBX and USD keep quads; glTF is triangulated by the format). Defaults to true when the project mesh kind is quad and there is no animation. Works with thickness (quad faces are extruded, side walls are quads). Cannot be combined with animation.",
       "type": "boolean"
      },
      "scale": {
@@ -10819,7 +11216,7 @@
       "type": "integer"
      },
      "thickness": {
-      "description": "Extrude the back face and the border strips using thickness.set. Defaults to the project setting.",
+      "description": "Extrude the back face and the border strips using thickness.set. Quad meshes are extruded as quads with quad side walls. With weld the side walls follow the welded boundary. Defaults to the project setting.",
       "type": "boolean"
      },
      "units": {
@@ -10841,6 +11238,17 @@
        "tiled",
        "none"
       ],
+      "type": "string"
+     },
+     "weld": {
+      "default": "unweld",
+      "description": "unweld keeps every panel's own vertices. weld merges the vertices of sewn seam edges into shared points in one object (UVs stay per corner, so UV seams are kept). weld_selected welds only seams whose two panels are both in panels; every other panel is exported unwelded in the same object.",
+      "enum": [
+       "unweld",
+       "weld",
+       "weld_selected"
+      ],
+      "title": "Weld seams",
       "type": "string"
      }
     },
@@ -11008,7 +11416,7 @@
     "openWorldHint": true,
     "readOnlyHint": false
    },
-   "description": "Bake texture maps in the UV layout (uv.layout) as 8 bit PNG: a tangent space normal map and a displacement map that carry the drape detail of the simulated mesh over a smoothed base surface, and an ambient occlusion map by ray casting through the BVH, with visible bodies as occluders. Writes NAME_MAP.png beside the path, one file per map and UDIM tile. Synchronous; the ray budget is capped.",
+   "description": "Bake texture maps in the UV layout (uv.layout) as 8 bit PNG at the requested square size. Look maps diffuse (fabric base colour or base colour texture), metalness, roughness and opacity are sampled per texel through the tiled fabric mapping; fill_px extends islands 1 to 256 pixels to hide seams and 0 leaves the PNG transparent outside the islands. Also: a tangent space normal map and a displacement map that carry the drape detail of the simulated mesh over a smoothed base surface, and an ambient occlusion map by ray casting through the BVH, with visible bodies as occluders. Writes NAME_MAP.png beside the path, one file per map and UDIM tile. Synchronous; the ray budget is capped.",
    "group": "export",
    "id": "bake.run",
    "inputSchema": {
@@ -11027,13 +11435,23 @@
       "type": "number",
       "unit": "mm"
      },
+     "fill_px": {
+      "description": "Seam fill: pixels to extend every island past its border, 1 to 256. 0 leaves the PNG transparent outside the UV islands (alpha 0). Defaults to padding.",
+      "maximum": 256,
+      "minimum": 0,
+      "type": "integer"
+     },
      "maps": {
-      "description": "Maps to bake. Default all three.",
+      "description": "Maps to bake. Default normal, ao and displacement. diffuse is the fabric base colour, or its base colour texture sampled per texel through the tiled fabric mapping (PNG textures); metalness, roughness and opacity come from the fabric look (a PNG map of that name is sampled when the fabric has one, else the constant). Each is a square image in the UV layout.",
       "items": {
        "enum": [
         "normal",
         "ao",
-        "displacement"
+        "displacement",
+        "diffuse",
+        "metalness",
+        "roughness",
+        "opacity"
        ],
        "type": "string"
       },
@@ -11178,6 +11596,11 @@
       "default": false,
       "description": "Split every triangle and quad once so the result holds only quads (edge counts double, seams stay matched). Needed for thick export.",
       "type": "boolean"
+     },
+     "regularize": {
+      "default": false,
+      "description": "Run the integer edge regularity pass (a min-cost flow over lattice offsets) before quad extraction; falls back to the plain extraction when the flow is not full. Leave out to reuse the stored setting.",
+      "type": "boolean"
      }
     },
     "required": [],
@@ -11304,6 +11727,405 @@
    "keys": [],
    "label": "Set Retopo Guides",
    "name": "retopo_set"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Add a point to the open topology shape of a panel, in panel coordinates (pos, mm) or as fractions of the panel box (uv). Points snap to existing points and ghost points inside the snap radius, else onto a sewn edge. A point on a sewn edge is mirrored at the same arc length fraction onto the partner edge of the seam as a ghost point; the reply lists those ghosts. One panel at a time can hold an open shape.",
+   "group": "export",
+   "id": "topology.add_point",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "panel": {
+      "description": "Panel to draw on. Only one panel can hold an open shape at a time.",
+      "minimum": 1,
+      "type": "integer"
+     },
+     "pos": {
+      "description": "Point in panel coordinates, x y in mm.",
+      "items": {
+       "type": "number"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+     },
+     "snap": {
+      "default": 0,
+      "description": "Snap radius in mm. The point snaps to the nearest existing point or ghost point inside it, else onto a sewn edge inside it. 0 places the point exactly where given.",
+      "maximum": 1000,
+      "minimum": 0,
+      "type": "number"
+     },
+     "uv": {
+      "description": "Point as fractions 0 to 1 of the panel's bounding box, used when pos is left out.",
+      "items": {
+       "type": "number"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+     }
+    },
+    "required": [
+     "panel"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Add Topology Point",
+   "name": "topology_add_point"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Close the open shape into a face. A closed loop becomes a face only with 3 or 4 points; the face is stored counter-clockwise and must have area and no crossing edges.",
+   "group": "export",
+   "id": "topology.close",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {},
+    "required": [],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Close Topology Shape",
+   "name": "topology_close"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Finish the open shape as an open line of 2 or more points without closing it into a face.",
+   "group": "export",
+   "id": "topology.finish",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {},
+    "required": [],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Finish Topology Line",
+   "name": "topology_finish"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Remove the last point of the open shape. A point that no face or line uses is dropped.",
+   "group": "export",
+   "id": "topology.delete_last",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {},
+    "required": [],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Remove Last Topology Point",
+   "name": "topology_delete_last"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Drop the open shape and the points only it used. Does nothing when no shape is open.",
+   "group": "export",
+   "id": "topology.cancel",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {},
+    "required": [],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Cancel Topology Shape",
+   "name": "topology_cancel"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Merge two topology points of a panel into one at their midpoint. Faces that collapse are dropped or become triangles.",
+   "group": "export",
+   "id": "topology.merge",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "a": {
+      "description": "First point index as topology.list reports it.",
+      "minimum": 0,
+      "type": "integer"
+     },
+     "b": {
+      "description": "Second point index.",
+      "minimum": 0,
+      "type": "integer"
+     },
+     "panel": {
+      "description": "Panel of both points; left out when only one panel has topology.",
+      "minimum": 1,
+      "type": "integer"
+     }
+    },
+    "required": [
+     "a",
+     "b"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Merge Topology Points",
+   "name": "topology_merge"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Merge every group of topology points closer than the distance (mm) into one point at the group centre.",
+   "group": "export",
+   "id": "topology.merge_all",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "distance": {
+      "description": "Points closer than this (mm) merge to their centre.",
+      "exclusiveMinimum": 0,
+      "maximum": 1000,
+      "type": "number"
+     },
+     "panels": {
+      "description": "Panels to merge in. Leave out for every panel with topology.",
+      "items": {
+       "minimum": 1,
+       "type": "integer"
+      },
+      "type": "array"
+     }
+    },
+    "required": [
+     "distance"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Merge Topology Points by Distance",
+   "name": "topology_merge_all"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Split an edge into count parts and cut the loop of quads across it the same way, so the faces beside it stay quads. A triangle ends the loop with a fan. Fails without changing anything when the loop would cross itself.",
+   "group": "export",
+   "id": "topology.divide",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "default": 2,
+      "description": "Number of parts the edge splits into. The loop of quads across it splits the same way.",
+      "maximum": 32,
+      "minimum": 2,
+      "type": "integer"
+     },
+     "edge": {
+      "additionalProperties": false,
+      "description": "The edge between points a and b. panel may be left out when only one panel has topology.",
+      "properties": {
+       "a": {
+        "minimum": 0,
+        "type": "integer"
+       },
+       "b": {
+        "minimum": 0,
+        "type": "integer"
+       },
+       "panel": {
+        "minimum": 1,
+        "type": "integer"
+       }
+      },
+      "required": [
+       "a",
+       "b"
+      ],
+      "type": "object"
+     }
+    },
+    "required": [
+     "edge"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Divide Topology Edge",
+   "name": "topology_divide"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Delete a face, or a point with the faces and lines that use it, from a panel's topology.",
+   "group": "export",
+   "id": "topology.delete",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "face": {
+      "description": "Face index to remove.",
+      "minimum": 0,
+      "type": "integer"
+     },
+     "panel": {
+      "minimum": 1,
+      "type": "integer"
+     },
+     "point": {
+      "description": "Point index to remove with the faces and lines that use it.",
+      "minimum": 0,
+      "type": "integer"
+     }
+    },
+    "required": [
+     "panel"
+    ],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Delete Topology Element",
+   "name": "topology_delete"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Remove the drawn topology and its remesh mode from the given panels, or all panels.",
+   "group": "export",
+   "id": "topology.clear",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "panels": {
+      "description": "Panels to clear. Leave out for all.",
+      "items": {
+       "minimum": 1,
+       "type": "integer"
+      },
+      "type": "array"
+     }
+    },
+    "required": [],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Clear Topology",
+   "name": "topology_clear"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "description": "Turn the drawn faces of the given panels into their export quad mesh and set the mesh kind to quad. replace swaps the panel's automatic remesh for the drawn faces; duplicate keeps the automatic result and adds the drawn mesh beside it. One undo step.",
+   "group": "export",
+   "id": "topology.remesh",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "mode": {
+      "default": "replace",
+      "description": "replace swaps the panel's remesh result for the drawn faces; duplicate keeps the remesh result and adds the drawn mesh beside it.",
+      "enum": [
+       "replace",
+       "duplicate"
+      ],
+      "type": "string"
+     },
+     "panels": {
+      "description": "Panels whose drawn faces become the export quad mesh. Leave out for every panel with faces.",
+      "items": {
+       "minimum": 1,
+       "type": "integer"
+      },
+      "type": "array"
+     }
+    },
+    "required": [],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Remesh from Topology",
+   "name": "topology_remesh"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+   },
+   "description": "The drawn topology per panel (points in panel mm, faces, lines, remesh mode), the open shape, and the ghost points: mirrors of points on sewn edges at the same arc length fraction on the partner edge.",
+   "group": "export",
+   "id": "topology.list",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "panel": {
+      "description": "Only this panel. Leave out for all panels with topology.",
+      "minimum": 1,
+      "type": "integer"
+     },
+     "tolerance": {
+      "default": 1,
+      "description": "Distance in mm within which a point counts as on a sewn edge.",
+      "exclusiveMinimum": 0,
+      "maximum": 100,
+      "type": "number"
+     }
+    },
+    "required": [],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "List Topology",
+   "name": "topology_list"
   },
   {
    "annotations": {
@@ -11664,7 +12486,7 @@
     "additionalProperties": false,
     "properties": {
      "background": {
-      "description": "Background: a CSS colour string, a colour array, or an object the viewer understands."
+      "description": "Background: a CSS colour string, a colour array, or an object. An object with image (a local picture path, PNG or JPEG; null clears it) and fit (cover or contain, default cover) draws that picture behind the scene, fixed to the screen."
      },
      "exposure": {
       "description": "Exposure in stops.",
@@ -12376,7 +13198,7 @@
     "openWorldHint": false,
     "readOnlyHint": true
    },
-   "description": "List the user library: fabrics (.ffab), trim and style files (.ffstyle), components (.ffcomp), garments (.ffbrc), poses (.ffpose) and motions (.ffmotion) from every configured library folder, with name, tags, thumbnail path and size. Files placed in the kind folders by hand are listed too.",
+   "description": "List the user library: fabrics (.ffab), trim and style files (.ffstyle), components (.ffcomp), garments (.ffbrc), poses (.ffpose), motions (.ffmotion) and placements (.ffplace) from every configured library folder, with name, tags, thumbnail path and size. Files placed in the kind folders by hand are listed too.",
    "group": "file",
    "id": "library.list",
    "inputSchema": {
@@ -12391,7 +13213,8 @@
        "component",
        "garment",
        "pose",
-       "motion"
+       "motion",
+       "place"
       ],
       "type": "string"
      },
@@ -12421,7 +13244,7 @@
     "additionalProperties": false,
     "properties": {
      "from": {
-      "description": "What to save: a fabric id, a trim or style id (style.list), a component id (component.list), a body id for a pose (default the first body) or a motion id. Leave out for kind garment, which saves the open project.",
+      "description": "What to save: a fabric id, a trim or style id (style.list), a component id (component.list), a body id for a pose or a placement (default the first body) or a motion id. Leave out for kind garment, which saves the open project.",
       "type": [
        "integer",
        "string"
@@ -12435,7 +13258,8 @@
        "component",
        "garment",
        "pose",
-       "motion"
+       "motion",
+       "place"
       ],
       "type": "string"
      },
@@ -12474,14 +13298,14 @@
     "openWorldHint": false,
     "readOnlyHint": false
    },
-   "description": "Bring a library fabric, trim, style, component, pose or motion into the open project. One undo step. A garment is not inserted: the error names the path for file.open.",
+   "description": "Bring a library fabric, trim, style, component, pose, motion or placement (the placement volumes and arrangement points, set on the current body) into the open project. One undo step. A garment is not inserted: the error names the path for file.open.",
    "group": "file",
    "id": "library.insert",
    "inputSchema": {
     "additionalProperties": false,
     "properties": {
      "body": {
-      "description": "Pose and motion only: the body to apply it to. Defaults to the first body.",
+      "description": "Pose, motion and placement only: the body to apply it to. Defaults to the first body.",
       "minimum": 1,
       "type": "integer"
      },
@@ -12934,6 +13758,50 @@
    "keys": [],
    "label": "Sample Components",
    "name": "component_sample"
+  },
+  {
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+   },
+   "description": "List everything in the scene in creation order: panels, seams, trims (hardware, zippers, stitches), bodies and styles, each with a stable key, id, name and kind. Optional kinds filter and sort by creation, name_asc or name_desc. Read only.",
+   "group": "view",
+   "id": "scene.tree",
+   "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+     "kinds": {
+      "description": "Only these kinds. Leave out for all.",
+      "items": {
+       "enum": [
+        "panel",
+        "seam",
+        "trim",
+        "body",
+        "style"
+       ],
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "sort": {
+      "description": "creation (default) keeps the order things were made in; name_asc and name_desc sort by name.",
+      "enum": [
+       "creation",
+       "name_asc",
+       "name_desc"
+      ],
+      "type": "string"
+     }
+    },
+    "required": [],
+    "type": "object"
+   },
+   "keys": [],
+   "label": "Scene Tree",
+   "name": "scene_tree"
   }
  ],
  "engine": "formfabric",

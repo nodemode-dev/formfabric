@@ -66,14 +66,14 @@ Generated from the engine's command registry (formfabric 0.18.0) by `./formfabri
 - Engine: `system_info`, `system_capabilities`
 - Files: `file_new`, `file_save`, `file_open`, `sample_list`, `sample_load`, `exchange_import_dxf`, `exchange_export_dxf`, `snapshot_save`, `snapshot_list`, `snapshot_restore`, `snapshot_remove`, `library_list`, `library_add`, `library_insert`, `library_remove`, `library_roots`, `library_set_roots`, `component_save`
 - History: `history_undo`, `history_redo`, `history_list`
-- Viewing: `view_units`, `mesh_get`, `mesh_stats`, `map_show`, `map_stats`, `compare_snapshot`, `compare_set`, `compare_clear`, `compare_get`, `measure3d_add`, `measure3d_remove`, `measure3d_list`, `viz_get`, `stage_set`, `light_add`, `light_set`, `light_remove`, `view_save`, `view_remove`, `fur_add`, `fur_set`, `fur_remove`
-- Pattern: `pattern_get`, `pattern_select`, `pattern_measure`, `pattern_snap`, `pattern_draw_panel`, `pattern_rectangle`, `pattern_ellipse`, `pattern_inner_shape`, `pattern_inner_line`, `pattern_move_point`, `pattern_set_handle`, `pattern_add_point`, `pattern_split_line`, `pattern_delete_point`, `pattern_set_point_kind`, `pattern_curvature`, `pattern_smooth`, `pattern_transform`, `pattern_duplicate`, `pattern_delete`, `pattern_rename`, `pattern_set_props`, `pattern_begin_drag`, `pattern_end_drag`, `pattern_seam_allowance`, `pattern_offset_outline`, `pattern_notch_add`, `pattern_notch_set`, `pattern_notch_delete`, `pattern_grain_line`, `pattern_set_inner`, `pattern_segment_lengths`, `pattern_match_length`, `pattern_dart`, `pattern_slash_spread`, `pattern_unfold`, `pattern_spiral`, `pattern_trace`, `pattern_mirror_link`, `pattern_instance`, `pattern_unlink`, `panel_state`, `styleline_add`, `styleline_set`, `styleline_remove`, `styleline_list`, `styleline_list3d`, `style_create`, `style_update`, `style_delete`, `style_list`, `print_add`, `print_set`, `print_delete`, `component_create`, `component_list`, `component_insert`, `component_swap`, `component_join`, `component_check`, `component_remove`, `component_sample`
+- Viewing: `view_units`, `mesh_get`, `mesh_stats`, `map_show`, `map_stats`, `compare_snapshot`, `compare_set`, `compare_clear`, `compare_get`, `measure3d_add`, `measure3d_remove`, `measure3d_list`, `viz_get`, `stage_set`, `light_add`, `light_set`, `light_remove`, `view_save`, `view_remove`, `fur_add`, `fur_set`, `fur_remove`, `scene_tree`
+- Pattern: `pattern_get`, `pattern_select`, `pattern_measure`, `pattern_snap`, `pattern_draw_panel`, `pattern_rectangle`, `pattern_ellipse`, `pattern_inner_shape`, `pattern_inner_line`, `pattern_move_point`, `pattern_set_handle`, `pattern_add_point`, `pattern_split_line`, `pattern_delete_point`, `pattern_set_point_kind`, `pattern_curvature`, `pattern_smooth`, `pattern_transform`, `pattern_duplicate`, `pattern_delete`, `pattern_rename`, `pattern_set_props`, `pattern_begin_drag`, `pattern_end_drag`, `pattern_seam_allowance`, `pattern_offset_outline`, `pattern_notch_add`, `pattern_notch_set`, `pattern_notch_delete`, `pattern_grain_line`, `pattern_set_inner`, `pattern_segment_lengths`, `pattern_match_length`, `pattern_dart`, `pattern_slash_spread`, `pattern_unfold`, `pattern_spiral`, `pattern_trace`, `pattern_mirror_link`, `pattern_instance`, `pattern_unlink`, `panel_state`, `styleline_add`, `styleline_set`, `styleline_remove`, `styleline_list`, `styleline_list3d`, `style_copy`, `style_merge`, `style_create`, `style_update`, `style_delete`, `style_list`, `print_add`, `print_set`, `print_delete`, `component_create`, `component_list`, `component_insert`, `component_swap`, `component_join`, `component_check`, `component_remove`, `component_sample`
 - Simulation: `mesh_build`, `arrange_place`, `arrange_reset`, `sim_start`, `sim_stop`, `sim_toggle`, `sim_step`, `sim_reset`, `sim_settings`, `sim_state`, `sim_positions`, `sim_compare`, `pin_add`, `pin_remove`, `pin_clear`, `sim_grab`, `sim_apply`, `sim_pinch`, `refit`, `place_panel`, `place_reset`, `wind_set`, `pin_box`, `pin_lasso`, `fold_place`, `body_tape`, `fitshell_set`, `fitshell_get`
-- Fabrics: `fabric_presets`, `fabric_list`, `fabric_create`, `fabric_update`, `fabric_duplicate`, `fabric_delete`, `fabric_assign`, `fabric_set_default`, `fabric_lab`, `fabric_export`, `fabric_import`, `colorway_create`, `colorway_update`, `colorway_delete`, `colorway_activate`
+- Fabrics: `fabric_presets`, `fabric_list`, `fabric_create`, `fabric_update`, `fabric_duplicate`, `fabric_delete`, `fabric_assign`, `fabric_set_default`, `fabric_lab`, `fabric_export`, `fabric_import`, `colorway_create`, `colorway_update`, `colorway_delete`, `colorway_activate`, `fabric_copy`, `fabric_merge`, `fabric_order`
 - Sewing: `sew_segment`, `sew_free`, `sew_multi`, `sew_edit`, `sew_flip`, `sew_delete`, `sew_list`, `sew_check`, `sew_bindings`, `tack_add`, `tack_delete`, `sew_pleat`, `sew_gather`, `sew_auto`, `button_add`, `buttonhole_add`, `button_fasten`, `hardware_move`, `hardware_delete`, `zipper_add`, `zipper_set`, `zipper_delete`, `stitch_add`, `stitch_set`, `stitch_delete`, `fray_add`, `finish_add`, `finish_set`, `finish_delete`, `sew_rip`, `sew_mend`, `quilt_make`, `trim_import`, `trim_debug`
 - Bodies: `body_load_default`, `body_import`, `body_remove`, `body_show`, `body_set`, `body_resize`, `body_pose`, `body_list`, `body_measure`, `body_joints`, `place_volume_set`, `place_point_set`, `place_points`, `place_defaults`
-- Animation: `anim_get`, `anim_set`, `motion_import`, `motion_set`, `motion_remove`, `key_set`, `key_remove`, `cache_set`, `cache_remove`, `morph_set`, `anim_record`, `anim_stop`, `job_state`, `job_harvest`, `cache_frame`, `anim_play`, `anim_pause`
-- Export: `export_formats`, `export_run`, `uv_get`, `uv_layout`, `uv_island_set`, `thickness_set`, `bake_run`, `gameready_run`, `quad_remesh`, `quad_clear`, `retopo_get`, `retopo_set`, `schematic_export`, `capture_write`, `link_start`, `link_stop`, `link_state`
+- Animation: `anim_get`, `anim_set`, `motion_import`, `motion_set`, `motion_remove`, `key_set`, `key_remove`, `cache_set`, `cache_remove`, `morph_set`, `anim_record`, `anim_stop`, `job_state`, `job_harvest`, `cache_frame`, `anim_play`, `anim_pause`, `cache_cut`, `cache_merge`, `cache_move`, `cache_lock`, `anim_auto_key`
+- Export: `export_formats`, `export_run`, `uv_get`, `uv_layout`, `uv_island_set`, `thickness_set`, `bake_run`, `gameready_run`, `quad_remesh`, `quad_clear`, `retopo_get`, `retopo_set`, `topology_add_point`, `topology_close`, `topology_finish`, `topology_delete_last`, `topology_cancel`, `topology_merge`, `topology_merge_all`, `topology_divide`, `topology_delete`, `topology_clear`, `topology_remesh`, `topology_list`, `schematic_export`, `capture_write`, `link_start`, `link_stop`, `link_state`
 
 ### system_info
 
@@ -845,6 +845,28 @@ Show a colorway: its colour per fabric replaces the fabric's front colour in vie
 
 Note: safe to repeat.
 
+### fabric_copy
+
+Copy a fabric to a new fabric with its own id, placed right after the original, with the same colorway colours. Panels keep their assignment. One undo step.
+
+- `id`: integer; required; range 1 to 4294967295; Fabric to copy.
+- `name`: string; Name of the copy. Defaults to the original name with copy added.
+
+### fabric_merge
+
+Merge two or more fabrics into one new fabric that takes the values of the first. Panels that used any of them move to the new fabric, the originals are removed and the default follows. One undo step.
+
+- `ids`: array of integer; required; Two or more fabrics. The first one supplies the physical values and look of the new fabric.
+- `name`: string; Name of the new fabric. Defaults to the first name with merged added.
+
+### fabric_order
+
+Set the order of the fabric list. Ids not listed follow in their current order. Panels and the default fabric are not touched. One undo step.
+
+- `ids`: array of integer; required; Fabric ids in the wanted order. Fabrics left out follow in their current order.
+
+Note: safe to repeat.
+
 ### sew_segment
 
 Sew one whole segment to another. reversed (default true) pairs the start of side a with the end of side b, which is right for counter-clockwise outlines meeting along a shared edge. With ratio 1 and full segments both segments get the same number of mesh vertices. Returns the seam with both side lengths and the mismatch in mm.
@@ -1065,6 +1087,7 @@ Get or set the solver parameters and the quality preset (fast, normal, quality, 
 - `skin_offset`: number; range 0 to 100
 - `substeps`: integer; range 1 to 40
 - `time_step`: number; range 0.004 to 0.0667; Seconds per frame, from 1/240 to 1/15. The run thread steps at 1 / time_step frames per second.
+- `untangle`: string (off | normal | flipped); Intersection resolution after every frame. normal finds intersecting triangle pairs and moves the offending vertices along the triangle normal, to the side they were on before (or, where panel layers differ, the higher layer on the outer side); flipped puts the higher layer on the inner side. Seam vertices and pins are never moved, each vertex moves at most 2 mm per frame, only pairs that began to intersect this frame are corrected (pairs of different layers always), and bodies are respected. off leaves the intersections to self contact.
 
 Note: safe to repeat.
 
@@ -1154,6 +1177,7 @@ Move the draped garment from body A to body B without opening a seam. The body i
 - `fix_frames`: integer; default 150; range 0 to 1000; Frame budget after the settle: each frame pushes cloth out of the target body and steps with collisions on, until the deepest vertex is under 1 mm inside or the budget is spent. The result reports inside_mm and the frames used.
 - `frames`: integer; default 4; range 1 to 30; Solver frames run at each increment.
 - `from`: integer; range 1 to inf; Body id the garment is draped on. Defaults to the first visible body.
+- `maintain`: object; What stays as it was. Refit never edits the pattern, so every option keeps its maintaining value: curvature_pct 100 (the pattern outline curvature is untouched), graphic_size true (prints keep their size in the panel), texture_size true (texture coordinates are untouched), topology true (the cloth mesh is not remeshed). Lower values would need pattern updates and are refused.; fields curvature_pct, graphic_size, texture_size, topology
 - `method`: string (auto | blend | sweep | redrape); default "auto"; blend: bodies of identical topology, per-vertex linear blend from A to B. sweep: other bodies, body A is stepped through a measurement sweep to B's measurements, then the garment settles on B. redrape: no morph, the garment returns to its placed layout and drapes on B. auto picks blend when the topology matches, else sweep.
 - `settle`: integer; default 40; range 0 to 600; Frames run on the target body at the end.
 - `steps`: integer; default 20; range 1 to 400; Increments along the body morph path.
@@ -1167,11 +1191,12 @@ Add a default body to the project: the built-in Basic Form (formfabric's own par
 
 ### body_import
 
-Import a body from an OBJ, glTF, GLB or FBX file (FBX on native builds only), convert to millimetres with y up and stand it on the ground. Skins and skeletons are read from glTF and FBX; Alembic is deferred. One undo step.
+Import a body from an OBJ, glTF, GLB or FBX file (FBX on native builds only), convert to millimetres with y up and stand it on the ground. Skins and skeletons are read from glTF and FBX. Alembic (.abc, Ogawa) imports the polygon meshes of one sample (first by default, or sample), faces reversed from clockwise, transforms ignored. One undo step.
 
 - `ground`: boolean; Stand the body on y = 0; default true.
 - `name`: string; Name for the body; default the file name.
 - `path`: string; required; File path of the body.
+- `sample`: integer; range 0 to inf; Alembic (.abc) only: which sample (frame) of an animated mesh to import; default 0, the first.
 - `units`: string (auto | mm | cm | m | in | ft); Units of the file; auto reads glTF as metres and guesses OBJ from its height.
 - `up`: string (y | -y | z | -z | x | -x); Up axis of the file; default y.
 
@@ -1478,6 +1503,20 @@ Report the fit shell of a body: offset, enabled, and the realised offset distanc
 
 Note: read-only.
 
+### style_copy
+
+Copy a style (any kind, including an imported trim with its mesh) to a new style with its own id. One undo step.
+
+- `id`: integer; required; range 1.0 to 4294967295.0; Style to copy, as listed by style.list.
+- `name`: string; Name of the copy. Defaults to the original name with copy added.
+
+### style_merge
+
+Merge two or more styles of the same kind into one new style that takes the parameters of the first. Hardware, zippers and stitches that used any of them move to the new style and the originals are removed. One undo step.
+
+- `ids`: array of integer; required; Two or more styles of the same kind. The first one supplies the parameters of the new style.
+- `name`: string; Name of the new style. Defaults to the first name with merged added.
+
 ### style_create
 
 Create a named style for buttons, buttonholes, zippers, topstitch, puckering or imported trims. Parameters merge over the defaults of the kind and are range checked. Returns the style with its id.
@@ -1639,7 +1678,8 @@ Add an edge finish along spans. piping and binding create a strip panel of the g
 
 - `angle`: number; range 0.0 to 360.0; Crease only: fold angle, 180 flat, lower folds to the front, higher to the back. Default 120.
 - `fabric`: integer; range 1.0 to 4294967295.0; Fabric id of the strip; default is the fabric of the first span panel.
-- `kind`: string (piping | binding | elastic | shirring | tape | bond | press | crease); required; piping and binding generate a strip panel sewn along the spans; elastic and shirring generate a narrow elastic strip (shirring when the spans lie on inner lines); tape, bond and press stiffen a band along the spans; crease adds a fold line between the ends of the spans.
+- `kind`: string (piping | binding | elastic | shirring | tape | bond | press | crease | skive); required; piping and binding generate a strip panel sewn along the spans; elastic and shirring generate a narrow elastic strip (shirring when the spans lie on inner lines); tape, bond and press stiffen a band along the spans; skive softens a band along the spans (the inverse of bond); crease adds a fold line between the ends of the spans.
+- `percent`: number; range 0.0 to 100.0; Skive only: how far the band is shaved down, 0 to 100 percent (default 50). Bending stiffness and thickness of the band are scaled by one minus the percent (floor 5 percent for bending, 10 percent for thickness).
 - `ratio`: number; range 0.2 to 2.0; Elastic and shirring: length of the elastic at rest over its drawn length, 0.2 to 2 (default 0.8; 0.7 for shirring). Below 1 gathers the edge.
 - `spans`: array of object; required; Spans of one or more panels the finish follows, in walking order.
 - `strength`: number; range 0.0 to 20.0; Elastic: seam tension, default 1. Tape default 3, bond default 5, press default 1.5: stiffness multiplier of the band. Crease: fold strength 0 to 20, default 1.
@@ -1653,6 +1693,7 @@ Change the width, ratio (elastic), strength or fabric (piping, binding, elastic)
 
 - `fabric`: integer; range 1.0 to 4294967295.0; Piping, binding and elastic only: fabric id of the strip.
 - `finish`: integer; required; range 1.0 to 4294967295.0; Finish id as returned by finish.add.
+- `percent`: number; range 0.0 to 100.0; Skive only: percent shaved down, 0 to 100.
 - `ratio`: number; range 0.2 to 2.0; Elastic only: rest length over drawn length, 0.2 to 2.
 - `strength`: number; range 0.0 to 20.0; Elastic seam tension, or stiffness multiplier of tape, bond and press, 0 to 20.
 - `width`: number; range 1.0 to 100.0; New width, in the range of the finish kind (see finish.add).
@@ -1735,17 +1776,17 @@ Quilt a panel: clone it as a lining layer behind it with the opposite pressure, 
 
 ### trim_import
 
-Import an OBJ file as a rigid trim glued to a panel point. The mesh is recentred (x and y on the anchor, base at z 0), scaled to millimetres and stored inside the document as a trim style, so the project does not depend on the file afterwards. One undo step.
+Import an OBJ or FBX file as a rigid trim glued to a panel point. The mesh is recentred (x and y on the anchor, base at z 0), scaled to millimetres and stored inside the document as a trim style, so the project does not depend on the file afterwards. One undo step.
 
 - `collision`: boolean; default true; Whether the trim collides with the cloth.
 - `name`: string; Name of the trim style. Defaults to the file name.
 - `panel`: integer; required; range 1.0 to 4294967295.0; Panel the trim is attached to.
-- `path`: string; required; Absolute path of an .obj file, at most 8 MB and 20,000 triangles after fan triangulation.
+- `path`: string; required; Absolute path of an .obj or .fbx file, at most 8 MB and 20,000 triangles after triangulation. FBX (ASCII or binary) reads every mesh in the file as one trim in world space, takes its unit and up axis from the file header (millimetres and Y up after conversion) and ignores animation and skin.
 - `point`: array of number; required; Anchor point on the panel; it must lie inside the outline.
 - `rotation`: number; range -360.0 to 360.0; Rotation about the surface normal.
-- `scale`: number; range 1e-06 to 1000000.0; Millimetres per unit of the file. Default 1.
+- `scale`: number; range 1e-06 to 1000000.0; Millimetres per unit of the file (OBJ), or an extra multiplier on the FBX header unit. Default 1.
 - `space`: string (world | local); default "world"; world: coordinates on the pattern plane. local: coordinates inside the panel before its position, rotation and mirror apply.
-- `up`: string (z | y); default "z"; Axis of the file that points out of the cloth.
+- `up`: string (z | y); default "z"; OBJ: axis of the file that points out of the cloth. FBX: ignored, the up axis of the file header points out of the cloth.
 
 ### trim_debug
 
@@ -1816,7 +1857,7 @@ Set a keyframe on a track: body.ID.pose, body.ID.MEASUREMENT, wind.FIELD, panel.
 
 - `frame`: integer; required; range 0 to 100000
 - `interp`: string (step | linear | smooth); Interpolation from this key to the next. smooth is a cubic Hermite spline through Catmull-Rom tangents. Default linear.
-- `target`: string; required; body.ID.pose (a pose name or {joint: [x, y, z, w]}), body.ID.MEASUREMENT, wind.FIELD, panel.ID.state.FIELD, fabric.ID.FIELD, where ID is a number and FIELD or MEASUREMENT a name.
+- `target`: string; required; body.ID.pose (a pose name or {joint: [x, y, z, w]}), body.ID.MEASUREMENT, wind.FIELD, panel.ID.state.FIELD, fabric.ID.FIELD, where ID is a number and FIELD or MEASUREMENT a name; or pin:ID for a pin, with a value [x, y, z] in mm that is where recording holds the pin.
 - `value`: value; required; A number, a boolean, a vector, a pose name or a joint rotation object, by target.
 
 Note: safe to repeat.
@@ -1865,6 +1906,7 @@ Note: safe to repeat.
 Record a cache layer on a background thread: for each frame pose the bodies (motions, pose, measurement and morph tracks, skinned through ffb-body), move the colliders, apply wind tracks, step the cloth with solver substeps, and store every panel's positions plus the body pose. Per frame it measures body penetration, self intersections and vertex displacement. It continues from the current draped state, so drape first. Poll job.state.
 
 - `end`: integer; range 0 to inf; Last frame to record. Default the play range end.
+- `layer`: integer; Re-record into this cache layer instead of adding a new one. A locked layer refuses.
 - `name`: string; Cache layer name.
 - `reset`: boolean; Rebuild the cloth from its placed state first. Default false: recording continues from the current draped state.
 - `start`: integer; range 0 to inf; First frame to record. Default the play range start.
@@ -1922,9 +1964,50 @@ Pause cache playback and return the frame it stopped on.
 
 Note: safe to repeat.
 
+### cache_cut
+
+Split a recorded cache layer at a frame: the layer keeps the frames before it and the rest becomes a new layer above it. New stored entries are made; one undo step. A locked layer refuses.
+
+- `frame`: integer; required; range 1 to inf; Timeline frame inside the layer. The layer keeps the frames before it; this frame and the ones after become a new layer above it.
+- `id`: integer; required; Cache layer id.
+
+### cache_merge
+
+Merge two or more cache layers of one kind into the top selected layer. Where layers overlap the top one wins; a gap between layers is filled by linear interpolation. The other layers are removed. One undo step.
+
+- `ids`: array of integer; required; Cache layer ids of one kind. They merge into the top selected layer, which wins where layers overlap; gaps between layers are filled by linear interpolation.
+
+Note: removes or replaces (undoable).
+
+### cache_move
+
+Shift a cache layer in time by a number of frames (negative is earlier). The stored frames are not changed; the layer start and offset are.
+
+- `frames`: integer; required; range -100000 to 100000; Frames to shift the layer start by; negative moves it earlier.
+- `id`: integer; required; Cache layer id.
+
+Note: safe to repeat.
+
+### cache_lock
+
+Lock or unlock a cache layer. A locked layer refuses cut, merge, move, rename, removal and re-recording.
+
+- `id`: integer; required
+- `locked`: boolean; required; A locked layer refuses cut, merge, move, rename, removal and re-recording.
+
+Note: safe to repeat.
+
+### anim_auto_key
+
+Turn auto keying on or off. When on, a change to a property that already has a key (wind, panel state, fabric physical, or a pin position), made at the current frame, writes a key at that frame in the same undo step. The first key stays manual.
+
+- `on`: boolean; required; When on, changing a keyed property at the current frame adds or updates a key there. The first key of a property stays manual (key.set).
+
+Note: safe to repeat.
+
 ### export_formats
 
-List the export formats (obj with mtl, gltf, glb, fbx 7.4 ASCII or binary, usd as usda text, mdd, pc2; abc is reported unavailable) with their file sets, how animation is stored and the option schema of each.
+List the export formats (obj with mtl, gltf, glb, fbx 7.4 ASCII or binary, usd as usda text, mdd, pc2, abc as an Alembic Ogawa archive) with their file sets, how animation is stored and the option schema of each.
 
 - no parameters
 
@@ -1939,18 +2022,19 @@ Write the draped garment to a 3D file. Per panel objects or one merged object, U
 - `binary`: boolean; default false; FBX only: binary FBX 7.4 instead of ASCII.
 - `cache`: integer; range 1 to inf; Cache layer id. Defaults to the active cache.
 - `end`: integer; range 0 to inf; Last cache frame (inclusive).
-- `format`: string (obj | gltf | glb | fbx | usd | mdd | pc2 | abc); required; Output format. abc (Alembic) is not available; the call explains what to use instead.
+- `format`: string (obj | gltf | glb | fbx | usd | mdd | pc2 | abc); required; Output format. abc writes an Alembic Ogawa archive (Xform plus PolyMesh per panel, Y up, metres by default; animation is uniform time sampling at the cache fps).
 - `materials`: boolean; default true; Write fabric materials: base colour, roughness, metalness, opacity and texture paths.
-- `panels`: array of integer; Panel ids to export. Omit for every panel.
+- `panels`: array of integer; Panel ids to export. Omit for every panel. With weld weld_selected this list names the panels to weld together (at least two) and every panel is exported.
 - `path`: string; required; Absolute path of the file to write; the extension must match the format (.usda or .usd for usd). Companion files (mtl, bin, OBJ sequence frames) are written beside it.
-- `quads`: boolean; Write the quad mesh made by quad.remesh (OBJ, FBX and USD keep quads; glTF is triangulated by the format). Defaults to true when the project mesh kind is quad and there is no thickness or animation. Cannot be combined with thickness or animation.
+- `quads`: boolean; Write the quad mesh made by quad.remesh (OBJ, FBX and USD keep quads; glTF is triangulated by the format). Defaults to true when the project mesh kind is quad and there is no animation. Works with thickness (quad faces are extruded, side walls are quads). Cannot be combined with animation.
 - `scale`: number; default 1.0; range 1e-06 to 1000000.0; Multiplier applied on top of units.
 - `single_object`: boolean; default false; Merge every panel into one object.
 - `start`: integer; range 0 to inf; First cache frame (inclusive).
 - `step`: integer; default 1; range 1 to inf; Frame step.
-- `thickness`: boolean; Extrude the back face and the border strips using thickness.set. Defaults to the project setting.
+- `thickness`: boolean; Extrude the back face and the border strips using thickness.set. Quad meshes are extruded as quads with quad side walls. With weld the side walls follow the welded boundary. Defaults to the project setting.
 - `units`: string (mm | cm | m | in); default "mm"; Unit of the numbers in the file. The engine works in millimetres. glTF and GLB default to m (the glTF unit) and always use Y up.
 - `uv`: string (packed | tiled | none); default "packed"; packed uses the island layout (0..1 and UDIM tiles along U). tiled uses grain aligned millimetres divided by the fabric map scale, so texture maps repeat.
+- `weld`: string (unweld | weld | weld_selected); default "unweld"; unweld keeps every panel's own vertices. weld merges the vertices of sewn seam edges into shared points in one object (UVs stay per corner, so UV seams are kept). weld_selected welds only seams whose two panels are both in panels; every other panel is exported unwelded in the same object.
 
 ### uv_get
 
@@ -1992,11 +2076,12 @@ Set export thickness: on or off, amount in millimetres (back face offset along t
 
 ### bake_run
 
-Bake texture maps in the UV layout (uv.layout) as 8 bit PNG: a tangent space normal map and a displacement map that carry the drape detail of the simulated mesh over a smoothed base surface, and an ambient occlusion map by ray casting through the BVH, with visible bodies as occluders. Writes NAME_MAP.png beside the path, one file per map and UDIM tile. Synchronous; the ray budget is capped.
+Bake texture maps in the UV layout (uv.layout) as 8 bit PNG at the requested square size. Look maps diffuse (fabric base colour or base colour texture), metalness, roughness and opacity are sampled per texel through the tiled fabric mapping; fill_px extends islands 1 to 256 pixels to hide seams and 0 leaves the PNG transparent outside the islands. Also: a tangent space normal map and a displacement map that carry the drape detail of the simulated mesh over a smoothed base surface, and an ambient occlusion map by ray casting through the BVH, with visible bodies as occluders. Writes NAME_MAP.png beside the path, one file per map and UDIM tile. Synchronous; the ray budget is capped.
 
 - `bodies`: boolean; default true; Let visible bodies occlude the cloth in the ambient occlusion map.
 - `distance`: number; default 150; range 1 to 5000; Longest occlusion ray.
-- `maps`: array of string; Maps to bake. Default all three.
+- `fill_px`: integer; range 0 to 256; Seam fill: pixels to extend every island past its border, 1 to 256. 0 leaves the PNG transparent outside the UV islands (alpha 0). Defaults to padding.
+- `maps`: array of string; Maps to bake. Default normal, ao and displacement. diffuse is the fabric base colour, or its base colour texture sampled per texel through the tiled fabric mapping (PNG textures); metalness, roughness and opacity come from the fabric look (a PNG map of that name is sampled when the fabric has one, else the constant). Each is a square image in the UV layout.
 - `padding`: integer; default 4; range 0 to 32; Pixels to extend islands past their borders to hide seams.
 - `path`: string; required; Absolute path ending in .png. Files are written as NAME_MAP.png, with _UDIM added when the layout uses more than one tile.
 - `samples`: integer; default 12; range 1 to 128; Ambient occlusion rays per pixel.
@@ -2022,6 +2107,7 @@ Remesh panels into a quad-dominant mesh in pattern space: a 4-RoSy orientation f
 - `density`: number; range 0.1 to 8; Quad density relative to each panel's particle distance: the target quad edge is particle_distance divided by density, so 1 keeps the simulation resolution and 2 halves the edge. Leave out to reuse the stored density (1 when none).
 - `panels`: array of integer; Panel ids as listed by pattern.get. Leave out for every panel.
 - `pure_quads`: boolean; default false; Split every triangle and quad once so the result holds only quads (edge counts double, seams stay matched). Needed for thick export.
+- `regularize`: boolean; default false; Run the integer edge regularity pass (a min-cost flow over lattice offsets) before quad extraction; falls back to the plain extraction when the flow is not full. Leave out to reuse the stored setting.
 
 Note: safe to repeat.
 
@@ -2047,6 +2133,91 @@ Replace the user guide curves (panel space polylines in mm) that the orientation
 - `guides`: array of object; required; User guide curves. The orientation field aligns to them and the quad lattice runs along them. An empty list removes all guides.
 
 Note: safe to repeat.
+
+### topology_add_point
+
+Add a point to the open topology shape of a panel, in panel coordinates (pos, mm) or as fractions of the panel box (uv). Points snap to existing points and ghost points inside the snap radius, else onto a sewn edge. A point on a sewn edge is mirrored at the same arc length fraction onto the partner edge of the seam as a ghost point; the reply lists those ghosts. One panel at a time can hold an open shape.
+
+- `panel`: integer; required; range 1 to inf; Panel to draw on. Only one panel can hold an open shape at a time.
+- `pos`: array of number; Point in panel coordinates, x y in mm.
+- `snap`: number; default 0; range 0 to 1000; Snap radius in mm. The point snaps to the nearest existing point or ghost point inside it, else onto a sewn edge inside it. 0 places the point exactly where given.
+- `uv`: array of number; Point as fractions 0 to 1 of the panel's bounding box, used when pos is left out.
+
+### topology_close
+
+Close the open shape into a face. A closed loop becomes a face only with 3 or 4 points; the face is stored counter-clockwise and must have area and no crossing edges.
+
+- no parameters
+
+### topology_finish
+
+Finish the open shape as an open line of 2 or more points without closing it into a face.
+
+- no parameters
+
+### topology_delete_last
+
+Remove the last point of the open shape. A point that no face or line uses is dropped.
+
+- no parameters
+
+### topology_cancel
+
+Drop the open shape and the points only it used. Does nothing when no shape is open.
+
+- no parameters
+
+### topology_merge
+
+Merge two topology points of a panel into one at their midpoint. Faces that collapse are dropped or become triangles.
+
+- `a`: integer; required; range 0 to inf; First point index as topology.list reports it.
+- `b`: integer; required; range 0 to inf; Second point index.
+- `panel`: integer; range 1 to inf; Panel of both points; left out when only one panel has topology.
+
+### topology_merge_all
+
+Merge every group of topology points closer than the distance (mm) into one point at the group centre.
+
+- `distance`: number; required; range -inf to 1000; Points closer than this (mm) merge to their centre.
+- `panels`: array of integer; Panels to merge in. Leave out for every panel with topology.
+
+### topology_divide
+
+Split an edge into count parts and cut the loop of quads across it the same way, so the faces beside it stay quads. A triangle ends the loop with a fan. Fails without changing anything when the loop would cross itself.
+
+- `count`: integer; default 2; range 2 to 32; Number of parts the edge splits into. The loop of quads across it splits the same way.
+- `edge`: object; required; The edge between points a and b. panel may be left out when only one panel has topology.; fields a, b, panel
+
+### topology_delete
+
+Delete a face, or a point with the faces and lines that use it, from a panel's topology.
+
+- `face`: integer; range 0 to inf; Face index to remove.
+- `panel`: integer; required; range 1 to inf
+- `point`: integer; range 0 to inf; Point index to remove with the faces and lines that use it.
+
+### topology_clear
+
+Remove the drawn topology and its remesh mode from the given panels, or all panels.
+
+- `panels`: array of integer; Panels to clear. Leave out for all.
+
+### topology_remesh
+
+Turn the drawn faces of the given panels into their export quad mesh and set the mesh kind to quad. replace swaps the panel's automatic remesh for the drawn faces; duplicate keeps the automatic result and adds the drawn mesh beside it. One undo step.
+
+- `mode`: string (replace | duplicate); default "replace"; replace swaps the panel's remesh result for the drawn faces; duplicate keeps the remesh result and adds the drawn mesh beside it.
+- `panels`: array of integer; Panels whose drawn faces become the export quad mesh. Leave out for every panel with faces.
+
+### topology_list
+
+The drawn topology per panel (points in panel mm, faces, lines, remesh mode), the open shape, and the ghost points: mirrors of points on sewn edges at the same arc length fraction on the partner edge.
+
+- `panel`: integer; range 1 to inf; Only this panel. Leave out for all panels with topology.
+- `tolerance`: number; default 1; range -inf to 100; Distance in mm within which a point counts as on a sewn edge.
+
+Note: read-only.
 
 ### map_show
 
@@ -2137,7 +2308,7 @@ Note: read-only.
 
 Set the environment image, its rotation, exposure in stops, the ground plane and the background. Only the given fields change. An undo step.
 
-- `background`: value; Background: a CSS colour string, a colour array, or an object the viewer understands.
+- `background`: value; Background: a CSS colour string, a colour array, or an object. An object with image (a local picture path, PNG or JPEG; null clears it) and fit (cover or contain, default cover) draws that picture behind the scene, fixed to the screen.
 - `exposure`: number; range -10 to 10; Exposure in stops.
 - `ground`: boolean; Show the ground plane.
 - `hdri`: ['string', 'null']; Environment image name or path; null clears it.
@@ -2288,9 +2459,9 @@ Note: removes or replaces (undoable).
 
 ### library_list
 
-List the user library: fabrics (.ffab), trim and style files (.ffstyle), components (.ffcomp), garments (.ffbrc), poses (.ffpose) and motions (.ffmotion) from every configured library folder, with name, tags, thumbnail path and size. Files placed in the kind folders by hand are listed too.
+List the user library: fabrics (.ffab), trim and style files (.ffstyle), components (.ffcomp), garments (.ffbrc), poses (.ffpose), motions (.ffmotion) and placements (.ffplace) from every configured library folder, with name, tags, thumbnail path and size. Files placed in the kind folders by hand are listed too.
 
-- `kind`: string (fabric | trim | style | component | garment | pose | motion); Only this kind. Leave out for all.
+- `kind`: string (fabric | trim | style | component | garment | pose | motion | place); Only this kind. Leave out for all.
 - `query`: string; Case-insensitive text that must appear in the name or a tag.
 
 Note: read-only.
@@ -2299,17 +2470,17 @@ Note: read-only.
 
 Save a fabric, trim style, style, component, pose, motion or the open garment into the first library folder, with tags and an optional PNG thumbnail. Files are written atomically; the item can be inserted again with library.insert.
 
-- `from`: ['integer', 'string']; What to save: a fabric id, a trim or style id (style.list), a component id (component.list), a body id for a pose (default the first body) or a motion id. Leave out for kind garment, which saves the open project.
-- `kind`: string (fabric | trim | style | component | garment | pose | motion); required
+- `from`: ['integer', 'string']; What to save: a fabric id, a trim or style id (style.list), a component id (component.list), a body id for a pose or a placement (default the first body) or a motion id. Leave out for kind garment, which saves the open project.
+- `kind`: string (fabric | trim | style | component | garment | pose | motion | place); required
 - `name`: string; required; Item name.
 - `tags`: array of string
 - `thumbnail`: string; Optional PNG as base64, at most 1 MiB.
 
 ### library_insert
 
-Bring a library fabric, trim, style, component, pose or motion into the open project. One undo step. A garment is not inserted: the error names the path for file.open.
+Bring a library fabric, trim, style, component, pose, motion or placement (the placement volumes and arrangement points, set on the current body) into the open project. One undo step. A garment is not inserted: the error names the path for file.open.
 
-- `body`: integer; range 1 to inf; Pose and motion only: the body to apply it to. Defaults to the first body.
+- `body`: integer; range 1 to inf; Pose, motion and placement only: the body to apply it to. Defaults to the first body.
 - `id`: string; required; Library item id from library.list.
 - `joins`: array of object; Component only: joins for component.insert, each {port, to: {component, port}, reversed, ease}.
 
@@ -2413,6 +2584,15 @@ Build the sample modular T-shirt: tshirt groups the drafted sample into componen
 - `like`: integer; range 1 to inf; sleeveless only: the component whose port sets the binding lengths (a sleeve).
 - `name`: string (tshirt | sleeveless); required; tshirt groups the drafted sample T-shirt (sample.load tshirt) into Torso, Sleeve L and Sleeve R with an armhole port and a join each. sleeveless adds a no-sleeve variant: two armhole binding strips as one component with an armhole port the lengths of another component's port.
 - `port`: string; default "armhole"; sleeveless only: the port name to match.
+
+### scene_tree
+
+List everything in the scene in creation order: panels, seams, trims (hardware, zippers, stitches), bodies and styles, each with a stable key, id, name and kind. Optional kinds filter and sort by creation, name_asc or name_desc. Read only.
+
+- `kinds`: array of string; Only these kinds. Leave out for all.
+- `sort`: string (creation | name_asc | name_desc); creation (default) keeps the order things were made in; name_asc and name_desc sort by name.
+
+Note: read-only.
 [ffb-tools:end]
 
 ## Not yet available
