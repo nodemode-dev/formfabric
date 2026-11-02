@@ -92,7 +92,7 @@ function formatOf(raw: unknown, hint?: string): FormatInfo | null {
 
 export function parseFormats(raw: unknown): FormatInfo[] {
   const list = isObj(raw) ? (raw.formats ?? raw.items ?? raw) : raw;
-  if (Array.isArray(list)) return list.map((f) => formatOf(f)).filter((f): f is FormatInfo => !!f);
+  if (Array.isArray(list)) return list.filter((f) => !(isObj(f) && f.available === false)).map((f) => formatOf(f)).filter((f): f is FormatInfo => !!f);
   if (isObj(list)) return Object.entries(list).map(([k, v]) => formatOf(v, k)).filter((f): f is FormatInfo => !!f);
   return [];
 }
@@ -164,14 +164,35 @@ function guidesOf(raw: unknown): Guide[] {
   return out;
 }
 
+function panelMetrics(raw: unknown): Metric[] {
+  if (!Array.isArray(raw)) return [];
+  const rows = raw.filter(isObj);
+  if (!rows.length) return [];
+  const sum = (k: string): number => rows.reduce((n, r) => n + num(r[k], 0), 0);
+  const quads = sum('quads');
+  const tris = sum('triangles');
+  const faces = quads + tris;
+  const worst = rows.reduce((m, r) => Math.max(m, num(r.max_angle_deviation, 0)), 0);
+  return metricsOf({
+    panels: rows.length,
+    vertices: sum('vertices'),
+    quads,
+    triangles: tris,
+    percent_quads: faces > 0 ? (100 * quads) / faces : 0,
+    irregular_interior: sum('irregular_interior'),
+    max_angle_deviation: worst,
+  });
+}
+
 export function parseRetopo(raw: unknown): RetopoState {
   if (!isObj(raw)) return EMPTY_RETOPO;
   const inner = isObj(raw.retopo) ? raw.retopo : raw;
+  const direct = metricsOf(raw.metrics ?? raw.quality ?? raw.stats ?? inner.metrics);
   return {
     mesh: str(raw.mesh, 'triangle'),
     density: num(raw.density ?? raw.quad_density, 0.5),
     guides: guidesOf(inner.guides ?? raw.guides),
-    metrics: metricsOf(raw.metrics ?? raw.quality ?? raw.stats ?? inner.metrics),
+    metrics: direct.length ? direct : panelMetrics(raw.panels),
   };
 }
 
@@ -180,7 +201,7 @@ export function parseJob(raw: unknown): JobInfo {
   const p = raw.progress ?? raw.fraction ?? raw.percent;
   let progress: number | null = null;
   if (typeof p === 'number') progress = p > 1 ? Math.min(1, p / 100) : Math.max(0, p);
-  const running = raw.running === true || raw.active === true || raw.busy === true || raw.state === 'running';
+  const running = raw.running === true || raw.active === true || raw.busy === true || raw.state === 'running' || raw.phase === 'running';
   return { running, progress, label: str(raw.label ?? raw.message ?? raw.stage ?? raw.name) };
 }
 

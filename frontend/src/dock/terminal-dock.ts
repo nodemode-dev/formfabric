@@ -184,6 +184,7 @@ export class TerminalDock {
     grip.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       grip.setPointerCapture(e.pointerId);
+      html.setAttribute('data-ft-dock-drag', '1');
       const bottom = this.root.getBoundingClientRect().bottom;
       let frame = 0;
       let want = e.clientY;
@@ -202,6 +203,7 @@ export class TerminalDock {
         grip.removeEventListener('pointermove', move);
         grip.removeEventListener('pointerup', up);
         grip.removeEventListener('pointercancel', up);
+        html.removeAttribute('data-ft-dock-drag');
         keep(this.isOpen(), this.height());
         window.dispatchEvent(new Event('resize'));
       };

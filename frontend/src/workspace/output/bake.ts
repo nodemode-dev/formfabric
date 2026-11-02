@@ -62,15 +62,6 @@ abstract class JobDialog extends Dialog {
     this.open(this.pathRow.input);
   }
 
-  private async poll(stop: () => boolean): Promise<void> {
-    while (!stop()) {
-      const j = await this.store.job();
-      if (stop()) return;
-      if (j && j.running) { this.progress.set(j.progress); if (j.label) setText(this.status, j.label); }
-      await new Promise((r) => setTimeout(r, 250));
-    }
-  }
-
   private async run(): Promise<void> {
     if (this.busy) return;
     const path = this.pathRow.get().trim();
@@ -80,10 +71,7 @@ abstract class JobDialog extends Dialog {
     this.progress.show(true);
     setText(this.status, t('Working...'));
     this.paint();
-    let done = false;
-    void this.poll(() => done);
     const r = await this.store.attempt<Record<string, unknown>>(this.command, this.args());
-    done = true;
     this.busy = false;
     this.progress.show(false);
     this.paint();
@@ -96,7 +84,7 @@ abstract class JobDialog extends Dialog {
 
 export class BakeDialog extends JobDialog {
   private readonly maps: Array<[string, ReturnType<typeof toggleRow>]> = [];
-  private readonly size = selectRow('Size', [['512', '512'], ['1024', '1024'], ['2048', '2048'], ['4096', '4096'], ['8192', '8192']]);
+  private readonly size = selectRow('Size', [['512', '512'], ['1024', '1024'], ['2048', '2048'], ['4096', '4096']]);
 
   constructor(store: OutputStore, notify: Notify) {
     super('Bake Maps', 'bake.run', store, notify, 'bake', 'bake/garment', 'png', 'Image', 'Bake');

@@ -299,13 +299,43 @@ export class PatternView implements ViewCtx {
     return this.colorSet;
   }
 
+  private resizeTimer = 0;
+
   private resize(): void {
+    const r = this.pane.getBoundingClientRect();
+    const w = Math.max(0, Math.round(r.width));
+    const h = Math.max(0, Math.round(r.height));
+    this.rect = null;
+    if (this.w > 0 && this.h > 0 && w > 0 && h > 0 && (w !== this.w || h !== this.h)) {
+      this.canvas.style.width = `${w}px`;
+      this.canvas.style.height = `${h}px`;
+      window.clearTimeout(this.resizeTimer);
+      this.resizeTimer = window.setTimeout(() => this.afterResize(), 140);
+      return;
+    }
+    this.settle();
+  }
+
+  private afterResize(): void {
+    if (document.documentElement.hasAttribute('data-ft-dock-drag')) {
+      this.resizeTimer = window.setTimeout(() => this.afterResize(), 140);
+      return;
+    }
+    this.settle();
+  }
+
+  private settle(): void {
+    window.clearTimeout(this.resizeTimer);
     const r = this.pane.getBoundingClientRect();
     const w = Math.max(0, Math.round(r.width));
     const h = Math.max(0, Math.round(r.height));
     const dpr = window.devicePixelRatio || 1;
     this.rect = null;
-    if (w === this.w && h === this.h && dpr === this.dpr) return;
+    if (w === this.w && h === this.h && dpr === this.dpr) {
+      this.canvas.style.width = `${w}px`;
+      this.canvas.style.height = `${h}px`;
+      return;
+    }
     this.w = w;
     this.h = h;
     this.dpr = dpr;

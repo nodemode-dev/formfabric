@@ -195,15 +195,6 @@ export class OutputPanel {
     return ids.length ? ids : this.doc.garment.panels.map((p) => p.id);
   }
 
-  private async pollJob(stop: () => boolean): Promise<void> {
-    while (!stop()) {
-      const j = await this.store.job();
-      if (stop()) return;
-      if (j && j.running) { this.progress.set(j.progress); if (j.label) setText(this.status, j.label); }
-      await new Promise((r) => setTimeout(r, 250));
-    }
-  }
-
   private async runRemesh(): Promise<void> {
     if (this.remeshing) return;
     this.remeshing = true;
@@ -211,10 +202,7 @@ export class OutputPanel {
     this.progress.show(true);
     setText(this.status, t('Remeshing...'));
     this.paint();
-    let done = false;
-    void this.pollJob(() => done);
     const r = await this.store.attempt<Record<string, unknown>>('quad.remesh', { panels: this.selectedPanels(), density: this.density.range.valueAsNumber });
-    done = true;
     this.remeshing = false;
     this.progress.show(false);
     if (!r.ok) { setText(this.status, r.message); this.deps.toast(r.message, 'error'); }

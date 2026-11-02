@@ -188,7 +188,7 @@ export class UvEditor {
   private paintInfo(): void {
     const i = this.store.uv.islands.find((x) => x.panel === this.selected);
     if (!i) { setText(this.info, `${this.store.uv.islands.length} ${t('islands')}`); return; }
-    setText(this.info, `${i.name}   U ${i.offset[0].toFixed(3)}  V ${i.offset[1].toFixed(3)}   ${Math.round(i.rotation)}°   x${i.scale.toFixed(2)}   ${t('Tile')} ${1001 + i.tile}`);
+    setText(this.info, `${i.name}   U ${i.offset[0].toFixed(3)}  V ${i.offset[1].toFixed(3)}   ${Math.round(i.rotation)}°   ${(i.scale * 1000).toPrecision(3)} ${t('UV per m')}   ${t('Tile')} ${1001 + i.tile}`);
   }
 
   private async runLayout(): Promise<void> {

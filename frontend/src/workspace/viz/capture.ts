@@ -187,7 +187,7 @@ export class Capture {
     return blob;
   }
 
-  private recorder(): { rec: MediaRecorder; done: Promise<Blob> } {
+  private recorder(): { rec: MediaRecorder; done: Promise<Blob>; push: () => void } {
     if (typeof MediaRecorder === 'undefined') throw new Error(t('This window cannot record video'));
     const stream = this.host.canvas.captureStream(FPS);
     const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
@@ -196,7 +196,8 @@ export class Capture {
     const chunks: Blob[] = [];
     rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
     const done = new Promise<Blob>((res) => { rec.onstop = () => res(new Blob(chunks, { type: 'video/webm' })); });
-    return { rec, done };
+    const track = stream.getVideoTracks()[0] as (MediaStreamTrack & { requestFrame?: () => void }) | undefined;
+    return { rec, done, push: () => track?.requestFrame?.() };
   }
 
   private async video(): Promise<Blob | null> {
@@ -231,12 +232,13 @@ export class Capture {
     const cam = this.host.camera;
     const yaw = cam.yaw;
     this.host.setAutoFrame(false);
-    const { rec, done } = this.recorder();
+    const { rec, done, push } = this.recorder();
     rec.start(250);
     const t0 = performance.now();
     for (let i = 0; i < frames && !this.cancel; i++) {
       cam.yaw = yaw - (i / frames) * Math.PI * 2;
       this.host.paintNow();
+      push();
       this.say(`${t('Recording')} ${i + 1} / ${frames}`);
       const due = t0 + ((i + 1) * 1000) / FPS;
       await wait(Math.max(1, due - performance.now()));

@@ -110,9 +110,9 @@ export class ExportDialog extends Dialog {
     if (!r) return;
     for (const [key, { spec, row }] of b.rows) {
       const rw = row as unknown as Row<Value>;
-      if (spec.kind === 'pair' && key === 'range') rw.set([r.start, r.end]);
-      else if (spec.kind !== 'pair' && START.test(key)) rw.set(r.start);
-      else if (spec.kind !== 'pair' && END.test(key)) rw.set(r.end);
+      if (spec.kind === 'pair' && key === 'range') rw.set([0, r.end - r.start]);
+      else if (spec.kind !== 'pair' && START.test(key)) rw.set(0);
+      else if (spec.kind !== 'pair' && END.test(key)) rw.set(r.end - r.start);
     }
   }
 
@@ -145,7 +145,7 @@ export class ExportDialog extends Dialog {
     let hint = '';
     if (!this.store.has('export.formats') || !have) hint = t('Not available in this engine build');
     else if (!formats) hint = t('No export formats are available.');
-    else if (b && range && [...b.rows.values()].some((r) => START.test(r.spec.key) || END.test(r.spec.key) || r.spec.key === 'range')) hint = `${t('Timeline cache frames')} ${range.start} - ${range.end}`;
+    else if (b && range && [...b.rows.values()].some((r) => START.test(r.spec.key) || END.test(r.spec.key) || r.spec.key === 'range')) hint = `${t('Timeline cache frames')} 0 - ${range.end - range.start}`;
     setText(this.note, hint);
     setHidden(this.note, hint === '');
     const off = !have || !formats || this.busy;
@@ -179,15 +179,6 @@ export class ExportDialog extends Dialog {
     this.open(this.path.input);
   }
 
-  private async poll(stop: () => boolean): Promise<void> {
-    while (!stop()) {
-      const j = await this.store.job();
-      if (stop()) return;
-      if (j && j.running) { this.progress.set(j.progress); if (j.label) setText(this.status, j.label); }
-      await new Promise((r) => setTimeout(r, 250));
-    }
-  }
-
   private async run(): Promise<void> {
     const b = this.built.get(this.current);
     const path = this.path.get().trim();
@@ -200,10 +191,10 @@ export class ExportDialog extends Dialog {
     this.progress.show(true);
     setText(this.status, t('Exporting...'));
     this.paint();
-    let done = false;
-    void this.poll(() => done);
-    const r = await this.store.attempt<Record<string, unknown>>('export.run', { format: b.info.id, path, options: this.values(b.info.id) });
-    done = true;
+    const opts = this.values(b.info.id);
+    if (opts.animation !== true) for (const k of ['cache', 'start', 'end', 'step']) delete opts[k];
+    else if (!(Number(opts.cache) >= 1)) delete opts.cache;
+    const r = await this.store.attempt<Record<string, unknown>>('export.run', { ...opts, format: b.info.id, path });
     this.busy = false;
     this.progress.show(false);
     this.paint();
@@ -213,7 +204,9 @@ export class ExportDialog extends Dialog {
       return;
     }
     const out = typeof r.result?.path === 'string' ? r.result.path : path;
-    const bytes = typeof r.result?.bytes === 'number' ? r.result.bytes : typeof r.result?.size === 'number' ? r.result.size : null;
+    const files = Array.isArray(r.result?.files) ? (r.result.files as Array<{ bytes?: unknown }>) : [];
+    const sum = files.reduce((n, f) => n + (typeof f.bytes === 'number' ? f.bytes : 0), 0);
+    const bytes = sum > 0 ? sum : typeof r.result?.bytes === 'number' ? r.result.bytes : null;
     const size = bytes === null ? '' : ` (${bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`})`;
     setText(this.status, '');
     this.notify(`${t('Exported')} ${b.info.label}: ${out}${size}`, 'info');

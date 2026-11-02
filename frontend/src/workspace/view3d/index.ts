@@ -799,14 +799,43 @@ export class View3D {
     }
   }
 
+  private resizeTimer = 0;
+
   private resize(): void {
+    const r = this.pane.getBoundingClientRect();
+    const w = Math.max(0, Math.round(r.width));
+    const h = Math.max(0, Math.round(r.height));
+    if (this.w > 0 && this.h > 0 && w > 0 && h > 0 && (w !== this.w || h !== this.h)) {
+      this.canvas.style.width = `${w}px`;
+      this.canvas.style.height = `${h}px`;
+      window.clearTimeout(this.resizeTimer);
+      this.resizeTimer = window.setTimeout(() => this.afterResize(), 140);
+      return;
+    }
+    this.settle();
+  }
+
+  private afterResize(): void {
+    if (document.documentElement.hasAttribute('data-ft-dock-drag')) {
+      this.resizeTimer = window.setTimeout(() => this.afterResize(), 140);
+      return;
+    }
+    this.settle();
+  }
+
+  private settle(): void {
+    window.clearTimeout(this.resizeTimer);
     const r = this.pane.getBoundingClientRect();
     const w = Math.max(0, Math.round(r.width));
     const h = Math.max(0, Math.round(r.height));
     const dpr = window.devicePixelRatio || 1;
     const bw = Math.round(w * dpr);
     const bh = Math.round(h * dpr);
-    if (w === this.w && h === this.h && this.canvas.width === bw) return;
+    if (w === this.w && h === this.h && this.canvas.width === bw) {
+      this.canvas.style.width = `${w}px`;
+      this.canvas.style.height = `${h}px`;
+      return;
+    }
     this.w = w;
     this.h = h;
     this.canvas.width = bw;
