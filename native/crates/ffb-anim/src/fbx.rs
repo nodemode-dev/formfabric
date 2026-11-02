@@ -4,7 +4,7 @@ use ffb_body::math::*;
 
 use crate::clip::{Clip, ClipJoint, MAX_FRAMES, MAX_JOINTS};
 
-pub const MAX_BYTES: u64 = 1 << 30;
+pub const MAX_BYTES: u64 = 64 << 20;
 
 fn quat(q: &ufbx::Quat) -> Q {
     qnorm([q.x as f32, q.y as f32, q.z as f32, q.w as f32])
@@ -21,6 +21,8 @@ pub fn parse(path: &str, fps: f32, name: String) -> Result<Clip, String> {
     }
     let opts = ufbx::LoadOpts {
         ignore_geometry: true,
+        temp_allocator: ufbx::AllocatorOpts { memory_limit: 1 << 30, ..Default::default() },
+        result_allocator: ufbx::AllocatorOpts { memory_limit: 1 << 30, ..Default::default() },
         target_axes: ufbx::CoordinateAxes { right: ufbx::CoordinateAxis::PositiveX, up: ufbx::CoordinateAxis::PositiveY, front: ufbx::CoordinateAxis::PositiveZ },
         target_unit_meters: 0.001,
         ..Default::default()

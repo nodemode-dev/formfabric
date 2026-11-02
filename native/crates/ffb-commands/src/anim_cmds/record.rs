@@ -112,6 +112,7 @@ pub(crate) struct Plan {
     pub shared: Arc<Mutex<ffb_sim::Params>>,
     pub job: Arc<Mutex<Job>>,
     pub cancel: Arc<AtomicBool>,
+    pub alive: Arc<AtomicBool>,
     pub anim: Anim,
     pub bodies: Vec<Body>,
     pub rigs: Vec<BodyRig>,
@@ -236,6 +237,7 @@ pub(crate) fn plan_for(s: &mut Session, start: u32, end: u32, name: String, step
         shared: s.sim.params.clone(),
         job: s.anim.job.clone(),
         cancel: s.anim.cancel.clone(),
+        alive: s.anim.alive.clone(),
         anim: s.garment.anim.clone(),
         bodies,
         rigs,
@@ -258,9 +260,11 @@ pub(crate) fn spawn(plan: Plan) -> bool {
     let body = move || {
         let job = plan.job.clone();
         let shared = plan.shared.clone();
+        let alive = plan.alive.clone();
         let original = *shared.lock().unwrap_or_else(|e| e.into_inner());
         let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(plan)));
         *shared.lock().unwrap_or_else(|e| e.into_inner()) = original;
+        alive.store(false, Ordering::Release);
         if outcome.is_err() {
             fail(&job, "the recording thread stopped unexpectedly".into());
         }
@@ -339,7 +343,7 @@ fn run(mut p: Plan) {
             if apply_cloth_keys(g, &p.anim, f64::from(f)) {
                 if let Err(e) = rekey(g, &[]) {
                     fail(&p.job, format!("the cloth could not be rebuilt for the panel or fabric keys at frame {f}: {e}"));
-                    return;
+                    break;
                 }
             }
         }
@@ -411,7 +415,7 @@ fn run(mut p: Plan) {
         }
         if let Err(e) = writer.push(&panels, &frames_bodies, stat.clone()) {
             fail(&p.job, e);
-            return;
+            break;
         }
         if let Some(sink) = &p.sink {
             for (id, v) in &snap {

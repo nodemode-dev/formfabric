@@ -1,4 +1,5 @@
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use ffb_anim::cachefmt::{BodyFrame, BodySpec, Cache};
 use ffb_body::math::IDENTITY;
@@ -38,9 +39,18 @@ pub(crate) fn job_json(s: &Session, with_stats: bool) -> Value {
 }
 
 fn harvest(s: &mut Session) -> Result<Option<u32>, CommandError> {
+    let size = match lock_job(&s.anim.job).finished.as_ref() {
+        Some(f) => f.bytes.len(),
+        None => return Ok(None),
+    };
+    let stored: usize = s.unknown.iter().map(|(_, d)| d.len()).sum();
+    if stored + size > PROJECT_BUDGET {
+        lock_job(&s.anim.job).finished = None;
+        return Err(CommandError::new("too_large", format!("the recording ({} MiB) does not fit the project size limit of 1 GiB next to the {} MiB already stored; it was discarded. Remove a cache layer or record with storage quantized", size >> 20, stored >> 20)));
+    }
     let finished = lock_job(&s.anim.job).finished.take();
     let Some(done) = finished else { return Ok(None) };
-    let id = s.garment.anim.caches.iter().map(|c| c.id).max().unwrap_or(0) + 1;
+    let id = super::alloc_cache_id(s);
     let name = cache_entry(id);
     put_entry(s, name.clone(), done.bytes);
     edit_garment(s, "Record animation", |g| {
@@ -51,7 +61,13 @@ fn harvest(s: &mut Session) -> Result<Option<u32>, CommandError> {
     Ok(Some(id))
 }
 
+const PROJECT_BUDGET: usize = 900 << 20;
+
 fn job_state(s: &mut Session, _a: &Value) -> Result<Value, CommandError> {
+    Ok(job_json(s, true))
+}
+
+fn job_harvest(s: &mut Session, _a: &Value) -> Result<Value, CommandError> {
     let cache = harvest(s)?;
     let mut out = job_json(s, true);
     if let Some(map) = out.as_object_mut() {
@@ -81,6 +97,7 @@ fn record(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     if lock_job(&s.anim.job).phase == "running" {
         return Err(CommandError::new("busy", "a recording is already running; anim.stop ends it"));
     }
+    let _ = harvest(s);
     let anim = &s.garment.anim;
     let get = |k: &str, d: u32| -> Result<u32, CommandError> {
         match a.get(k).filter(|v| !v.is_null()) {
@@ -98,7 +115,10 @@ fn record(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let steps = a.get("steps").and_then(Value::as_u64).map_or(2, |x| x.clamp(1, 8) as u32);
     let validate = a.get("validate").and_then(Value::as_bool).unwrap_or(true);
     let quantized = a.get("storage").and_then(Value::as_str) == Some("quantized");
-    let id_next = s.garment.anim.caches.iter().map(|c| c.id).max().unwrap_or(0) + 1;
+    if s.anim.alive.load(Ordering::Acquire) {
+        return Err(CommandError::new("busy", "the previous recording is still stopping; try again in a moment"));
+    }
+    let id_next = s.anim.next_cache.max(s.garment.anim.caches.iter().map(|c| c.id).max().unwrap_or(0) + 1);
     let name = match a.get("name").and_then(Value::as_str) {
         Some(n) => {
             crate::args::clean_name("name", n)?;
@@ -116,14 +136,16 @@ fn record(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     } else if stale {
         crate::dispatch(s, "sim.step", &json!({"frames": 1}))?;
     }
-    s.anim.cancel.store(false, Ordering::Release);
+    s.anim.cancel = Arc::new(AtomicBool::new(false));
     let plan = plan_for(s, start, end, name.clone(), steps, validate, quantized)?;
     {
         let mut j = lock_job(&s.anim.job);
         let warnings = std::mem::take(&mut j.warnings);
         *j = super::Job { phase: "running", total: end - start + 1, start, end, name, warnings, ..super::Job::default() };
     }
+    s.anim.alive.store(true, Ordering::Release);
     if !spawn(plan) {
+        s.anim.alive.store(false, Ordering::Release);
         lock_job(&s.anim.job).phase = "failed";
         return Err(CommandError::new("unsupported", "this build cannot record in the background"));
     }
@@ -236,7 +258,15 @@ fn play(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     use std::time::{Duration, Instant};
     let k = cache_pick(s, a)?;
     let layer = s.garment.anim.caches[k].clone();
-    let data = entry(s, &layer.entry).ok_or_else(|| CommandError::new("not_found", "the cache data is missing"))?.to_vec();
+    let shared_data = match s.anim.play_data.as_ref() {
+        Some((name, data)) if *name == layer.entry => data.clone(),
+        _ => {
+            let copy = Arc::new(entry(s, &layer.entry).ok_or_else(|| CommandError::new("not_found", "the cache data is missing"))?.to_vec());
+            s.anim.play_data = Some((layer.entry.clone(), copy.clone()));
+            copy
+        }
+    };
+    let data = shared_data;
     let header = Cache::parse(&data).map_err(|e| CommandError::new("invalid_geometry", e))?.header;
     let sink = s.sink.clone().ok_or_else(|| CommandError::new("unsupported", "playback needs a connected viewer"))?;
     let last = header.start + header.frames.saturating_sub(1);
@@ -316,7 +346,8 @@ pub(crate) fn commands() -> Vec<Command> {
     vec![
         Command { id: "anim.record", mcp: "anim_record", group: Group::Anim, label: "Record animation", description: "Record a cache layer on a background thread: for each frame pose the bodies (motions, pose, measurement and morph tracks, skinned through ffb-body), move the colliders, apply wind tracks, step the cloth with solver substeps, and store every panel's positions plus the body pose. Per frame it measures body penetration, self intersections and vertex displacement. It continues from the current draped state, so drape first. Poll job.state.", keys: &[], hints: WRITE, schema: record_schema, run: record },
         Command { id: "anim.stop", mcp: "anim_stop", group: Group::Anim, label: "Stop recording", description: "Stop a running recording; the frames recorded so far are kept.", keys: &[], hints: SET, schema: no_args, run: stop },
-        Command { id: "job.state", mcp: "job_state", group: Group::Anim, label: "Recording state", description: "Read the recording job: phase, frame, total, per-frame validation statistics and warnings. When a recording has finished, the call stores it as a cache layer (one undo step) and returns its id.", keys: &[], hints: READ, schema: no_args, run: job_state },
+        Command { id: "job.state", mcp: "job_state", group: Group::Anim, label: "Recording state", description: "Read the recording job: phase, frame, total, per-frame validation statistics and warnings. It changes nothing; when ready is true, call job.harvest to store the recording as a cache layer.", keys: &[], hints: READ, schema: no_args, run: job_state },
+        Command { id: "job.harvest", mcp: "job_harvest", group: Group::Anim, label: "Store recording", description: "Store a finished recording as a cache layer (one undo step) and return its id in cache; null when nothing is waiting. Call it when job.state reports ready.", keys: &[], hints: WRITE, schema: no_args, run: job_harvest },
         Command { id: "cache.frame", mcp: "cache_frame", group: Group::Anim, label: "Show cache frame", description: "Stream one cached frame's positions for every panel and the posed bodies to the viewer and return the vertex count. Frames are timeline frames inside the cache range.", keys: &[], hints: SET, schema: frame_schema, run: cache_frame },
         Command { id: "anim.play", mcp: "anim_play", group: Group::Anim, label: "Play cache", description: "Play a cache layer to the viewer from a frame at the cache frame rate on a background thread.", keys: &[], hints: SET, schema: play_schema, run: play },
         Command { id: "anim.pause", mcp: "anim_pause", group: Group::Anim, label: "Pause playback", description: "Pause cache playback and return the frame it stopped on.", keys: &[], hints: SET, schema: no_args, run: pause },

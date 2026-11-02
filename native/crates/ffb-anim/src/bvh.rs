@@ -2,7 +2,7 @@ use ffb_body::math::*;
 
 use crate::clip::{Clip, ClipJoint, MAX_FRAMES, MAX_JOINTS, MAX_VALUES};
 
-pub const MAX_BYTES: usize = 128 << 20;
+pub const MAX_BYTES: usize = 32 << 20;
 const MAX_DEPTH: usize = 256;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -131,6 +131,9 @@ pub fn parse(bytes: &[u8], options: &Options) -> Result<Clip, String> {
             }
             "end" => {
                 t.expect("Site")?;
+                if nodes.len() >= 4 * MAX_JOINTS {
+                    return Err("the BVH file has too many End Site nodes".into());
+                }
                 pending = Some((None, true));
             }
             "{" => {
@@ -161,6 +164,9 @@ pub fn parse(bytes: &[u8], options: &Options) -> Result<Clip, String> {
             "channels" => {
                 let n = t.count(6)?;
                 let i = *stack.last().ok_or("CHANNELS outside a joint")?;
+                if !nodes[i].channels.is_empty() || nodes[i].end_site {
+                    return Err("the BVH file has a second CHANNELS line on one joint".into());
+                }
                 for _ in 0..n {
                     let name = t.next()?;
                     nodes[i].channels.push(channel(name).ok_or_else(|| format!("the BVH file has an unknown channel {name}"))?);

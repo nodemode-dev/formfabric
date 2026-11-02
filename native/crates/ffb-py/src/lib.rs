@@ -64,9 +64,11 @@ impl Engine {
         Engine { session: Mutex::new(Session::default()), stream: OnceLock::new() }
     }
 
-    fn dispatch(&self, name: &str, args_json: &str) -> PyResult<String> {
-        let mut session = self.session.lock().unwrap_or_else(|e| e.into_inner());
-        Ok(guarded(|| ffb_commands::dispatch_json(&mut session, name, args_json).to_string()))
+    fn dispatch(&self, py: Python<'_>, name: &str, args_json: &str) -> PyResult<String> {
+        Ok(py.detach(|| {
+            let mut session = self.session.lock().unwrap_or_else(|e| e.into_inner());
+            guarded(|| ffb_commands::dispatch_json(&mut session, name, args_json).to_string())
+        }))
     }
 
     fn epoch(&self) -> PyResult<u64> {

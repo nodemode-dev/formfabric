@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 pub const MAGIC: &[u8; 4] = b"FFAC";
 pub const MAX_FRAMES: u32 = 100_000;
 pub const MAX_HEADER: usize = 64 << 20;
-pub const MAX_BYTES: usize = 3 << 29;
+pub const MAX_BYTES: usize = 480 << 20;
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -55,15 +55,20 @@ pub struct BodyFrame {
 
 impl Header {
     pub fn frame_size(&self) -> usize {
+        self.checked_frame_size().unwrap_or(usize::MAX)
+    }
+
+    pub fn checked_frame_size(&self) -> Option<usize> {
         let mut size = 0usize;
         for p in &self.panels {
             let n = p.vertices as usize;
-            size += if self.quantized { 24 + n * 6 } else { n * 12 };
+            let s = if self.quantized { n.checked_mul(6)?.checked_add(24)? } else { n.checked_mul(12)? };
+            size = size.checked_add(s)?;
         }
         for b in &self.bodies {
-            size += 16 + b.joints.len() * 16;
+            size = size.checked_add(b.joints.len().checked_mul(16)?.checked_add(16)?)?;
         }
-        size
+        Some(size)
     }
 }
 
@@ -190,7 +195,10 @@ impl<'a> Cache<'a> {
         if header.frames > MAX_FRAMES || header.panels.len() > 4096 || header.bodies.len() > 256 {
             return Err("the animation cache is over the limits".into());
         }
-        let frame_size = header.frame_size();
+        if header.stats.len() != header.frames as usize || header.bodies.iter().any(|b| b.joints.len() > 4096) {
+            return Err("the animation cache header is inconsistent".into());
+        }
+        let frame_size = header.checked_frame_size().ok_or("the animation cache layout is too large")?;
         let payload = &bytes[12 + hl..];
         if frame_size.checked_mul(header.frames as usize) != Some(payload.len()) {
             return Err("the animation cache payload does not match its header".into());

@@ -11,7 +11,7 @@ use super::{bad, edit_garment, entry, put_entry};
 use crate::{args, no_args, Command, CommandError, Group, Session, DESTROY, READ, SET, WRITE};
 
 const MAX_FRAME: u64 = 100_000;
-const MAX_FILE: u64 = 512 << 20;
+const MAX_FILE: u64 = 64 << 20;
 const WIND_FIELDS: [&str; 7] = ["enabled", "strength", "decay", "turbulence", "direction", "origin", "kind"];
 const PANEL_FIELDS: [&str; 6] = ["frozen", "disabled", "stiffen", "hold_shape", "shrink_weft", "shrink_warp"];
 
@@ -188,8 +188,8 @@ fn read_clip(path: &str, a: &Value, name: &str) -> Result<Clip, CommandError> {
     }
 }
 
-fn next_motion_id(s: &Session) -> u32 {
-    s.garment.anim.motions.iter().map(|m| m.id).max().unwrap_or(0) + 1
+fn next_motion_id(s: &mut Session) -> u32 {
+    super::alloc_motion_id(s)
 }
 
 fn report(clip: &Clip, rt: &Retargeter) -> Value {
@@ -531,9 +531,9 @@ fn morph_set(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let frames = uint(a, "frames", MAX_FRAME)?.filter(|f| *f >= 1).ok_or_else(|| bad("frames must be at least 1"))?;
     let start = uint(a, "start", MAX_FRAME)?.unwrap_or(s.garment.anim.start);
     let (from_id, to_id) = (fb.id, tb.id);
+    let name = format!("Morph {} to {}", fb.name, tb.name);
     let id = next_motion_id(s);
     let fps = s.garment.anim.fps;
-    let name = format!("Morph {} to {}", fb.name, tb.name);
     edit_garment(s, "Set morph", |g| {
         g.anim.motions.retain(|m| !(m.body == from_id && m.source.starts_with("morph:")));
         g.anim.motions.push(Motion { id, name: name.clone(), source: format!("morph:{to_id}"), body: from_id, start, frames, fps, lead_in: 0, retarget: Value::Null });

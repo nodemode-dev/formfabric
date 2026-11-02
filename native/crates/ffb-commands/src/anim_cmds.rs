@@ -11,7 +11,7 @@ use ffb_anim::cachefmt::FrameStat;
 use crate::{Command, CommandError, Edit, Session};
 
 pub(crate) const OBJECT_BASE: u32 = 1_000_000;
-const MAX_TRASH: usize = 6;
+const MAX_TRASH_BYTES: usize = 1 << 30;
 
 pub(crate) struct Finished {
     pub bytes: Vec<u8>,
@@ -51,11 +51,19 @@ pub struct AnimState {
     pub(crate) play_generation: Arc<AtomicU64>,
     pub(crate) play_frame: Arc<AtomicU32>,
     pub(crate) trash: Vec<(String, Vec<u8>)>,
+    pub(crate) alive: Arc<AtomicBool>,
+    pub(crate) next_motion: u32,
+    pub(crate) next_cache: u32,
+    pub(crate) play_data: Option<(String, Arc<Vec<u8>>)>,
 }
 
 impl Default for AnimState {
     fn default() -> Self {
         AnimState {
+            alive: Arc::new(AtomicBool::new(false)),
+            next_motion: 1,
+            next_cache: 1,
+            play_data: None,
             job: Arc::new(Mutex::new(Job::default())),
             cancel: Arc::new(AtomicBool::new(false)),
             playing: Arc::new(AtomicBool::new(false)),
@@ -108,17 +116,38 @@ fn referenced(s: &Session) -> Vec<String> {
     names
 }
 
+fn entry_id(name: &str) -> u32 {
+    name.rsplit('/').next().and_then(|f| f.strip_suffix(".bin")).and_then(|n| n.parse().ok()).unwrap_or(0)
+}
+
+pub(crate) fn alloc_motion_id(s: &mut Session) -> u32 {
+    let seen = s.garment.anim.motions.iter().map(|m| m.id);
+    let stored = s.unknown.iter().chain(s.anim.trash.iter()).filter(|(n, _)| n.starts_with("motion/")).map(|(n, _)| entry_id(n));
+    let id = seen.chain(stored).max().unwrap_or(0).max(s.anim.next_motion.saturating_sub(1)) + 1;
+    s.anim.next_motion = id + 1;
+    id
+}
+
+pub(crate) fn alloc_cache_id(s: &mut Session) -> u32 {
+    let seen = s.garment.anim.caches.iter().map(|c| c.id);
+    let stored = s.unknown.iter().chain(s.anim.trash.iter()).filter(|(n, _)| n.starts_with("cache/")).map(|(n, _)| entry_id(n));
+    let id = seen.chain(stored).max().unwrap_or(0).max(s.anim.next_cache.saturating_sub(1)) + 1;
+    s.anim.next_cache = id + 1;
+    id
+}
+
 fn sweep(s: &mut Session) {
     let names = referenced(s);
     let mut moved = Vec::new();
-    s.unknown.retain(|(n, d)| {
-        let ours = n.starts_with("cache/") || n.starts_with("motion/");
-        if ours && !names.contains(n) {
-            moved.push((n.clone(), d.clone()));
-            return false;
+    let all = std::mem::take(&mut s.unknown);
+    for item in all {
+        let ours = item.0.starts_with("cache/") || item.0.starts_with("motion/");
+        if ours && !names.contains(&item.0) {
+            moved.push(item);
+        } else {
+            s.unknown.push(item);
         }
-        true
-    });
+    }
     for item in moved {
         s.anim.trash.retain(|(n, _)| *n != item.0);
         s.anim.trash.push(item);
@@ -132,18 +161,21 @@ fn sweep(s: &mut Session) {
             s.unknown.push(item);
         }
     }
-    while s.anim.trash.len() > MAX_TRASH {
-        s.anim.trash.remove(0);
+    let mut bytes: usize = s.anim.trash.iter().map(|(_, d)| d.len()).sum();
+    while bytes > MAX_TRASH_BYTES && !s.anim.trash.is_empty() {
+        bytes -= s.anim.trash.remove(0).1.len();
     }
 }
 
 pub(crate) fn after_change(session: &mut Session, command: &str) {
     if command.starts_with("file.") {
         session.anim.cancel.store(true, Ordering::Release);
+        session.anim.cancel = Arc::new(AtomicBool::new(false));
         session.anim.playing.store(false, Ordering::Release);
         session.anim.play_generation.fetch_add(1, Ordering::AcqRel);
         session.anim.trash.clear();
-        *lock_job(&session.anim.job) = Job::default();
+        session.anim.play_data = None;
+        session.anim.job = Arc::new(Mutex::new(Job::default()));
     }
     sweep(session);
 }
