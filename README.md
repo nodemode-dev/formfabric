@@ -7,7 +7,7 @@
 <p align="center"><b>The garment studio of the form family: draw sewing patterns, sew them, drape them on a body w/ a real cloth simulation, animate & export.</b></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.23.1-f97316" alt="version v0.23.1" />
+  <img src="https://img.shields.io/badge/version-v0.23.2-f97316" alt="version v0.23.2" />
   <img src="https://img.shields.io/badge/Node.js-20.19%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 20.19+" />
   <img src="https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white" alt="Python 3.12+" />
   <img src="https://img.shields.io/badge/Rust-1.99-000000?logo=rust&logoColor=white" alt="Rust 1.99" />

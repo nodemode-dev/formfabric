@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.23.2 · 2026-11-02
+
+- CI: every action moved to its Node 24 major (`checkout@v6`, `setup-node@v6`, `setup-python@v6`). GitHub removed Node 20 from its hosted runners in September 2026, and all four jobs failed within seconds on the first push.
+- The encyclopedia (behaviour specification, parity matrix, open gaps, fabric data) moved out of the repository into the planning sidecar.
+- README rewritten in the form family layout, with the new icon.
+
 ## v0.23.1 · 2026-11-02
 
 Fixes from the owner's test run, and a new icon.
