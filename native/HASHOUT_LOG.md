@@ -2,6 +2,40 @@
 
 Living context for the Rust engine. What would be comments in the crates lives here, newest first. Read before editing anything under `native/`.
 
+## v0.19.0 to v0.23.0 · 2026-11-02
+
+### Workspace and library (Phase 19)
+
+- `scene_cmds.rs` holds `scene.tree`, read only, with no hook. `fabric_cmds/arrange.rs` holds `fabric.copy`, `fabric.merge` and `fabric.order`; `trim_cmds/style.rs` gains `style.copy` and `style.merge`.
+- Library kind `place` (`.ffplace`) stores the body placement and arrangement points; `insert_place` lands as one `Edit::Bodies` step. `stage.set` takes `background: {image, fit}`.
+
+### Animation (Phase 20)
+
+- `CacheLayer` gains `kind` (pattern or trim), `locked` and `offset`; `Anim` gains `auto_key`; all serde default so older projects load. Cut and merge write new `cache/<id>.bin` entries (orphans go to the trash and undo restores them), so cache bytes stay out of undo snapshots.
+- Frames resolve top down: the last visible layer holding the frame wins. A merge fills gaps by linear interpolation of panel positions and body offsets and quaternions; the top selected layer keeps its id.
+- Auto key is a snapshot comparison in the anim hook after each change and amends the last undo step. Pin tracks are `pin:ID` keys applied through `set_pins` before every solver substep while recording.
+- A recording with hardware bindings also stores a trim layer (one point per hardware item from the stored barycentric weights). Cache export skips trim layers and starts at `layer.start`.
+
+### Export and retopology (Phase 21)
+
+- `ffb-io/src/export/weld.rs` builds a weld map with a per corner `uv_ix`; OBJ, FBX, USD, glTF (`single_index`) and the cache formats write through it, and cache frames reduce through the same map. `output_cmds/weld.rs` holds the modes and seam groups.
+- Thick export works with quads, with walls that follow a welded boundary; `quad_swap` no longer skips thick scenes. Welded thick quads still leave open edges at a notch triangle in the quad rim.
+- `bake.run` adds diffuse, metalness, roughness and opacity and `fill_px`. `trim.import` reads FBX through `ffb_body::import::fbx`, now `pub mod`.
+- Topology authoring lives in `ffb-remesh` (`topology.rs`, `topo_ghost.rs`) with twelve `topology.*` commands in `remesh_cmds/topo.rs`; data is `Garment.output.retopo["topology"]`. Ghost points are computed per call at the same arc length fraction of the partner seam side (flipped on reversed seams). Duplicate mode keeps both meshes but the OBJ exporter takes the first mesh per panel id.
+
+### Solver (Phase 22)
+
+- Skive is `finish.add` kind `skive` with the percent in `EdgeFinish.strength`: band bending scales by one minus the percent (floor 5 percent) and thickness by the same factor (floor 10 percent); `stiffen_bands` multiplies factors where bands overlap; stretch and shear are untouched.
+- `Params.untangle` (off by default, normal, flipped) runs `untangle_frame` from `finish_frame`: newly intersecting pairs separate along the triangle normal, at most 2 mm per vertex per frame at gain 0.5, never seam-near or pinned vertices. Opt-in because it did not reliably lower the T-shirt walk's pairs.
+- `Solver::push_out` also projects vertices deeper than the 40 mm contact reach (search 400 mm) to the collider surface plus skin offset. `refit` reports `inside_start_mm` and accepts `maintain` only at maintaining values (Refit never edits the pattern, PATENT_NOTES 2.5).
+
+### Alembic and quad regularity (Phase 23)
+
+- `ffb-io/src/abc/` is formfabric's own Ogawa container and archive writer plus a strict reader; `export/abc.rs` writes the scene. Time starts at 0 with samples 1/fps apart; object aggregate hashes are 32 zero bytes; faces are reversed to Alembic's clockwise order. Blender acceptance is an owner check.
+- `ffb-body` cannot depend on `ffb-io`, so body import has its own small Ogawa reader in `import/abc.rs`; `body.import` takes `sample`.
+- `ffb-remesh` regularity sits behind `Params.regularize` and `remesh.run{regularize}` (default off, part of the cache key): integer edge offsets, holonomy singularities, a successive shortest path min-cost flow with an outside node for rim edges, long-edge splits, zero-edge collapse and triangle pairing; the geometric extract is the fallback and the Report says why. Irregular vertices 300 to 263 over densities 1 to 3, worse at 1 and 1.5.
+- Toolchain: clippy 1.99.1 flags `chunks_exact` with a constant size; use `as_chunks`.
+
 ## v0.7.0 to v0.9.0 · 2026-11-01
 
 ### Solver (ffb-sim)

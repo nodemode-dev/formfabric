@@ -23,6 +23,10 @@ The DXF-AAMA reader and writer follow the public ASTM D6673 conventions as descr
 
 `docs/encyclopedia/` describes Marvelous Designer (CLO Virtual Fashion Inc.) from public sources, paraphrased and linked. No code, artwork, avatars, presets or manual text from it are included. Marvelous Designer and CLO are trademarks of CLO Virtual Fashion Inc.
 
+Alembic (`.abc`) files are written and read by formfabric's own implementation of the Ogawa container (`native/crates/ffb-io/src/abc`, `native/crates/ffb-body/src/import/abc.rs`), written from a format description. The Alembic format and library are Copyright Lucasfilm Entertainment Company Ltd. and Sony Pictures Imageworks Inc. and licensed BSD-3-Clause; no Alembic code is included, and Alembic is named for file compatibility only, with no endorsement implied. The sample keys use the MurmurHash3 x64 128-bit algorithm by Austin Appleby, placed in the public domain by its author, implemented in `native/crates/ffb-io/src/abc/murmur.rs`.
+
+The quad remesher (`native/crates/ffb-remesh`) follows the published methods of Instant Meshes (Jakob, Tarini, Panozzo and Sorkine-Hornung, 2015) and QuadriFlow (Huang, Zhou, Niessner, Shewchuk and Guibas, 2018). It is formfabric's own code written from the papers; no code from either project (BSD-3-Clause, QuadriFlow with an Enhancements grant-back clause) is included.
+
 ## Distributed with the app
 
 Audited in Phase 18 against the lock files: `native/Cargo.lock` and `src-tauri/Cargo.lock` (Rust, with `cargo tree -e normal` for the engine module `ffb-py` with its default `gpu` feature, the in-page engine `ffb-wasm` for wasm32, and the desktop shell for Linux, macOS and Windows targets), `frontend/package-lock.json` (npm `dependencies` only) and `backend/requirements*.txt` (Python, licences read from the installed distributions). Licences are read from each crate's `Cargo.toml`. Where a crate offers a choice (`OR`), formfabric uses it under the permissive option named in the tables. Result: no GPL, LGPL or AGPL code is linked or distributed; MPL-2.0 appears in five desktop shell crates (file-level, see Notes).

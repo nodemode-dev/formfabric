@@ -20,7 +20,8 @@ Start with `./formfabric doctor`: it checks the toolchain, the installs and the 
 | Restore dialog on start | the last session ended without a clean shutdown | Restore or Discard, see [[Recovery]] |
 | Python script cannot reach the service | token or host | see [[Python-API-and-Plugins]]; the window terminal has no token on purpose |
 | Export opens wrong in Blender | axis or units | pass `axis` z_up and the units the target expects; glTF is always metres and Y up |
-| Alembic export refused | not available | use USD, glTF, MDD, PC2, FBX or an OBJ sequence |
+| Alembic file will not open elsewhere | formfabric writes Ogawa files with its own writer, checked against our own reader only | try USD, glTF, MDD, PC2 or FBX, and report the reader and version |
+| Welded export still has open edges | weld joins only sewn seam edges; a quad rim with a notch triangle can leave open wall edges on a thick mesh | export triangles, or fix the rim with the topology tools |
 | `build_app --dry-run` reports a file not executable | a lost file mode | restore the executable bit on `build_app` and the `setup/` scripts |
 | Browser console shows a missing WebGPU adapter | headless or software rendering | expected; the solver runs natively, not in the webview |
 

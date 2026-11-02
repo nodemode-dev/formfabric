@@ -21,13 +21,13 @@ Trims are the details added to a garment: buttons, zippers, stitching, edge fini
 | Edge finishes | `finish_add`, `finish_set`, `finish_delete` | piping and binding make a strip panel sewn by a real seam; elastic and shirring act through a seam ratio (Shift+E) |
 | Prints | `print_add`, `print_set`, `print_delete` | an image on a panel face with position, rotation, size and optional emboss (Shift+I) |
 | Quilting | `quilt_make` | clones a panel as a lining with opposite pressure and sews fold lines |
-| Imported trims | `trim_import` | an OBJ becomes a rigid trim glued to a panel point, recentred and scaled to millimetres, stored inside the project |
+| Imported trims | `trim_import` | an OBJ or FBX becomes a rigid trim glued to a panel point, recentred and scaled to millimetres, stored inside the project; an FBX takes its units from the file header, `scale` is an extra multiplier and `up` is ignored; limits 8 MB and 20,000 triangles |
 | Inspection | `trim_debug` | read only: what the simulation would read from the trims right now |
 
 ## Notes
 
 - Deleting a finish removes its generated strip panels and every seam touching them in one undo step.
-- FBX trims are not built (open parity row); imported trims are OBJ.
+- `finish_add` kind `skive` (with `percent` 0 to 100, default 50) is the inverse of bond: it scales the bending stiffness of a band along the chosen edge by one minus the percent (floor 5 percent) and the solver thickness by the same factor (floor 10 percent); stretch and shear are untouched. `finish_set` refuses `strength` on a skive and `percent` on other kinds.
 - Trim styles can be kept in the Library as kind `trim`, see [[Library-Snapshots-and-Components]].
 
 ## Contract for new trims

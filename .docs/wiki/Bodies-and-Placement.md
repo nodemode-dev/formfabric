@@ -15,7 +15,7 @@ A body is a collider for the cloth: a mesh with a skeleton and skin weights, a c
 ## Bodies
 
 - `body_load_default` adds formfabric's own Basic Form (about 20k triangles, 20 joints) or a library body: MPFB2 Female or MPFB2 Male, derived from the CC0 MakeHuman community assets.
-- `body_import` reads OBJ, glTF, GLB (skins and skeletons included) or FBX (native builds only) and stands the body on y = 0. Give `units` and `up` when the file is not metres and y up. Alembic body import is deferred.
+- `body_import` reads OBJ, glTF, GLB (skins and skeletons included), FBX (native builds only) or Alembic `.abc` (Ogawa; every polygon mesh in the file, concatenated, with transforms ignored; `sample` picks the frame of an animated file, default the first; HDF5 files are not read) and stands the body on y = 0. Give `units` and `up` when the file is not metres and y up.
 - `body_list`, `body_show`, `body_remove`, and `body_set` (collision skin offset 0 to 100 mm, default 3, friction, name).
 - `body_resize` deforms to height, inseam, chest or bust, waist, hip, shoulder width and arm length in millimetres; targets are met within 1 mm. `body_measure` reads the same measurements back.
 - `body_pose` poses by linear blend skinning: a named pose (rest, A, T) or joint rotations; `body_joints` lists the skeleton.

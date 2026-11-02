@@ -21,9 +21,9 @@ Rules that apply to every edit:
 
 | Where | Holds |
 | --- | --- |
-| `native/crates/` | 14 Rust crates (core, pattern, fabric, mesh, sim, gpu, body, anim, remesh, io, commands, stream, py, wasm); `ffb-commands/src/*_cmds` has one module per command group, 232 commands, with `hooks.rs` running each group's `after_change` in a fixed order |
+| `native/crates/` | 14 Rust crates (core, pattern, fabric, mesh, sim, gpu, body, anim, remesh, io, commands, stream, py, wasm); `ffb-commands/src/*_cmds` has one module per command group (including `scene_cmds`), 255 commands, with `hooks.rs` running each group's `after_change` in a fixed order |
 | `backend/app/` | FastAPI service: routers, engine dispatch, autosave and recovery journal, plugins, MCP, docks; `backend/plugins/` |
-| `frontend/src/` | `shell/`, `ui/`, `dock/`, `engine/` and `workspace/` (pattern-view, view3d, fabric, body, drape, trims, anim, output, viz, library, snapshots, components) |
+| `frontend/src/` | `shell/`, `ui/`, `dock/`, `engine/` and `workspace/` (pattern-view, view3d, fabric, body, drape, trims, anim, output, viz, library, objects, snapshots, components) |
 | `python/` | the `formfabric` Python package (standard library only) |
 | `src-tauri/`, `setup/`, `build_app` | desktop shell, scripts, the start-to-finish app build |
 | `docs/`, `.docs/wiki/` | behaviour specification, family integration drafts, the wiki source |

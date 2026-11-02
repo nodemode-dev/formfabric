@@ -18,7 +18,8 @@ An animation is a timeline of body motion and key tracks, recorded into a cache 
 ## Keys, morphs and the timeline
 
 - `anim_get` reads frame rate, play range, current frame, motions, tracks and cache layers; `anim_set` sets frame rate, range or current frame.
-- `key_set` and `key_remove` set keys on tracks: `body.ID.pose`, `body.ID.MEASUREMENT`, `wind.FIELD`, `panel.ID.state.FIELD`, `fabric.ID.FIELD`, with `step`, `linear` or `smooth` interpolation. Recording applies the body, measurement and wind tracks every frame.
+- `key_set` and `key_remove` set keys on tracks: `body.ID.pose`, `body.ID.MEASUREMENT`, `wind.FIELD`, `panel.ID.state.FIELD`, `fabric.ID.FIELD`, `pin:ID`, with `step`, `linear` or `smooth` interpolation. A pin track takes an `[x, y, z]` position in millimetres through `target: "pin:ID"`; recording applies the body, measurement, wind and pin tracks every frame, pins before each solver step. Pin keys do not move the cloth in live `sim_step` runs.
+- `anim_auto_key` with `on` true keys every change you make to wind, panel state, fabric physical values or a pin target at the current frame, amending the same undo step. It skips body pose and measurement values, which live outside the garment document. The timeline has an Auto Key toggle.
 - `morph_set` morphs one body into another made from the same mesh over a number of frames; the collider moves through the blend like a motion.
 
 ## Recording and playback
@@ -28,9 +29,23 @@ An animation is a timeline of body motion and key tracks, recorded into a cache 
 3. `job_state` reports phase, frame and warnings; when `ready` is true `job_harvest` stores the result as a cache layer (one undo step). `anim_stop` keeps the frames recorded so far.
 4. `cache_set` renames, shows, hides or activates a cache; `cache_remove` deletes one; `cache_frame` streams one frame; `anim_play` and `anim_pause` play and pause. Caches are saved in the project.
 
+## Cache layers
+
+A cache layer has a `kind` (`pattern` or `trim`), a start frame, an `offset` and a `locked` flag. A recording that has hardware bindings (buttons, snaps, trim items) also stores a `trim` layer with one point per hardware item; trim layers are data, so playback does not stream them and `cache_frame` returns their points as `trims`.
+
+| Command | Does |
+| --- | --- |
+| `cache_cut` | `id`, `frame`: splits a layer into two layers at that frame |
+| `cache_merge` | `ids`: merges layers into the top selected one; gaps between them are filled by linear interpolation of panel positions and body offsets |
+| `cache_move` | `id`, `frames`: moves a layer in time |
+| `cache_lock` | `id`, `locked`: a locked layer refuses move, cut, remove, rename, merge and re-record |
+| `anim_record` with `layer` | records again into an existing layer |
+
+`cache_frame` and `anim_play` without an `id` resolve the visible pattern layers top down (the last layer in the list is the top, and it wins at a frame it covers); with an `id` they use that layer alone. Merge needs the same panels and bodies in every layer. The timeline offers cut, merge (shift or ctrl click to select several), lock and move by a number of frames in a fixed-height row.
+
 ## Known limits
 
-The walk (`tshirt`, 120 frames) keeps the T-shirt out of the body, but cloth crossing itself was measured in most frames at v0.15.0, and the skirt moved up to 72 mm between frames; the recorded validation numbers tell you this per cache, so read them before exporting. Cache Layer cut, merge, move, lock and override, auto key and keyed pins are not built.
+The walk (`tshirt`, 120 frames) keeps the T-shirt out of the body, but cloth crossing itself was measured in most frames at v0.15.0, and the skirt moved up to 72 mm between frames; the recorded validation numbers tell you this per cache, so read them before exporting. Not built: layer reorder by drag, per-layer override blending, tack keys, body pose and measurement auto key, and strip, zipper and stitch trim caches. Cut and merge of a quantized cache re-quantize it and were not measured.
 
 ## Contract for new animation work
 

@@ -57,7 +57,8 @@ The `ffb-sim` feature `rayon` is on by default for non-wasm builds; `RAYON_NUM_T
 - CPU speed misses its targets: about 15 to 22 ms per frame at 676 vertices (target 8 ms) and 150 to 260 ms at 5,000 (target 50 ms) on a shared two-core machine; the 30k vertex shirt at 30 fps is unmeasured.
 - The Quality preset's self contact was unstable on sewn cloth and a recorded walk showed cloth crossing itself in most frames at v0.15.0; work on both was in progress at the audit, so check `docs/encyclopedia/15-OPEN-GAPS.md` for the current state.
 - GPU: wind direction, layered contact, self contact and real-hardware speed were open; no GPU was available for the 30 fps and 3 mm checks.
-- Refit leaves cloth inside the new body (22 mm measured at v0.12.0).
+- Untangle is an opt-in pass: `sim_settings` with `untangle` `normal` or `flipped` (default `off`) separates intersecting pairs that began intersecting this frame along the triangle normal, by at most 2 mm per vertex per frame, never moving seam-near or pinned vertices; pairs of different layers are always handled, with the higher layer outside for `normal` and inside for `flipped`. It did not reliably cut the pairs on a T-shirt walk (84 to 37 on a hard walk, 23 to 65 on a gentler one), so it stays off by default and zero pairs is not reached.
+- Refit ended 0.0 mm inside the target body on the drafted T-shirt at v0.22.0; see [[3D-Editing]].
 
 ## Contract for new solver work
 

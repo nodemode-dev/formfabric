@@ -2,7 +2,7 @@
 
 formfabric is the form family's garment app: draft sewing patterns in 2D, sew them, drape them on bodies with a cloth simulation, edit and animate the result, and export it. Every action is one command in the Rust engine registry (`native/crates/ffb-commands`), so the window, the MCP server, the Python API and the plugins all drive the same document.
 
-Version in the root `VERSION` file · Rust engine, vanilla TypeScript and Vite window, Python and FastAPI service, Tauri 2 desktop shell · 232 engine commands · team: nodemode-ai.
+Version in the root `VERSION` file · Rust engine, vanilla TypeScript and Vite window, Python and FastAPI service, Tauri 2 desktop shell · 255 engine commands · team: nodemode-ai.
 
 ## Status at a glance
 
@@ -13,12 +13,12 @@ Version in the root `VERSION` file · Rust engine, vanilla TypeScript and Vite w
 | Fabrics | stable | 8 of 15 presets are provisional until measured data is found |
 | Draping, CPU | in testing | drapes sewn samples without penetration; speed misses its targets |
 | Draping, GPU | experimental | opt-in, block descent only, no self contact, never run on a real GPU here |
-| 3D editing, trims | stable | Refit can leave cloth inside the new body |
-| Animation | in testing | walks can show cloth crossing itself; FBX motion untried in the app |
-| Export, UV, remesh | stable | checked in Blender 5.2; Alembic is deferred |
+| 3D editing, trims | stable | Refit ends 0.0 mm inside on the drafted samples; Skive and FBX trims landed in v0.22.0 and v0.21.0 |
+| Animation | in testing | cache layers, auto key and pin keys landed; walks can show cloth crossing itself; FBX motion untried in the app |
+| Export, UV, remesh | stable | checked in Blender 5.2; Alembic is written by our own Ogawa writer and awaits an owner check in Blender; weld, topology drawing and the extra bake maps landed |
 | Visualization and capture | stable | high triangle counts need a real GPU to judge |
 | Library, snapshots, Components, recovery | in testing | built in Phase 16, checked by scripts and a kill test |
-| Python API, MCP, plugins | stable | 232 commands checked through both backends |
+| Python API, MCP, plugins | stable | 255 commands checked through both backends |
 | Live Link to Unreal | untested | written and checked as files only; never run against Unreal |
 | Desktop builds | not run here | `./build_app --dry-run` passes; the three-OS build is an owner run |
 

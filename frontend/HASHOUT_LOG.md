@@ -2,6 +2,16 @@
 
 Living context for the window. What would be comments in `frontend/` lives here, newest first. Read before editing.
 
+## v0.19.0 to v0.23.0 · 2026-11-02
+
+- Title bar: Animate and Render tabs are live and every tab applies its layout through `applyWorkspace` (the dock is untouched); UV and Retopo are Window items that dispatch `ffb:output-section` on `window` with `detail.section`, which `output/panel.ts` handles without re-rendering the drawer.
+- Object Browser (`workspace/objects/`): keyed row patching, fixed 28 px rows and a 58 px tab row, a sort header, state in guarded localStorage. The Graphic tab lists and selects only.
+- Stage background picker and the `stagegl.ts` backdrop quad. Capture: eight camera presets, 2 to 10 views, combine or separate files, ppi written into the PNG pHYs chunk (`viz/png.ts`), transparent GIF turntable (`viz/gif.ts`). The Capture dialog body must keep one height across kinds.
+- Timeline: auto key toggle, cut, merge (shift or ctrl click selects several), lock and move by N frames in a fixed 30 px row (dock height 274 px), a lock chip reserved in every cache row, pin tracks as rows; playback and scrub resolve layers in the engine by omitting the id.
+- Export dialog: weld choice with a reserved 88 px panel picker for weld_selected (persisted as `export.weldPanels`); bake dialog map toggles and a Seam fill row (`bake.opts`).
+- `view3d/topology.ts` draws on its own overlay canvas patched by a signature; `View3D` gains `toolbox()` and `pickAt()`. The Output drawer has a Retopo section.
+- Trims: finish kind Skive with a Percent row and `--trim-skive`; the drape settings popup has an Untangle select. Body import lists `abc`.
+
 ## v0.7.0 to v0.9.0 · 2026-11-01
 
 ### Sewing in the Pattern View

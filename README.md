@@ -8,30 +8,32 @@
 
 formfabric is the form family's garment app: draw sewing patterns in 2D, sew them, drape them on bodies with a cloth simulation (CPU by default, GPU opt-in), animate them & export them. It aims at feature parity with the reference garment tools (see the parity matrix), built in the open under Apache-2.0. Every action is one engine command, so the window, a Python script & an AI agent all drive the same document.
 
-Stack · Rust engine (`native/`, one Cargo workspace of 14 crates, wgpu compute solver) · vanilla TypeScript & Vite (`frontend/`) · Python & FastAPI (`backend/`) · Tauri 2 (`src-tauri/`) · 232 engine commands. Desktop builds for macOS, Windows & Linux come from formcompiler; formportal lists & connects the app.
+Stack · Rust engine (`native/`, one Cargo workspace of 14 crates, wgpu compute solver) · vanilla TypeScript & Vite (`frontend/`) · Python & FastAPI (`backend/`) · Tauri 2 (`src-tauri/`) · 255 engine commands. Desktop builds for macOS, Windows & Linux come from formcompiler; formportal lists & connects the app.
 
 ## Status
 
-Phases 1 to 18 have been worked through (release v0.18.0; v1.0.0 waits until every parity row is landed or explicitly deferred, and 30 are still partial): the family window shell, the Rust engine, pattern drafting with DXF-AAMA exchange, meshing & the 3D View, fabrics, cloth simulation, sewing, bodies with placement, 3D editing, trims, animation, export with UV & quad remeshing, visualization, the workspace (Library, snapshots, Components, crash recovery, layouts), & agents with family integration (Python API, plugins, Live Link, GoF hand-off). Phase 18 was the documentation pass & the parity audit; the status of every feature is in the Status column of [14-PARITY-MATRIX.md](docs/encyclopedia/14-PARITY-MATRIX.md).
+Phases 1 to 23 have landed (release v0.23.0). The gate to v1.0.0 is the owner's sign-off of the deferrals: of 125 parity rows, 115 are landed, 1 is partial (the quad remesh regularity pass, off by default) & 9 are deferred, 6 of them pending owner sign-off. The scope: the family window shell, the Rust engine, pattern drafting with DXF-AAMA exchange, meshing & the 3D View, fabrics, cloth simulation, sewing, bodies with placement, 3D editing, trims, animation w/ cache layers & auto key, export w/ UV, weld, Alembic & quad remeshing, retopology drawing, visualization, the workspace (Library, Object Browser, snapshots, Components, crash recovery, layouts), & agents with family integration (Python API, plugins, Live Link, GoF hand-off). The status of every feature is in the Status column of [14-PARITY-MATRIX.md](docs/encyclopedia/14-PARITY-MATRIX.md).
 
 You can:
 - Open a drafted T-shirt, skirt or dress from File, Open Sample, or draft & sew your own.
 - Drape it on a CC0 body or formfabric's own Basic Form.
 - Edit it in 3D: pinch, pin, freeze, stiffen & refit.
 - Add trims: zippers, buttons, topstitch, edge finishes, prints & quilting.
-- Animate it: import a walk, record a cache & play it back.
-- Export to OBJ, glTF, FBX, USD, MDD or PC2. Exports open in Blender with UVs, materials & the animation.
-- Look at strain & fit maps, & capture snapshots & turntables.
-- Keep reusable fabrics, trims, poses, motions & Components in a Library, save whole-garment snapshots, & recover after a crash.
+- Animate it: import a walk, record a cache, cut, merge, move & lock cache layers, auto key wind, pins & fabric values, & play it back.
+- Export to OBJ, glTF, FBX, USD, Alembic, MDD or PC2, welded or not. Exports open in Blender with UVs, materials & the animation (Alembic is checked against our own reader only).
+- Draw retopology points & faces on a panel, w/ ghost points mirrored across seams.
+- Look at strain & fit maps, & capture snapshots, multi-view sheets & turntables w/ a transparent background.
+- Keep reusable fabrics, trims, poses, motions, placements & Components in a Library, browse styles in the Object Browser, save whole-garment snapshots, & recover after a crash.
 - Script it from Python or let an agent draft patterns through MCP.
 
 Open gaps, as recorded in [15-OPEN-GAPS.md](docs/encyclopedia/15-OPEN-GAPS.md):
-- Self contact in motion: a recorded walk can still show cloth crossing itself, & Quality self contact is unstable on sewn cloth.
+- Self contact in motion: the opt-in Untangle pass does not reliably remove the pairs a recorded walk shows, so zero pairs is not reached.
 - CPU solver speed misses its targets (676 vertices in 8 ms, 5,000 in 50 ms); the 30k vertex case is unmeasured.
-- The GPU solver is opt-in, VBD only, has no self contact, & was never run on a real GPU here.
-- Alembic export & import are deferred; QuadriFlow's regularity step is not built; Refit can leave cloth inside the new body.
+- The GPU solver is opt-in & was never run on a real GPU here.
+- Alembic is written & read by our own Ogawa code & not yet opened in Blender (an owner check); the quad regularity pass is off by default, w/ flip repair & the multi-resolution hierarchy not built.
+- Retopology drawing lacks drag select, Patch Topology & a second OBJ object for duplicate mode.
 - Unreal Live Link, FBX motion import & the 60 fps orbit at 200k triangles are untested in the app; 8 of 15 fabric presets are provisional.
-- Not built: AI Studio, the CONNECT marketplace & proprietary files (deferred), Skive, cache layer editing & several smaller parity rows.
+- Deferred, pending owner sign-off: layer rank between sublayers, body soft body & divide mesh, AI & PDF pattern files, speed & GPU targets, provisional presets, the GoF contract & the Unreal run. Deferred by decision: AI Studio, the CONNECT marketplace & proprietary files.
 
 See BUILD_NOTES (planning sidecar) & the parity matrix for details.
 
@@ -41,20 +43,20 @@ See BUILD_NOTES (planning sidecar) & the parity matrix for details.
 | --- | --- | --- |
 | Pattern drafting | panels as Bezier outlines, inner lines & shapes, notches, grain lines, seam allowance, darts, slash & spread, mirror & instance links, exact input, DXF-AAMA import & export | [Pattern drafting](.docs/wiki/Pattern-Drafting.md) |
 | Sewing | segment, free, multi-span & automatic seams from notches, pleats, gathers, tacks, rip & mend, length checks | [Sewing](.docs/wiki/Sewing.md) |
-| Bodies & placement | Basic Form, two CC0 bodies, OBJ, glTF & FBX import, resize to measurements, poses, placement volumes & points | [Bodies and placement](.docs/wiki/Bodies-and-Placement.md) |
+| Bodies & placement | Basic Form, two CC0 bodies, OBJ, glTF, FBX & Alembic import, resize to measurements, poses, placement volumes & points | [Bodies and placement](.docs/wiki/Bodies-and-Placement.md) |
 | Fabrics | SI fabric properties, presets, Fabric Lab from bench numbers, colorways, `.ffab` files | [Fabrics](.docs/wiki/Fabrics.md) |
 | Draping | vertex block descent & implicit solvers, Fast to Final presets, seam closing, self contact, wind, pins, grab, pinch, optional GPU | [Draping and the solver](.docs/wiki/Draping-and-the-Solver.md) |
-| 3D editing | pinch, pin box & lasso, fold, freeze, stiffen, Style Lines, Fit Shell, Refit | [3D editing](.docs/wiki/3D-Editing.md) |
-| Trims | buttons, buttonholes, zippers, topstitch, puckering, fray, piping, binding, elastic, prints, quilting, imported trims | [Trims](.docs/wiki/Trims.md) |
-| Animation | BVH, glTF & FBX motion with retargeting, key tracks, body morph, recorded cache layers, timeline | [Animation](.docs/wiki/Animation.md) |
-| Export & UV | OBJ, glTF, GLB, FBX, USD, MDD, PC2; UV layout with UDIM, thickness, baked maps, quad remesh, game-ready | [Export and UV](.docs/wiki/Export-and-UV.md) |
-| Visualization | strain, stress, pressure, fit, contact & thickness maps, compare, measures, lights, fur, schematic, capture | [Visualization and capture](.docs/wiki/Visualization-and-Capture.md) |
-| Workspace | Library, snapshots, Components, crash recovery, saved layouts, Key Hints, settings file | [Library, snapshots and components](.docs/wiki/Library-Snapshots-and-Components.md) |
+| 3D editing | pinch, pin box & lasso, fold, freeze, stiffen, Style Lines, Fit Shell, Refit w/ a deep push | [3D editing](.docs/wiki/3D-Editing.md) |
+| Trims | buttons, buttonholes, zippers, topstitch, puckering, fray, piping, binding, elastic, skive, prints, quilting, OBJ & FBX trims | [Trims](.docs/wiki/Trims.md) |
+| Animation | BVH, glTF & FBX motion with retargeting, key tracks, body morph, recorded cache layers (cut, merge, move, lock), auto key, pin keys, timeline | [Animation](.docs/wiki/Animation.md) |
+| Export & UV | OBJ, glTF, GLB, FBX, USD, Alembic, MDD, PC2 w/ weld; UV layout with UDIM, thickness, baked look & detail maps, quad remesh, topology drawing, game-ready | [Export and UV](.docs/wiki/Export-and-UV.md) |
+| Visualization | strain, stress, pressure, fit, contact & thickness maps, compare, measures, lights, background image, fur, schematic, multi-view capture | [Visualization and capture](.docs/wiki/Visualization-and-Capture.md) |
+| Workspace | Library, Object Browser, snapshots, Components, crash recovery, saved layouts, Key Hints, settings file, Animate & Render tabs | [Library, snapshots and components](.docs/wiki/Library-Snapshots-and-Components.md) |
 | Agents & scripts | MCP over stdio, agent skills, Python API, Python plugins, Live Link to Unreal through USD, GoF hand-off | [Agents and MCP](.docs/wiki/Agents-and-MCP.md) |
 
 ## MCP & Python API
 
-All 232 engine commands are MCP tools (`./formfabric mcp`, wired for Claude Code by `.mcp.json`, for Codex by `.codex/config.toml` & for Cursor by `.cursor/mcp.json`; `./formfabric agents install` registers it outside this folder). The skill `.claude/skills/formfabric-modeling` carries the generated tool reference, refreshed by `./formfabric agents sync`.
+All 255 engine commands are MCP tools (`./formfabric mcp`, wired for Claude Code by `.mcp.json`, for Codex by `.codex/config.toml` & for Cursor by `.cursor/mcp.json`; `./formfabric agents install` registers it outside this folder). The skill `.claude/skills/formfabric-modeling` carries the generated tool reference, refreshed by `./formfabric agents sync`.
 
 The Python package in `python/` (standard library only) has one checked function per command plus a hand API (`Garment`, `Panel`, `Sim`, `Link`, `gof.send`). It runs in process against the `ffb_engine` module or over HTTP against the running service. See [python/README.md](python/README.md) & the wiki page [Python API and plugins](.docs/wiki/Python-API-and-Plugins.md).
 

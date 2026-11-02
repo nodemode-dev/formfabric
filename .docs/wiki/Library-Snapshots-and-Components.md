@@ -1,6 +1,6 @@
 # Library, snapshots and components
 
-Three workspace features built in Phase 16, all in one drawer: Window, Library (tabs Library, Snapshots, Components).
+Three workspace features built in Phase 16, all in one drawer: Window, Library (tabs Library, Snapshots, Components). Phase 19 adds the placement kind, the Object Browser and the scene tree, described below.
 
 ## Where it lives
 
@@ -14,14 +14,25 @@ Three workspace features built in Phase 16, all in one drawer: Window, Library (
 
 ## Library
 
-Items are files in the per-kind formats: fabrics `.ffab`, trims and styles `.ffstyle`, components `.ffcomp`, garments `.ffbrc`, poses `.ffpose`, motions `.ffmotion`, with a small `index.json` and thumbnails under `<root>/thumbs/`. The default folder is `[data dir]/library`; `library_roots` and `library_set_roots` (up to 8 absolute folders, the first receives new items) change it, and the list persists in `[data dir]/library_roots.json`.
+Items are files in the per-kind formats: fabrics `.ffab`, trims and styles `.ffstyle`, components `.ffcomp`, garments `.ffbrc`, poses `.ffpose`, motions `.ffmotion`, placements `.ffplace`, with a small `index.json` and thumbnails under `<root>/thumbs/`. The default folder is `[data dir]/library`; `library_roots` and `library_set_roots` (up to 8 absolute folders, the first receives new items) change it, and the list persists in `[data dir]/library_roots.json`.
 
-- `library_list` takes `kind` (fabric, trim, style, component, garment, pose, motion) and `query` (matches name or tags). Ids look like `fabric/denim`.
+- `library_list` takes `kind` (fabric, trim, style, component, garment, pose, motion, place) and `query` (matches name or tags). Ids look like `fabric/denim`.
 - `library_add` saves a selected item (fabric id, style id, component id, a body for a pose, a motion id, or the open project for a garment) with `tags` and a thumbnail.
 - `library_insert` brings an item into the project as one undo step. A garment is not inserted; open it with `file_open`.
 - `library_remove` deletes the file, thumbnail and index entry from disk and cannot be undone. Reads resolve inside the configured roots only.
 
 In the window: kind select, search, tag filter, a virtualized thumbnail grid, double-click or Enter to insert, drag a tile onto the Pattern or 3D pane, Add selected, Remove, Roots.
+
+A `place` item (`.ffplace`, JSON with schema 1) is saved from the current body and holds its placement volumes (at most 256) and arrangement points (at most 4096), not per-panel positions. `library_insert` puts it onto the current body as one undo step, unlinks joint indices the target body does not have, and refuses a point that names a missing volume.
+
+## Object Browser and scene tree
+
+The Object Browser drawer (Window, Object Browser; `app.objects`) has the tabs Scene, Fabric, Graphic, Button, Buttonhole, Topstitch, Puckering, Trim and Zipper. Rows have a fixed height and are patched by key, so a change updates one row. Sort the list by name from its header.
+
+- `scene_tree` returns panels, seams, trims, bodies and styles in creation order with ids, names and kinds; `kinds` filters and `sort` is `creation`, `name_asc` or `name_desc`.
+- `style_copy` (`id`, optional `name`) duplicates a style; `style_merge` (`ids` of one kind, optional `name`) keeps the first style's parameters, re-points hardware, zippers and stitches, and removes the others.
+- `fabric_copy`, `fabric_merge` (panels, colorway entries and the default move to the result) and `fabric_order` (listed ids first) do the same for fabrics.
+- The Graphic tab lists and selects panel prints; add and copy are disabled there.
 
 ## Snapshots
 

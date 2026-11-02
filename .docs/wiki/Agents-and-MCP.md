@@ -1,6 +1,6 @@
 # Agents and MCP
 
-An agent drafts and drapes garments through the same 232 commands the window uses. There is no separate agent API.
+An agent drafts and drapes garments through the same 255 commands the window uses. There is no separate agent API.
 
 ## Where it lives
 
