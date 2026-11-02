@@ -1,5 +1,6 @@
 pub mod anim;
 pub mod bezier;
+pub mod component;
 pub mod dart;
 pub mod output;
 pub mod viz;
@@ -52,6 +53,8 @@ pub struct Garment {
     pub output: output::Output,
     pub viz: viz::Viz,
     pub style_lines: Vec<StyleLine>,
+    pub components: Vec<component::Component>,
+    pub joins: Vec<component::Join>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -173,6 +176,8 @@ impl Default for Garment {
             output: output::Output::default(),
             viz: viz::Viz::default(),
             style_lines: Vec::new(),
+            components: Vec::new(),
+            joins: Vec::new(),
         }
     }
 }

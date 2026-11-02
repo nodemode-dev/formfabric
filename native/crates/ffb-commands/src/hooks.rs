@@ -13,4 +13,6 @@ pub(crate) fn after_change(session: &mut Session, command: &str) {
     crate::output_cmds::after_change(session, command);
     crate::remesh_cmds::after_change(session, command);
     crate::viz_cmds::after_change(session, command);
+    crate::link_cmds::after_change(session, command);
+    crate::component_cmds::after_change(session, command);
 }

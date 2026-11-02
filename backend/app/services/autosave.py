@@ -16,10 +16,10 @@ def path() -> str:
     return str(folder / "autosave.ffbrc")
 
 
-def save_now() -> bool:
+def save_now(force: bool = False) -> bool:
     global _saved_epoch
     current = engine.epoch()
-    if current == _saved_epoch:
+    if current == _saved_epoch and not force:
         return False
     reply = engine.dispatch("file.save", {"path": path()}, notify=False)
     if not reply.get("ok"):

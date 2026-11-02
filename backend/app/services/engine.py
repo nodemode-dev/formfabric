@@ -1,7 +1,8 @@
 import json
+import os
 import threading
 
-from app.services import events, recent
+from app.services import events, recent, recovery
 
 try:
     import ffb_engine
@@ -13,6 +14,7 @@ _lock = threading.Lock()
 _engine = ffb_engine.Engine() if ffb_engine else None
 _epoch = 0
 _read_only: set[str] | None = None
+_info: dict = {}
 _RECENT_NAMES = {"file.save", "file.open", "file_save", "file_open"}
 
 
@@ -50,29 +52,47 @@ def _bump() -> None:
     _epoch += 1
 
 
-def read_only(name: str) -> bool:
-    global _read_only
+def _meta() -> dict:
+    global _read_only, _info
     if _read_only is None:
         _read_only = set()
+        _info = {}
         for c in catalogue()["commands"]:
+            _info[c["name"]] = _info[c["id"]] = (c["id"], c["group"])
             if c["annotations"].get("readOnlyHint"):
                 _read_only.update({c["name"], c["id"]})
+    return _info
+
+
+def read_only(name: str) -> bool:
+    _meta()
     return name in _read_only
 
 
 def dispatch(name: str, args: dict | None, notify: bool = True) -> dict:
     _require()
+    mutating = not read_only(name)
     with _lock:
         before = _engine.epoch()
         reply = json.loads(_engine.dispatch(name, json.dumps(args or {})))
         changed = _engine.epoch() != before
+        if reply.get("ok"):
+            command, group = _meta().get(name, (name, None))
+            if command == "file.save" and _is_autosave((args or {}).get("path")):
+                recovery.checkpoint()
+            elif changed and mutating:
+                recovery.record(command, args, group)
     if reply.get("ok") and name in _RECENT_NAMES and isinstance((args or {}).get("path"), str):
         recent.note(args["path"])
-    if reply.get("ok") and changed and not read_only(name):
+    if reply.get("ok") and changed and mutating:
         _bump()
         if notify:
             events.publish("engine.changed", epoch=_epoch, name=name)
     return reply
+
+
+def _is_autosave(path) -> bool:
+    return isinstance(path, str) and os.path.abspath(path) == os.path.abspath(str(recovery.autosave_file()))
 
 
 def stream_info() -> dict:

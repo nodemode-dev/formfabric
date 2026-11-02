@@ -1,5 +1,9 @@
 mod anim_cmds;
 mod args;
+mod b64;
+mod component_cmds;
+mod library_cmds;
+mod snapshot_cmds;
 mod exchange_cmds;
 mod output_cmds;
 mod remesh_cmds;
@@ -10,6 +14,7 @@ mod file_cmds;
 mod history;
 mod history_cmds;
 mod hooks;
+mod link_cmds;
 mod body_cmds;
 mod mesh_cmds;
 mod place_cmds;
@@ -118,6 +123,7 @@ pub struct Session {
     pub bodies: Vec<ffb_body::Body>,
     pub body_stream: body_cmds::StreamState,
     pub viz: viz_cmds::VizState,
+    pub link: link_cmds::LinkState,
 }
 
 impl std::fmt::Debug for Session {
@@ -224,6 +230,10 @@ static COMMANDS: LazyLock<Vec<Command>> = LazyLock::new(|| {
     all.extend(output_cmds::commands());
     all.extend(remesh_cmds::commands());
     all.extend(viz_cmds::commands());
+    all.extend(link_cmds::commands());
+    all.extend(snapshot_cmds::commands());
+    all.extend(library_cmds::commands());
+    all.extend(component_cmds::commands());
     all
 });
 
