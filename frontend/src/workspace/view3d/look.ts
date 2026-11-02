@@ -89,10 +89,15 @@ export function lookOf(g: GarmentFull, p: PanelFull): PanelLook {
     rough: clamp01(front?.roughness ?? 0.85),
     sheen: clamp01(front?.sheen ?? 0.2),
     map: firstMap(front?.maps),
-    mapScale: front?.map_scale && front.map_scale > 0 ? front.map_scale : 200,
+    mapScale: scaleOf(front?.map_scale),
     mapRot: ((front?.map_rotation ?? 0) * Math.PI) / 180,
     mapOff: [off?.[0] ?? 0, off?.[1] ?? 0],
   };
+}
+
+function scaleOf(v: unknown): number {
+  const s = Array.isArray(v) ? v[0] : v;
+  return typeof s === 'number' && s > 0 ? s : 200;
 }
 
 function clamp01(v: number): number {

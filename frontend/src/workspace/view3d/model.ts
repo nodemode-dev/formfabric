@@ -10,7 +10,7 @@ export interface SurfaceJson {
   sheen?: number;
   opacity?: number;
   maps?: unknown;
-  map_scale?: number;
+  map_scale?: number | number[];
   map_rotation?: number;
   map_offset?: number[];
 }
