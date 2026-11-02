@@ -36,6 +36,7 @@ const SPEC = {
   renderer: pick<'auto' | 'webgpu' | 'webgl'>('auto', ['auto', 'webgpu', 'webgl']),
   framePacingMs: pick<number>(0, [0, 16, 33]),
   workerThreads: num(0, 0, 16),
+  keyHintsOnHold: flag(true),
   historyStates: num(200, 10, 1000),
   historyCapMb: num(64, 0, 512),
   units: pick<(typeof UNITS)[number]>('mm', UNITS),
@@ -59,13 +60,41 @@ const SPEC = {
 type Spec = typeof SPEC;
 type Simple = { [K in keyof Spec]: Spec[K] extends Field<infer T> ? T : never };
 
+export interface SavedLayout {
+  layout: (typeof LAYOUTS)[number];
+  ratio: number;
+  drawers: string[];
+  dock: { open: boolean; h: number };
+}
+
 export interface Prefs extends Simple {
   dialogValues: Record<string, Record<string, DialogValue>>;
   shortcuts: Record<string, string[]>;
   shortcutSets: Record<string, Record<string, string[]>>;
+  layouts: Record<string, SavedLayout>;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+export function savedLayout(v: unknown): SavedLayout | null {
+  if (!isRecord(v)) return null;
+  const layout = LAYOUTS.find((l) => l === v.layout);
+  if (!layout) return null;
+  const ratio = typeof v.ratio === 'number' && Number.isFinite(v.ratio) ? Math.min(0.85, Math.max(0.15, v.ratio)) : 0.5;
+  const drawers = Array.isArray(v.drawers) ? v.drawers.filter((x): x is string => typeof x === 'string').slice(0, 16) : [];
+  const dock = isRecord(v.dock) ? { open: v.dock.open === true, h: typeof v.dock.h === 'number' && Number.isFinite(v.dock.h) ? Math.min(2000, Math.max(140, v.dock.h)) : 280 } : { open: false, h: 280 };
+  return { layout, ratio, drawers, dock };
+}
+
+function layoutMap(v: unknown): Prefs['layouts'] {
+  const out: Prefs['layouts'] = {};
+  if (!isRecord(v)) return out;
+  for (const [name, raw] of Object.entries(v)) {
+    const s = savedLayout(raw);
+    if (s && name.trim() && Object.keys(out).length < 24) out[name.trim().slice(0, 60)] = s;
+  }
+  return out;
+}
 
 function dialogValues(v: unknown): Prefs['dialogValues'] {
   const out: Prefs['dialogValues'] = {};
@@ -96,7 +125,7 @@ function sets(v: unknown): Prefs['shortcutSets'] {
 function defaults(): Prefs {
   const simple = {} as Record<string, unknown>;
   for (const [k, f] of Object.entries(SPEC)) simple[k] = (f as Field<unknown>).def;
-  return { ...(simple as Simple), dialogValues: {}, shortcuts: {}, shortcutSets: {} };
+  return { ...(simple as Simple), dialogValues: {}, shortcuts: {}, shortcutSets: {}, layouts: {} };
 }
 
 export const DEFAULT_PREFS: Prefs = defaults();
@@ -110,8 +139,14 @@ export function loadPrefs(): Prefs {
   const src = isRecord(raw) ? raw : {};
   const simple = {} as Record<string, unknown>;
   for (const [k, f] of Object.entries(SPEC)) simple[k] = (f as Field<unknown>).read(src[k]);
-  cache = { ...(simple as Simple), dialogValues: dialogValues(src.dialogValues), shortcuts: combos(src.shortcuts), shortcutSets: sets(src.shortcutSets) };
+  cache = { ...(simple as Simple), dialogValues: dialogValues(src.dialogValues), shortcuts: combos(src.shortcuts), shortcutSets: sets(src.shortcutSets), layouts: layoutMap(src.layouts) };
   return cache;
+}
+
+export function sanitizePrefs(src: Record<string, unknown>): Partial<Prefs> {
+  const out: Record<string, unknown> = {};
+  for (const [k, f] of Object.entries(SPEC)) if (k in src) out[k] = (f as Field<unknown>).read(src[k]);
+  return out as Partial<Prefs>;
 }
 
 export function savePrefs(p: Prefs): void {

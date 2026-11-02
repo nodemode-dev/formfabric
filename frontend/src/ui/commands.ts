@@ -21,6 +21,16 @@ export interface Command {
   risky?: boolean;
 }
 
+export type Scope = 'global' | '2d' | '3d';
+
+const GROUP_SCOPE: Record<string, Scope> = { pattern: '2d', sew: '2d', sim: '3d', body: '3d', anim: '3d' };
+
+export const scopeOf = (cmd: Command): Scope => GROUP_SCOPE[(cmd.group ?? '').toLowerCase()] ?? 'global';
+
+export const scopesCollide = (a: Scope, b: Scope): boolean => a === b || a === 'global' || b === 'global';
+
+export const SCOPE_LABEL: Record<Scope, string> = { global: 'Everywhere', '2d': 'Pattern View', '3d': '3D View' };
+
 export interface CommandParam { type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object'; required?: boolean; enum?: ReadonlyArray<string | number>; min?: number; max?: number; description?: string }
 
 const CODE_KEYS: Record<string, string> = {
@@ -55,34 +65,58 @@ export class Commands {
 
   onRun: ((cmd: Command, label: string) => void) | null = null;
   private readonly map = new Map<string, Command>();
-  private readonly byKey = new Map<string, Command>();
+  private readonly byKey = new Map<string, Command[]>();
   private readonly defaults = new Map<string, string[]>();
+  scopeNow: () => Scope = () => 'global';
+
+  private bind(k: string, cmd: Command): void {
+    const list = this.byKey.get(k);
+    if (list) { if (!list.includes(cmd)) list.push(cmd); } else this.byKey.set(k, [cmd]);
+  }
+
+  private unbind(k: string, cmd: Command): void {
+    const list = this.byKey.get(k);
+    if (!list) return;
+    const rest = list.filter((c) => c !== cmd);
+    if (rest.length) this.byKey.set(k, rest); else this.byKey.delete(k);
+  }
 
   add(...cmds: Command[]): void {
     for (const cmd of cmds) {
       if (this.map.has(cmd.id)) throw new Error(`duplicate command: ${cmd.id}`);
       this.map.set(cmd.id, cmd);
       this.defaults.set(cmd.id, [...(cmd.keys ?? [])]);
-      for (const k of cmd.keys ?? []) this.byKey.set(k, cmd);
+      for (const k of cmd.keys ?? []) this.bind(k, cmd);
     }
     this.onChange?.();
   }
 
   onChange: (() => void) | null = null;
 
+  conflicts(id: string, combo: string): Command[] {
+    const cmd = this.map.get(id);
+    if (!cmd) return [];
+    return (this.byKey.get(combo) ?? []).filter((c) => c !== cmd && scopesCollide(scopeOf(c), scopeOf(cmd)));
+  }
+
   setKeys(id: string, keys: string[]): void {
     const cmd = this.map.get(id);
     if (!cmd) return;
-    for (const k of cmd.keys ?? []) if (this.byKey.get(k) === cmd) this.byKey.delete(k);
+    for (const k of cmd.keys ?? []) this.unbind(k, cmd);
     for (const k of keys) {
-      const had = this.byKey.get(k);
-      if (had && had !== cmd) had.keys = (had.keys ?? []).filter((x) => x !== k);
-      this.byKey.set(k, cmd);
+      for (const had of this.conflicts(id, k)) {
+        had.keys = (had.keys ?? []).filter((x) => x !== k);
+        this.unbind(k, had);
+      }
+      this.bind(k, cmd);
     }
     cmd.keys = [...keys];
   }
 
-  forCombo(combo: string): Command | undefined { return this.byKey.get(combo); }
+  forCombo(combo: string, scope?: Scope): Command | undefined {
+    const list = this.byKey.get(combo) ?? [];
+    return scope ? list.find((c) => scopesCollide(scopeOf(c), scope)) : list[list.length - 1];
+  }
 
   defaultKeys(id: string): string[] { return [...(this.defaults.get(id) ?? [])]; }
 
@@ -92,9 +126,9 @@ export class Commands {
     return out;
   }
 
-  resetKeys(): void { this.byKey.clear(); for (const [id, cmd] of this.map) { cmd.keys = [...(this.defaults.get(id) ?? [])]; for (const k of cmd.keys) this.byKey.set(k, cmd); } }
+  resetKeys(): void { this.byKey.clear(); for (const [id, cmd] of this.map) { cmd.keys = [...(this.defaults.get(id) ?? [])]; for (const k of cmd.keys) this.bind(k, cmd); } }
 
-  remove(id: string): void { const c = this.map.get(id); if (!c) return; this.map.delete(id); for (const k of c.keys ?? []) if (this.byKey.get(k) === c) this.byKey.delete(k); this.onChange?.(); }
+  remove(id: string): void { const c = this.map.get(id); if (!c) return; this.map.delete(id); for (const k of c.keys ?? []) this.unbind(k, c); this.onChange?.(); }
 
   get(id: string): Command | undefined { return this.map.get(id); }
   all(): Command[] { return [...this.map.values()]; }
@@ -106,7 +140,15 @@ export class Commands {
   blocked: ((cmd: Command) => string) | null = null;
   why(cmd: Command): string { return this.blocked ? this.blocked(cmd) : ''; }
   keyLabel(cmd: Command): string { return cmd.keys && cmd.keys.length ? formatKeys(cmd.keys[0]) : ''; }
-  forEvent(e: KeyboardEvent): Command | undefined { return this.byKey.get(comboOf(e)); }
+  forEvent(e: KeyboardEvent): Command | undefined {
+    const list = this.byKey.get(comboOf(e));
+    if (!list || !list.length) return undefined;
+    if (list.length === 1) return list[0];
+    const now = this.scopeNow();
+    for (let i = list.length - 1; i >= 0; i--) if (scopeOf(list[i]) === now) return list[i];
+    for (let i = list.length - 1; i >= 0; i--) if (scopeOf(list[i]) === 'global') return list[i];
+    return list[list.length - 1];
+  }
 
   run(id: string, params?: Record<string, unknown>): boolean {
     const cmd = this.map.get(id);

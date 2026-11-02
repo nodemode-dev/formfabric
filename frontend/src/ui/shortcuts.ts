@@ -1,4 +1,4 @@
-import { comboOf, formatKeys, type Commands } from './commands';
+import { SCOPE_LABEL, comboOf, formatKeys, scopeOf, type Commands } from './commands';
 import { Dialog } from './dialogs';
 import { el, patchList, q, setClass, setText } from './dom';
 import { t } from './i18n';
@@ -82,10 +82,10 @@ export class ShortcutsDialog extends Dialog {
     e.stopPropagation();
     if (e.key === 'Escape') { this.capturing = null; this.pending = null; this.say(''); this.render(); return; }
     const combo = comboOf(e);
-    const had = this.commands.forCombo(combo);
-    if (had && had.id !== this.capturing && !(this.pending && this.pending.combo === combo)) {
+    const had = this.commands.conflicts(this.capturing, combo)[0];
+    if (had && !(this.pending && this.pending.combo === combo)) {
       this.pending = { id: this.capturing, combo };
-      this.say(`${combo.replace(/^Mod/, 'Ctrl')} ${t('is used by')} ${t(this.commands.label(had))}. ${t('Press it again to move it here.')}`);
+      this.say(`${combo.replace(/^Mod/, 'Ctrl')} ${t('is used by')} ${t(this.commands.label(had))} (${t(SCOPE_LABEL[scopeOf(had)])}). ${t('Press it again to move it here.')}`);
       return;
     }
     this.assign(this.capturing, [combo]);
@@ -109,7 +109,8 @@ export class ShortcutsDialog extends Dialog {
     const c = this.commands.get(id);
     if (!c) return;
     n.dataset.key = id;
-    setText(q(n, '.cv-list-name'), t(this.commands.label(c)));
+    const scope = scopeOf(c);
+    setText(q(n, '.cv-list-name'), scope === 'global' ? t(this.commands.label(c)) : `${t(this.commands.label(c))}  (${t(SCOPE_LABEL[scope])})`);
     const keys = this.capturing === id ? t('Press keys...') : (c.keys ?? []).map(formatKeys).join('  ') || t('None');
     setText(q(n, '.cv-list-meta'), keys);
     setClass(n, 'is-selected', this.capturing === id);

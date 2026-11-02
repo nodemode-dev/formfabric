@@ -81,6 +81,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   setText(zoomEl, `${Math.round(view.cam.s * 100)}%`);
   trimHooks.addPrint = (id) => { void addPrint(view, id, null); };
   void import('./output').then((m) => m.mountOutput(root, deps, doc, sel, view));
+  void import('./library').then((m) => m.mountLibrary(root, deps, doc, sel, view));
   const check = new SeamCheck(q(root, '[data-k="pane2d"]'), doc, sel, () => { inspector.update(); view.redraw(); check.update(); }, (on) => setClass(checkBtn, 'is-on', on));
 
   const addButton = (id: string, iconName: string, key: string, label: string, onClick: () => void): HTMLButtonElement => {
@@ -173,6 +174,13 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   splitter.addEventListener('pointerup', stop);
   splitter.addEventListener('pointercancel', stop);
   splitter.addEventListener('dblclick', () => { ratio = 0.5; applyRatio(); localStorage.setItem(RATIO_KEY, '0.5'); });
+  document.addEventListener('ff:split', (e) => {
+    const v = (e as CustomEvent<{ ratio: number }>).detail.ratio;
+    if (!Number.isFinite(v)) return;
+    ratio = Math.max(0.15, Math.min(0.85, v));
+    applyRatio();
+    localStorage.setItem(RATIO_KEY, String(ratio));
+  });
   splitter.addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault();
@@ -205,6 +213,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
   };
   deps.engine.onEngineChanged((e) => { if (e.name !== 'view.units') void refreshed(e.name); });
   onEngineLink((state) => { if (state === 'up') void doc.refresh(); });
+  document.addEventListener('ff:recovered', () => { sel.clear(); void doc.refresh().then(() => view.frame()); });
   void loadWasm().then((w) => { doc.setWasm(w); });
   void doc.refresh();
 

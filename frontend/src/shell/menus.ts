@@ -5,7 +5,7 @@ import { SAMPLES, SAMPLE_BODIES } from './window-commands';
 
 const NONE: MenuItem[] = ['app.none'];
 
-export function buildMenus(commands: Commands, recent: () => string[]): MenuDef[] {
+export function buildMenus(commands: Commands, recent: () => string[], layoutSlots: () => string[] = () => []): MenuDef[] {
   const has = (id: string): boolean => !!commands.get(id);
   const present = (ids: MenuItem[]): MenuItem[] => ids.filter((i) => typeof i !== 'string' || i === '-' || has(i));
   const used = new Set<string>();
@@ -55,7 +55,13 @@ export function buildMenus(commands: Commands, recent: () => string[]): MenuDef[
       used.clear();
       return withGroup(fixed(['app.layout_2d', 'app.layout_split', 'app.layout_3d', '-', 'app.snap_grid', 'app.snap_points', 'app.snap_edges', '-', 'app.units_mm', 'app.units_cm', 'app.units_in', '-', 'app.theme_toggle', 'app.custom_title_bar', 'app.menus_in_window']), 'View');
     } },
-    { label: 'Window', items: () => tidy(fixed(['app.ws_pattern', 'app.ws_sew', 'app.ws_drape', 'app.ws_animate', 'app.ws_render', '-', 'app.terminal', 'app.claude', '-', 'app.home'])) },
+    { label: 'Window', items: () => {
+      used.clear();
+      const slots = fixed(layoutSlots());
+      const head = fixed(['app.ws_pattern', 'app.ws_sew', 'app.ws_drape', 'app.ws_animate', 'app.ws_render', '-', 'app.library', 'app.library_snapshots', 'app.library_components', '-', 'app.terminal', 'app.claude', '-']);
+      const manage = fixed(['app.layout.save', 'app.layout.delete']);
+      return tidy([...head, { label: 'Layouts', items: tidy([...slots, ...(slots.length ? ['-' as const] : []), ...manage]) }, '-', ...fixed(['app.key_hints', 'app.settings_export', 'app.settings_import', '-', 'app.home'])]);
+    } },
     { label: 'Help', items: () => { used.clear(); return tidy([...fixed(['app.about', 'app.shortcuts', '-', 'app.source', 'app.report_issue']), ...group('System').length ? ['-' as const, ...group('System')] : []]); } },
   ];
 }

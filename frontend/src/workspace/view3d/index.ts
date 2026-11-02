@@ -225,7 +225,11 @@ export class View3D {
       setAutoFrame: (on) => { this.autoFrame = on; },
     });
     new ResizeObserver(() => this.resize()).observe(pane);
-    const dirty = (): void => { this.colors = null; this.redraw(); };
+    document.addEventListener('ff:thumb', (e) => {
+      const d = (e as CustomEvent<{ out: HTMLCanvasElement | null; w: number; h: number }>).detail;
+      d.out = this.renderSnapshot(d.w, d.h, false);
+    });
+    const dirty =(): void => { this.colors = null; this.redraw(); };
     new MutationObserver(dirty).observe(document.documentElement, { attributes: true });
     new MutationObserver(dirty).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     document.addEventListener('nm:ui-settings-changed', dirty);

@@ -30,6 +30,10 @@ import { Session } from './shell/session';
 import { StatusBar } from './shell/statusbar';
 import { TitleBar } from './shell/titlebar';
 import { registerWindowCommands } from './shell/window-commands';
+import { KeyHints } from './shell/keyhints';
+import type { WorkspaceLayouts } from './shell/layouts';
+import { offerRecovery } from './shell/recovery';
+import { layoutSlotIds, registerWorkspaceCommands } from './shell/workspace-commands';
 
 const SHELL = '<div class="cv-app"><header class="cv-titlebar"></header><main class="cv-main"><div class="cv-workspace cv-stage" data-region="workspace"></div></main><section class="cv-dock" data-region="dock"></section><footer class="cv-status"></footer></div>';
 const FONT_BASE = [9, 10, 11, 12, 13, 14, 16, 18];
@@ -136,6 +140,7 @@ export function startApp(): void {
       home.refresh();
       void refresh();
       void session.pull();
+      void offerRecovery(() => { session.set(null, true); void refresh(); });
     } catch { loaded = false; }
   };
 
@@ -153,7 +158,8 @@ export function startApp(): void {
   document.addEventListener('ff:title-bar', () => captions.sync());
   document.addEventListener(PREFS_EVENT, () => captions.sync());
 
-  const menus = () => buildMenus(commands, () => session.recent());
+  let wsLayouts: WorkspaceLayouts | null = null;
+  const menus = () => buildMenus(commands, () => session.recent(), () => (wsLayouts ? layoutSlotIds(wsLayouts) : []));
   const palette = new CommandPalette(commands, menus);
   const home = new HomeScreen(root, {
     autoShow: () => loadPrefs().autoShowHome,
@@ -177,6 +183,8 @@ export function startApp(): void {
     openPath,
   });
   applyShortcuts(commands);
+  const keyHints = new KeyHints(commands);
+  wsLayouts = registerWorkspaceCommands({ commands, layout, hints: keyHints });
 
   new MenuBar(q(app, '.cv-menubar'), commands, menus());
   if (wantsNativeMenus()) {

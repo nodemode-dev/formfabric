@@ -127,7 +127,12 @@ export class SettingsDialog extends Dialog {
 
     add('Workspace',
       grp('Layout', pickRow('defaultLayout', 'Layout at start', [['split', 'Pattern and 3D'], ['2d', 'Pattern only'], ['3d', '3D only']]).el, toggle('rememberLayout', 'Remember the layout between sessions').el),
-      grp('Window', titleBar.el, menusIn.el));
+      grp('Window', titleBar.el, menusIn.el),
+      grp('Settings File', ...(['app.settings_export', 'app.settings_import'] as const).map((id) => {
+        const b = el<HTMLButtonElement>(`<button class="cv-btn" type="button" data-cmd="${id}">${id === 'app.settings_export' ? 'Export Settings...' : 'Import Settings...'}</button>`);
+        b.addEventListener('click', () => document.dispatchEvent(new CustomEvent('ff:command', { detail: { id } })));
+        return b;
+      }), note('Preferences, shortcuts and saved layouts, as one JSON file.')));
 
     add('Performance',
       grp('Graphics', toggle('useGpu', 'Use the graphics processor').el,

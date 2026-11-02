@@ -2,6 +2,7 @@ const FORMATS = {
   ffbrc: { filters: [{ name: 'FormFabric project', extensions: ['ffbrc'] }], fallback: 'Untitled.ffbrc', ext: /\.ffbrc$/i, suffix: '.ffbrc' },
   dxf: { filters: [{ name: 'DXF', extensions: ['dxf'] }], fallback: 'Pattern.dxf', ext: /\.dxf$/i, suffix: '.dxf' },
   obj: { filters: [{ name: 'OBJ', extensions: ['obj'] }], fallback: 'Trim.obj', ext: /\.obj$/i, suffix: '.obj' },
+  json: { filters: [{ name: 'JSON', extensions: ['json'] }], fallback: 'formfabric-settings.json', ext: /\.json$/i, suffix: '.json' },
 };
 
 export const nativeDialogs = (): boolean => '__TAURI_INTERNALS__' in window;
