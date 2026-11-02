@@ -80,12 +80,28 @@ pub(super) fn assemble(s: &Solver, st: &mut State, h: f64, nl: NonLinear, hess: 
         }
         sub_grad(b, i as u32, (*xi - s.y[i]) * w);
     }
+    let tb = &mut st.tri_buf;
+    let hb = &mut st.hev_buf;
+    tb.resize(m.tris.len(), crate::energy::TriAsm { grad: [DVec3::ZERO; 3], blk: [[0.0; 9]; 6] });
+    hb.resize(m.hinges.len(), crate::energy::HingeEval::default());
+    let xn = &s.xn;
+    crate::par::row_chunks(&mut tb[..], 1, 128, |first, out| {
+        for (k, o) in out.iter_mut().enumerate() {
+            let t = &m.tris[first + k];
+            let q = t.v.map(|v| v as usize);
+            let p = [x[q[0]], x[q[1]], x[q[2]]];
+            let d = [p[0] - xn[q[0]], p[1] - xn[q[1]], p[2] - xn[q[2]]];
+            *o = t.assemble(p, d, t.kd * ih, nl, hess);
+        }
+    });
+    crate::par::row_chunks(&mut hb[..], 1, 128, |first, out| {
+        for (k, o) in out.iter_mut().enumerate() {
+            let q = m.hinges[first + k].v.map(|v| v as usize);
+            *o = m.hinges[first + k].eval([x[q[0]], x[q[1]], x[q[2]], x[q[3]]]);
+        }
+    });
     for (ti, t) in m.tris.iter().enumerate() {
-        let q = t.v.map(|v| v as usize);
-        let p = [x[q[0]], x[q[1]], x[q[2]]];
-        let r = t.kd * ih;
-        let d = [p[0] - s.xn[q[0]], p[1] - s.xn[q[1]], p[2] - s.xn[q[2]]];
-        let asm = t.assemble(p, d, r, nl, hess);
+        let asm = &tb[ti];
         for k in 0..3 {
             sub_grad(b, t.v[k], asm.grad[k]);
         }
@@ -101,7 +117,7 @@ pub(super) fn assemble(s: &Solver, st: &mut State, h: f64, nl: NonLinear, hess: 
     }
     for (hi, hg) in m.hinges.iter().enumerate() {
         let q = hg.v.map(|v| v as usize);
-        let ev = hg.eval([x[q[0]], x[q[1]], x[q[2]], x[q[3]]]);
+        let ev = &hb[hi];
         let c = ev.coef();
         if c == 0.0 {
             continue;

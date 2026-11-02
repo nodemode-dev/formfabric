@@ -64,7 +64,8 @@ fn stretch_terms(f: DVec3, k: f64, area: f64, nl: NonLinear) -> (f64, DVec3, (f6
     if len < 1.0e-12 {
         return (0.0, DVec3::X, (k * area, k * area));
     }
-    let n = f / len;
+    let inv = 1.0 / len;
+    let n = f * inv;
     let eps = len - 1.0;
     let (kg, kh) = if nl.on && eps > 0.0 {
         (k * (eps + nl.gain * eps * eps * eps), k * (1.0 + 3.0 * nl.gain * eps * eps))
@@ -73,7 +74,7 @@ fn stretch_terms(f: DVec3, k: f64, area: f64, nl: NonLinear) -> (f64, DVec3, (f6
     } else {
         (k * eps, k)
     };
-    let tf = if eps > 0.0 { kg / len } else { 0.0 };
+    let tf = if eps > 0.0 { kg * inv } else { 0.0 };
     (kg * area, n, (kh * area, tf * area))
 }
 

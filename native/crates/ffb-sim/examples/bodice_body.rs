@@ -183,6 +183,9 @@ fn run(method: Method, cloth: &Cloth, colliders: &[Collider], frames: usize) {
         s.max_stretch(),
         s.max_compression()
     );
+    let vp = s.vbd_profile();
+    let f = frames as f64;
+    println!("  vbd phases ms/frame: begin {:.2} eval {:.2} sweep {:.2} end {:.2}", vp[0] / f, vp[1] / f, vp[3] / f, vp[5] / f);
     println!("  self intersecting triangle pairs at the end: {}", s.self_intersections().len());
 }
 

@@ -34,6 +34,7 @@ fn main() {
             let mut ms = Vec::new();
             let mut its = 0u64;
             let mut snaps: Vec<Solver> = Vec::new();
+            let cpu0 = support::cpu_ms();
             for f in 0..frames {
                 let st = s.step();
                 ms.push(st.ms);
@@ -58,6 +59,14 @@ fn main() {
                     }
                 }
                 println!("{line} mm (mean/max)");
+            }
+            let cpu = (support::cpu_ms() - cpu0) / frames as f64;
+            let vp = s.vbd_profile();
+            if m == ffb_sim::Method::Vbd {
+                let f = frames as f64;
+                println!("  cpu {:.2} ms/frame  vbd phases ms/frame: begin {:.2} hinge-eval {:.2} tri-eval {:.2} sweep {:.2} end(collide+self) {:.2}", cpu, vp[0] / f, vp[1] / f, vp[2] / f, vp[3] / f, vp[5] / f);
+            } else {
+                println!("  cpu {:.2} ms/frame", cpu);
             }
             let mean = ms.iter().sum::<f32>() / ms.len() as f32;
             let late: Vec<f32> = ms[ms.len() / 2..].to_vec();

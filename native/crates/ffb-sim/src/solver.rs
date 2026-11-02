@@ -2,7 +2,9 @@ use glam::DVec3;
 
 use crate::collide::{contact_force, deepest, max_penetration, nearest, pair_friction, resolve, Contact, Prepared};
 use crate::energy::{Acc, HingeEval, NonLinear};
+use crate::implicit::Clock;
 use crate::model::{Model, KIND_HINGE, KIND_LINK, KIND_TRI};
+use crate::par::{for_range, Cells};
 use crate::{Cloth, Collider, Params, PinPoint, StepStats};
 
 pub const GRAB_STIFFNESS: f64 = 100.0;
@@ -42,6 +44,9 @@ pub struct Solver {
     tst: Vec<TriState>,
     pub(crate) imp: Option<Box<crate::implicit::State>>,
     link_base: Vec<f64>,
+    vprof: [f64; 6],
+    pre_buf: Vec<DVec3>,
+    far_buf: Vec<bool>,
 }
 
 pub(crate) fn v3(p: [f32; 3]) -> DVec3 {
@@ -59,6 +64,7 @@ struct Ctx<'a> {
     offset: f64,
     mu: f64,
     hev: &'a [HingeEval],
+    far: &'a [bool],
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -69,7 +75,7 @@ struct TriState {
     dv: DVec3,
 }
 
-fn moved(model: &Model, tst: &mut [TriState], hev: &[HingeEval], hst: &mut [(f64, f64)], i: usize, delta: DVec3) {
+unsafe fn moved(model: &Model, tst: &Cells<TriState>, hev: &[HingeEval], hst: &Cells<(f64, f64)>, i: usize, delta: DVec3) {
     let s = model.adj_start[i] as usize;
     let e = model.adj_start[i + 1] as usize;
     for a in &model.adj[s..e] {
@@ -77,7 +83,7 @@ fn moved(model: &Model, tst: &mut [TriState], hev: &[HingeEval], hst: &mut [(f64
         match a.kind {
             KIND_TRI => {
                 let el = &model.tris[a.idx as usize];
-                let st = &mut tst[a.idx as usize];
+                let st = unsafe { tst.get_mut(a.idx as usize) };
                 let du = delta * el.alpha[slot];
                 let dv = delta * el.beta[slot];
                 st.fu += du;
@@ -87,7 +93,7 @@ fn moved(model: &Model, tst: &mut [TriState], hev: &[HingeEval], hst: &mut [(f64
             }
             KIND_HINGE => {
                 let dd = hev[a.idx as usize].dot_g(slot, delta);
-                let h = &mut hst[a.idx as usize];
+                let h = unsafe { hst.get_mut(a.idx as usize) };
                 h.0 += dd;
                 h.1 += dd;
             }
@@ -96,10 +102,10 @@ fn moved(model: &Model, tst: &mut [TriState], hev: &[HingeEval], hst: &mut [(f64
     }
 }
 
-fn local_solve(c: &Ctx, tst: &[TriState], hst: &[(f64, f64)], x: &[DVec3], i: usize) -> DVec3 {
+unsafe fn local_solve(c: &Ctx, tst: &Cells<TriState>, hst: &Cells<(f64, f64)>, x: &Cells<DVec3>, i: usize) -> DVec3 {
     let m = c.model.mass[i];
     let ih2 = 1.0 / (c.h * c.h);
-    let xi = x[i];
+    let xi = unsafe { *x.get(i) };
     let mut acc = Acc::new(m * ih2);
     acc.g = (xi - c.y[i]) * (m * ih2);
     let s = c.model.adj_start[i] as usize;
@@ -110,17 +116,18 @@ fn local_solve(c: &Ctx, tst: &[TriState], hst: &[(f64, f64)], x: &[DVec3], i: us
         match a.kind {
             KIND_TRI => {
                 let el = &c.model.tris[a.idx as usize];
-                let st = &tst[a.idx as usize];
+                let st = unsafe { tst.get(a.idx as usize) };
                 el.accumulate(st.fu, st.fv, st.du, st.dv, slot, c.nl, el.kd * ih, &mut acc);
             }
             KIND_HINGE => {
                 let el = &c.model.hinges[a.idx as usize];
-                let (tl, ds) = hst[a.idx as usize];
+                let (tl, ds) = unsafe { *hst.get(a.idx as usize) };
                 c.hev[a.idx as usize].accumulate(slot, tl, ds, el.kd * ih, &mut acc);
             }
             KIND_LINK => {
                 let el = &c.model.links[a.idx as usize];
-                let ev = el.eval([x[el.v[0] as usize], x[el.v[1] as usize], x[el.v[2] as usize]]);
+                let at = |k: usize| if k < el.n { unsafe { *x.get(el.v[k] as usize) } } else { DVec3::ZERO };
+                let ev = el.eval([at(0), at(1), at(2)]);
                 acc.g += ev.grad(slot);
                 acc.add_mat(ev.hess(slot, slot));
             }
@@ -134,7 +141,7 @@ fn local_solve(c: &Ctx, tst: &[TriState], hst: &[(f64, f64)], x: &[DVec3], i: us
             acc.add_diag(k);
         }
     }
-    if !c.colliders.is_empty() {
+    if !c.colliders.is_empty() && !c.far[i] {
         if let Some(ct) = deepest(c.colliders, xi, c.offset) {
             let cf = contact_force(ct, m * ih2, pair_friction(c.mu, c.model.friction[i]), xi - c.xn[i]);
             acc.g += cf.grad;
@@ -175,6 +182,9 @@ impl Solver {
             tst: Vec::new(),
             imp: None,
             link_base: Vec::new(),
+            vprof: [0.0; 6],
+            pre_buf: Vec::new(),
+            far_buf: Vec::new(),
         };
         s.link_base = s.model.links.iter().map(|l| l.k).collect();
         s.set_pins(cloth.pins);
@@ -412,37 +422,47 @@ impl Solver {
         if self.params.self_collision && n > 0 {
             self.resolve_self_contact();
         }
-        let mut pre = vec![DVec3::ZERO; if self.colliders.is_empty() { 0 } else { n }];
+        let mut pre = std::mem::take(&mut self.pre_buf);
+        pre.clear();
+        pre.resize(if self.colliders.is_empty() { 0 } else { n }, DVec3::ZERO);
         if !self.colliders.is_empty() {
-            for i in 0..n {
-                if self.pinned[i] {
-                    continue;
+            let (xc, cc, pc) = (Cells::new(&mut self.x), Cells::new(&mut self.contact), Cells::new(&mut pre));
+            let (xn, pinned, colliders) = (&self.xn, &self.pinned, &self.colliders);
+            for_range(n, 32, |i| {
+                if pinned[i] {
+                    return;
                 }
+                let xi = unsafe { xc.get_mut(i) };
                 let cap = APPROACH_CAP * offset;
-                if cap > 0.0 && (self.x[i] - self.xn[i]).length_squared() > cap * cap {
+                if cap > 0.0 && (*xi - xn[i]).length_squared() > cap * cap {
                     let zone = (APPROACH_ZONE * offset).max(20.0);
-                    if let Some((sd, n)) = nearest(&self.colliders, self.xn[i], zone) {
-                        let inward = (self.xn[i] - self.x[i]).dot(n);
+                    if let Some((sd, nrm)) = nearest(colliders, xn[i], zone) {
+                        let inward = (xn[i] - *xi).dot(nrm);
                         if sd < zone && inward > cap {
-                            self.x[i] += n * (inward - cap);
+                            *xi += nrm * (inward - cap);
                         }
                     }
                 }
-                if let Some(p) = pre.get_mut(i) {
-                    *p = self.x[i];
+                unsafe {
+                    *pc.get_mut(i) = *xi;
                 }
-                let moved = (self.x[i] - self.xn[i]).length();
+                let moved = (*xi - xn[i]).length();
                 if moved > 0.5 * offset.max(0.5) {
-                    for col in &self.colliders {
-                        if let Some(ct) = col.sweep(self.xn[i], self.x[i], offset) {
-                            self.x[i] += ct.normal * ct.depth.max(0.0);
+                    for col in colliders {
+                        if let Some(ct) = col.sweep(xn[i], *xi, offset) {
+                            *xi += ct.normal * ct.depth.max(0.0);
                         }
                     }
                 }
-                let (p, c) = resolve(&self.colliders, self.x[i], offset);
-                self.x[i] = p;
-                self.contact[i] = c;
-            }
+                let (p, c) = resolve(colliders, *xi, offset);
+                *xi = p;
+                unsafe {
+                    *cc.get_mut(i) = c;
+                }
+            });
+        }
+        if self.params.self_collision && n > 0 {
+            self.guard_self_contact(&mut pre);
         }
         let mut vmax: f64 = 0.0;
         let mut contacts = 0;
@@ -463,6 +483,7 @@ impl Solver {
             }
         }
         self.contacts = contacts;
+        self.pre_buf = pre;
         vmax
     }
 
@@ -484,9 +505,13 @@ impl Solver {
         let h = self.substep_time();
         let mut vmax: f64 = 0.0;
         for s in 0..substeps {
+            let mut clock = Clock::now();
             self.begin_substep(h, (s + 1) as f64 / substeps as f64, true);
+            self.vprof[0] += clock.lap();
             self.vbd_iterate(h, iters);
+            clock.lap();
             vmax = self.end_substep(h);
+            self.vprof[5] += clock.lap();
         }
         self.finish_frame();
         #[cfg(not(target_arch = "wasm32"))]
@@ -494,6 +519,10 @@ impl Solver {
         #[cfg(target_arch = "wasm32")]
         let ms = 0.0;
         StepStats { ms, iterations: substeps * iters, max_velocity: vmax as f32, contacts: self.contacts }
+    }
+
+    pub fn vbd_profile(&self) -> [f64; 6] {
+        self.vprof
     }
 
     fn vbd_iterate(&mut self, h: f64, iters: u32) {
@@ -509,53 +538,79 @@ impl Solver {
         hev.resize(self.model.hinges.len(), HingeEval::default());
         hst.resize(self.model.hinges.len(), (0.0, 0.0));
         tst.resize(self.model.tris.len(), TriState::default());
+        let (nh, nt) = (hev.len(), tst.len());
+        let mut far = std::mem::take(&mut self.far_buf);
+        far.clear();
+        far.resize(self.x.len(), false);
+        if !self.colliders.is_empty() {
+            let edge = self.model.rest_edge.max(1.0);
+            let reach = offset + edge + 2.0 * edge.min(10.0);
+            let fc = Cells::new(&mut far);
+            let (y, colliders) = (&self.y, &self.colliders);
+            for_range(y.len(), 32, |i| {
+                if nearest(colliders, y[i], reach).is_none_or(|(sd, _)| sd > reach) {
+                    unsafe {
+                        *fc.get_mut(i) = true;
+                    }
+                }
+            });
+        }
         for it in 0..iters {
-            for (k, (e, el)) in hev.iter_mut().zip(&self.model.hinges).enumerate() {
-                let q = el.v.map(|v| v as usize);
-                *e = el.eval([self.x[q[0]], self.x[q[1]], self.x[q[2]], self.x[q[3]]]);
-                hst[k] = (e.dtheta(), e.dot_all([self.x[q[0]] - self.xn[q[0]], self.x[q[1]] - self.xn[q[1]], self.x[q[2]] - self.xn[q[2]], self.x[q[3]] - self.xn[q[3]]]));
-            }
-            for (st, el) in tst.iter_mut().zip(&self.model.tris) {
-                let q = el.v.map(|v| v as usize);
-                let p = [self.x[q[0]], self.x[q[1]], self.x[q[2]]];
-                let d = [p[0] - self.xn[q[0]], p[1] - self.xn[q[1]], p[2] - self.xn[q[2]]];
-                st.fu = p[0] * el.alpha[0] + p[1] * el.alpha[1] + p[2] * el.alpha[2];
-                st.fv = p[0] * el.beta[0] + p[1] * el.beta[1] + p[2] * el.beta[2];
-                st.du = d[0] * el.alpha[0] + d[1] * el.alpha[1] + d[2] * el.alpha[2];
-                st.dv = d[0] * el.beta[0] + d[1] * el.beta[1] + d[2] * el.beta[2];
-            }
-            let ctx = Ctx { model: &self.model, xn: &self.xn, y: &self.y, grab: self.grab, h, nl, colliders: &self.colliders, offset, mu, hev: &hev };
-            for color in &self.model.colors {
-                #[cfg(feature = "rayon")]
-                {
-                    use rayon::prelude::*;
-                    let xr = &self.x;
-                    let pinned = &self.pinned;
-                    let (tr, hr) = (&tst, &hst);
-                    let upd: Vec<(u32, DVec3)> = color.par_iter().filter(|&&i| !pinned[i as usize]).map(|&i| (i, local_solve(&ctx, tr, hr, xr, i as usize))).collect();
-                    for (i, p) in upd {
-                        if p.is_finite() {
-                            let iu = i as usize;
-                            let delta = p - self.x[iu];
-                            self.x[iu] = p;
-                            moved(&self.model, &mut tst, &hev, &mut hst, iu, delta);
+            let mut clock = Clock::now();
+            {
+                let (hc, sc, tc) = (Cells::new(&mut hev), Cells::new(&mut hst), Cells::new(&mut tst));
+                let (x, xn, model) = (&self.x, &self.xn, &self.model);
+                for_range(nh + nt, 64, |k| {
+                    if k < nh {
+                        let el = &model.hinges[k];
+                        let q = el.v.map(|v| v as usize);
+                        let e = el.eval([x[q[0]], x[q[1]], x[q[2]], x[q[3]]]);
+                        let s = (e.dtheta(), e.dot_all([x[q[0]] - xn[q[0]], x[q[1]] - xn[q[1]], x[q[2]] - xn[q[2]], x[q[3]] - xn[q[3]]]));
+                        unsafe {
+                            *hc.get_mut(k) = e;
+                            *sc.get_mut(k) = s;
+                        }
+                    } else {
+                        let k = k - nh;
+                        let el = &model.tris[k];
+                        let q = el.v.map(|v| v as usize);
+                        let p = [x[q[0]], x[q[1]], x[q[2]]];
+                        let d = [p[0] - xn[q[0]], p[1] - xn[q[1]], p[2] - xn[q[2]]];
+                        let st = TriState {
+                            fu: p[0] * el.alpha[0] + p[1] * el.alpha[1] + p[2] * el.alpha[2],
+                            fv: p[0] * el.beta[0] + p[1] * el.beta[1] + p[2] * el.beta[2],
+                            du: d[0] * el.alpha[0] + d[1] * el.alpha[1] + d[2] * el.alpha[2],
+                            dv: d[0] * el.beta[0] + d[1] * el.beta[1] + d[2] * el.beta[2],
+                        };
+                        unsafe {
+                            *tc.get_mut(k) = st;
                         }
                     }
-                }
-                #[cfg(not(feature = "rayon"))]
-                for &iu in color {
-                    let i = iu as usize;
-                    if self.pinned[i] {
-                        continue;
-                    }
-                    let p = local_solve(&ctx, &tst, &hst, &self.x, i);
-                    if p.is_finite() {
-                        let delta = p - self.x[i];
-                        self.x[i] = p;
-                        moved(&self.model, &mut tst, &hev, &mut hst, i, delta);
-                    }
+                });
+            }
+            self.vprof[1] += clock.lap();
+            let ctx = Ctx { model: &self.model, xn: &self.xn, y: &self.y, grab: self.grab, h, nl, colliders: &self.colliders, offset, mu, hev: &hev, far: &far };
+            {
+                let (xc, tc, sc) = (Cells::new(&mut self.x), Cells::new(&mut tst), Cells::new(&mut hst));
+                let pinned = &self.pinned;
+                for color in &self.model.colors {
+                    for_range(color.len(), 16, |k| {
+                        let i = color[k] as usize;
+                        if pinned[i] {
+                            return;
+                        }
+                        unsafe {
+                            let p = local_solve(&ctx, &tc, &sc, &xc, i);
+                            if p.is_finite() {
+                                let delta = p - *xc.get(i);
+                                *xc.get_mut(i) = p;
+                                moved(ctx.model, &tc, ctx.hev, &sc, i, delta);
+                            }
+                        }
+                    });
                 }
             }
+            self.vprof[3] += clock.lap();
             if rho > 0.0 {
                 omega = match it {
                     0 => 1.0,
@@ -576,5 +631,6 @@ impl Solver {
         self.hev = hev;
         self.hst = hst;
         self.tst = tst;
+        self.far_buf = far;
     }
 }

@@ -83,20 +83,11 @@ impl Pattern {
 }
 
 pub fn matvec(p: &Pattern, a: &[f64], x: &[f64], y: &mut [f64]) {
-    for i in 0..p.n {
-        let (s, e) = (p.start[i] as usize, p.start[i + 1] as usize);
-        let (mut a0, mut a1, mut a2) = (0.0, 0.0, 0.0);
-        for (b, &c) in a[9 * s..9 * e].as_chunks::<9>().0.iter().zip(&p.cols[s..e]) {
-            let c = 3 * c as usize;
-            let (x0, x1, x2) = (x[c], x[c + 1], x[c + 2]);
-            a0 += b[0] * x0 + b[1] * x1 + b[2] * x2;
-            a1 += b[3] * x0 + b[4] * x1 + b[5] * x2;
-            a2 += b[6] * x0 + b[7] * x1 + b[8] * x2;
+    crate::par::row_chunks(&mut y[..3 * p.n], 3, 512, |first, out| {
+        for (k, o) in out.as_chunks_mut::<3>().0.iter_mut().enumerate() {
+            *o = row_apply(p, a, x, first + k);
         }
-        y[3 * i] = a0;
-        y[3 * i + 1] = a1;
-        y[3 * i + 2] = a2;
-    }
+    });
 }
 
 pub fn row_apply(p: &Pattern, a: &[f64], x: &[f64], i: usize) -> [f64; 3] {

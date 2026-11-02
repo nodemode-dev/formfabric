@@ -79,3 +79,13 @@ pub fn add_grid(cloth: &mut Cloth, nx: usize, ny: usize, spacing: f32, panel: u3
     }
     grid
 }
+
+pub fn cpu_ms() -> f64 {
+    let Ok(s) = std::fs::read_to_string("/proc/self/stat") else {
+        return 0.0;
+    };
+    let rest = s.rsplit(')').next().unwrap_or("");
+    let f: Vec<&str> = rest.split_whitespace().collect();
+    let tick = |i: usize| f.get(i).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+    (tick(11) + tick(12)) * 10.0
+}

@@ -8,6 +8,7 @@ pub mod external;
 pub mod implicit;
 pub mod material;
 pub mod model;
+pub mod par;
 pub mod reference;
 pub mod selfcol;
 pub mod solver;

@@ -54,9 +54,10 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
 }
 
 fn build_preconditioner(pat: &Pattern, a: &[f64], f: &Filter, pre: &mut [f64]) {
-    for i in 0..pat.n {
+    crate::par::row_chunks(&mut pre[..9 * pat.n], 9, 256, |first, chunk| {
+      for (k, out) in chunk.as_chunks_mut::<9>().0.iter_mut().enumerate() {
+        let i = first + k;
         let d = &a[9 * pat.diag[i] as usize..9 * pat.diag[i] as usize + 9];
-        let out = &mut pre[9 * i..9 * i + 9];
         match f.kind[i] {
             PINNED => out.fill(0.0),
             PLANE => {
@@ -90,7 +91,8 @@ fn build_preconditioner(pat: &Pattern, a: &[f64], f: &Filter, pre: &mut [f64]) {
                 None => out.copy_from_slice(&[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]),
             },
         }
-    }
+      }
+    });
 }
 
 fn apply_pre(pre: &[f64], r: &[f64], z: &mut [f64]) {

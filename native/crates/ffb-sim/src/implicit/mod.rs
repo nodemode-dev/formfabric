@@ -34,6 +34,8 @@ pub struct State {
     pub(crate) fg: Vec<DVec3>,
     pub(crate) was: Vec<bool>,
     pub(crate) cons: Vec<u32>,
+    pub(crate) tri_buf: Vec<crate::energy::TriAsm>,
+    pub(crate) hev_buf: Vec<crate::energy::HingeEval>,
     mass_norm: f64,
     work: Work,
     coarse: Option<coarse::Coarse>,
@@ -41,20 +43,20 @@ pub struct State {
 }
 
 #[derive(Clone, Copy)]
-struct Clock {
+pub(crate) struct Clock {
     #[cfg(not(target_arch = "wasm32"))]
     at: std::time::Instant,
 }
 
 impl Clock {
-    fn now() -> Clock {
+    pub(crate) fn now() -> Clock {
         Clock {
             #[cfg(not(target_arch = "wasm32"))]
             at: std::time::Instant::now(),
         }
     }
 
-    fn lap(&mut self) -> f64 {
+    pub(crate) fn lap(&mut self) -> f64 {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let t = std::time::Instant::now();
@@ -85,6 +87,8 @@ impl State {
             fg: vec![DVec3::ZERO; n],
             was: vec![false; n],
             cons: Vec::with_capacity(n),
+            tri_buf: vec![crate::energy::TriAsm { grad: [DVec3::ZERO; 3], blk: [[0.0; 9]; 6] }; model.tris.len()],
+            hev_buf: vec![crate::energy::HingeEval::default(); model.hinges.len()],
             mass_norm: model.mass.iter().map(|m| m * m).sum::<f64>().sqrt(),
             work: Work::new(n),
             coarse,
