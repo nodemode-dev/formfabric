@@ -4,6 +4,7 @@ use ffb_pattern::Panel;
 use crate::boundary::work_mesh;
 use crate::cleanup::{collapse_diagonals, pure_quads, remove_valence2, singularities, smooth, Poly};
 use crate::extract::extract;
+use crate::extract_regular::regular_grid;
 use crate::fields::{adjacency, orientation, positions, FieldInput};
 use crate::types::{Params, QuadMesh, RemeshError, Report, Rim, V2};
 
@@ -18,8 +19,16 @@ pub fn remesh_panel(panel: &Panel, params: &Params) -> Result<QuadMesh, RemeshEr
     let root = work.loop_ids.first().copied().unwrap_or(0) as usize;
     let lattice_positions = positions(&mesh.positions, &nbr, &mut fields, params.edge, root);
     let loop_pts: Vec<V2> = work.loop_ids.iter().map(|v| mesh.positions[*v as usize]).collect();
-    let lattice = extract(&mesh.positions, &nbr, &fields.theta, &lattice_positions, params.edge, &loop_pts);
-    let assembled = crate::band::assemble(&loop_pts, &lattice.sites, &lattice.quads);
+    let mut flow_report = Report::default();
+    let regular = if params.regularize { regular_grid(&mesh.positions, &mesh.triangles, &fields.theta, &lattice_positions, params.edge, &loop_pts, &mut flow_report) } else { None };
+    let (sites, lattice_quads) = match regular {
+        Some(grid) => (grid.sites, grid.quads),
+        None => {
+            let found = extract(&mesh.positions, &nbr, &fields.theta, &lattice_positions, params.edge, &loop_pts);
+            (found.sites, found.quads)
+        }
+    };
+    let assembled = crate::band::assemble(&loop_pts, &sites, &lattice_quads);
 
     let nb = loop_pts.len();
     let mut faces: Vec<Vec<u32>> = assembled.quads.iter().map(|q| q.to_vec()).collect();
@@ -36,7 +45,7 @@ pub fn remesh_panel(panel: &Panel, params: &Params) -> Result<QuadMesh, RemeshEr
         band_tris: assembled.band_tris,
         field_iterations: fields.field_iterations,
         position_iterations: fields.position_iterations,
-        ..Report::default()
+        ..flow_report
     };
     report.singularities_found = singularities(&poly);
     if params.cleanup {

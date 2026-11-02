@@ -27,11 +27,12 @@ pub struct Params {
     pub pure_quads: bool,
     pub grain_weight: f64,
     pub cleanup: bool,
+    pub regularize: bool,
 }
 
 impl Params {
     pub fn new(edge: f64) -> Params {
-        Params { edge, guides: Vec::new(), counts: BTreeMap::new(), pure_quads: false, grain_weight: 0.02, cleanup: true }
+        Params { edge, guides: Vec::new(), counts: BTreeMap::new(), pure_quads: false, grain_weight: 0.02, cleanup: true, regularize: false }
     }
 }
 
@@ -55,6 +56,18 @@ pub struct Report {
     pub diagonal_collapses: usize,
     pub field_iterations: usize,
     pub position_iterations: usize,
+    pub regular_used: bool,
+    pub regular_note: String,
+    pub mcf_supply: usize,
+    pub mcf_flow: usize,
+    pub mcf_cost: usize,
+    pub mcf_capacity: i32,
+    pub mcf_rounds: usize,
+    pub mcf_frozen: usize,
+    pub mcf_rim_variables: usize,
+    pub mcf_splits: usize,
+    pub singularities_before: usize,
+    pub singularities_after_flow: usize,
     pub ms: f64,
 }
 
