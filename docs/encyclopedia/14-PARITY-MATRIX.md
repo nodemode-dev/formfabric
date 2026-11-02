@@ -18,11 +18,11 @@ Chapter column points at the encyclopedia chapter with the behaviour detail.
 | Project file .zprj, garment .zpac | Project `.ffbrc` (zip container: garment, body, scene, caches, view state) | ffb-io | 2 | 01 | landed v0.2.0 |
 | Small asset files (.zfab, .sst, .btn, .bth, .pos, .mtn, .arr, .pan) | `.ffab` fabric, `.ffstyle` styles, `.ffpose`, `.ffmotion`, `.ffplace` | ffb-io | 6, 9, 12, 13 | 01 | partial: `.ffab` landed v0.6.0 and styles live inside the project (v0.12.0); standalone `.ffstyle`, `.ffpose`, `.ffmotion` and `.ffplace` files arrive with the Library in progress v0.16.0 |
 | Command history, undo and redo | History (typed edits, camera per step) | ffb-commands | 2 | 12 | landed v0.2.0 |
-| History 3D state snapshots | Snapshots | ffb-commands, ui | 16 | 12 | in progress v0.16.0 |
-| Auto-save every 3 minutes with crash recovery | Autosave and Recovery | service | 16 | 12 | in progress v0.16.0 (the 3 minute autosave loop exists since v0.15.0; the crash journal and recovery offer are being built) |
-| Hotkey editor with search and reset, active tool hotkey viewer | Shortcut Editor, Key Hints | ui/shell | 1, 16 | 12 | partial: Shortcut Editor with search and reset landed v0.3.0; Key Hints in progress v0.16.0 |
-| Layouts saved to file, tool sets | Layouts | ui/workspace | 16 | 12 | partial: three pane layouts (2D, split, 3D) remembered since v0.1.0; named saved layouts in progress v0.16.0 |
-| Library window (folders, favorites) | Library | ui/library, service | 16 | 12 | in progress v0.16.0 |
+| History 3D state snapshots | Snapshots | ffb-commands, ui | 16 | 12 | landed v0.18.0 (snapshots with 3D thumbnails, restore as one undo step, compare) |
+| Auto-save every 3 minutes with crash recovery | Autosave and Recovery | service | 16 | 12 | landed v0.18.0 (autosave plus a crash journal of commands since it; recovery offered on the next start and replayed; checked by killing the service during a drape) |
+| Hotkey editor with search and reset, active tool hotkey viewer | Shortcut Editor, Key Hints | ui/shell | 1, 16 | 12 | landed v0.18.0 (Shortcut Editor since v0.3.0, per-scope conflict detection and the Key Hints overlay in v0.18.0) |
+| Layouts saved to file, tool sets | Layouts | ui/workspace | 16 | 12 | landed v0.18.0 (named layouts with six defaults, persisted across restarts; settings, shortcuts and layouts export and import as JSON; tool sets deferred: no reference behaviour beyond layouts was found) |
+| Library window (folders, favorites) | Library | ui/library, service | 16 | 12 | landed v0.18.0 (user library roots, kinds, search, tags, thumbnails, insert; favorites are tags) |
 | Object Browser (fabric, graphic, button, buttonhole, topstitch, puckering, trim, zipper styles, scene tree) | Asset Browser with typed style registry | ffb-commands, ui | 6, 12, 16 | 12, 07 | partial: the typed style registry (`style.*`, fabric and colorway lists) landed v0.12.0; a single Asset Browser window with scene tree is not built |
 | Property Editor | Inspector | ui/inspector | 3 | 12 | landed v0.3.0 |
 | User settings file save and load | Settings export and import | ui/settings | 16 | 12 | partial: preferences persist and reset (v0.3.0); file export and import of settings is not built |
@@ -96,9 +96,9 @@ Chapter column points at the encyclopedia chapter with the behaviour detail.
 | Reference feature | formfabric name | Module | Phase | Ch | Status |
 | --- | --- | --- | --- | --- | --- |
 | Simulate on and off (Space) | Drape (Space) | ffb-sim | 7 | 05 | landed v0.9.0 (runner starvation that made Space show nothing fixed v0.15.0) |
-| Presets Normal, Animation, Fitting; quality Normal or Complete | Quality presets | ffb-sim | 10 | 05, 12b | landed v0.12.0 (Fast, Normal, Quality, Final; the Quality preset's self contact is unstable on sewn cloth in motion, fix in progress v0.16.0) |
+| Presets Normal, Animation, Fitting; quality Normal or Complete | Quality presets | ffb-sim | 10 | 05, 12b | landed v0.12.0 (Fast, Normal, Quality, Final; self contact made stable on sewn cloth in motion and on at every preset in v0.18.0) |
 | Time step, substeps, CG finish condition, self-collision iterations, air damping, nonlinear, gravity -9800 | Solver settings | ffb-sim | 7, 10 | 05 | landed v0.12.0 |
-| CPU and GPU simulation | CPU reference and GPU solver | ffb-sim | 7, 10 | 05, 12b | partial: CPU solver landed v0.12.0 but misses the speed targets (676 vertices 15 to 22 ms, target 8 ms; 5,000 vertices 200 to 260 ms, target 50 ms); wgpu VBD is opt-in, has no self contact, and wind direction and layered contact are wrong; speed and GPU fixes in progress v0.16.0; 30 fps on 30k vertices unmeasured (no GPU in the sandbox) |
+| CPU and GPU simulation | CPU reference and GPU solver | ffb-sim | 7, 10 | 05, 12b | partial: CPU solver landed v0.12.0, multi-threaded in v0.18.0, but misses the speed targets on the 2-core sandbox (676 vertices about 15 to 18 ms CPU, target 8 ms; 5,041 vertices 150 to 180 ms, target 50 ms); wgpu VBD is opt-in with GPU self contact, wind and layered contact matching the CPU since v0.18.0; 30 fps on 30k vertices unmeasured (no GPU in the sandbox) |
 | Particle distance 0.8 to 700 mm (default 20) | Mesh density | ffb-mesh | 5 | 05 | landed v0.6.0 |
 | Collision thickness 1.5 mm per side, render thickness separate | Contact thickness | ffb-sim | 7 | 05, 06 | landed v0.9.0 |
 | Layer integer | Layer | ffb-sim | 10 | 05 | landed v0.12.0 |
@@ -107,8 +107,8 @@ Chapter column points at the encyclopedia chapter with the behaviour detail.
 | Pin family (2D pin, box, lasso, segment, whole pattern, delete) | Pins | ffb-sim, ui | 7, 11 | 12b | landed v0.12.0 |
 | Drag while simulating, quick pinching, advanced pinching (bump or linear, 1 to 500 mm, power -2 to 2), brush pinching | Grab, Pinch | ffb-sim, ui | 11 | 05, 11 | landed v0.12.0 |
 | Fold arrangement | Fold Place | ffb-sim | 11 | 11 | landed v0.12.0 |
-| Wind (spherical, planar, decay, turbulence) | Wind | ffb-sim | 11 | 05 | landed v0.12.0 (directional and radial kinds; the wind sign on the GPU path is reversed, fix in progress v0.16.0) |
-| Intersection resolution toggle | Untangle | ffb-sim | 10 | 12b | partial: Untangle and the self-collision toggle landed v0.12.0; cloth still intersects itself in 92 of 120 walk frames, fix in progress v0.16.0 |
+| Wind (spherical, planar, decay, turbulence) | Wind | ffb-sim | 11 | 05 | landed v0.12.0 (directional and radial kinds; the GPU path matches the CPU direction, checked in v0.18.0) |
+| Intersection resolution toggle | Untangle | ffb-sim | 10 | 12b | partial: Untangle and the self-collision toggle landed v0.12.0; the T-shirt walk still shows up to 61 intersecting pairs at Normal in v0.18.0 (the skirt reaches 0 at Quality) |
 | Collision with props and rigid trims | Props | ffb-sim | 10, 12 | 05 | partial: bodies, including any imported object, collide (v0.9.0), and buttons and imported trims are rigid discs or meshes glued to a panel (v0.12.0); there is no separate prop type and no hanger or mannequin |
 
 ## Fabric and materials
@@ -143,7 +143,7 @@ Chapter column points at the encyclopedia chapter with the behaviour detail.
 | Reference feature | formfabric name | Module | Phase | Ch | Status |
 | --- | --- | --- | --- | --- | --- |
 | Animation mode and editor, timeline, frame rate | Animate mode and Timeline | ffb-anim, ui | 13 | 08 | landed v0.15.0 (a timeline dock; the Animate workspace tab is not enabled) |
-| Record simulation to cache layers (pattern, trim, soft body) | Record | ffb-anim, ffb-sim | 13 | 08 | partial: panel caches and body pose recorded in the project since v0.15.0; trims and body soft body are not cached; the walk still shows cloth self intersection in 92 of 120 frames, fix in progress v0.16.0 |
+| Record simulation to cache layers (pattern, trim, soft body) | Record | ffb-anim, ffb-sim | 13 | 08 | partial: panel caches and body pose recorded in the project since v0.15.0; trims and body soft body are not cached; the T-shirt walk still shows some cloth self intersection (up to 61 pairs at Normal in v0.18.0) |
 | Cache editing (keys, cut, merge, move, lock, override layers) | Cache Layers | ffb-anim | 13 | 08 | partial: layers can be recorded, renamed, shown, hidden, made active and removed (v0.15.0); cut, merge, move, lock and override are not built |
 | Property keyframes (constant, linear, cubic, auto key) | Keys | ffb-anim | 13 | 08 | partial: step, linear and cubic keys landed v0.15.0; auto key is not built |
 | Motion import, Auto Convert to Motion, transition from T pose | Motion import, Retarget, Lead-in | ffb-anim, ffb-io | 13 | 08 | landed v0.15.0 (BVH, glTF and FBX; FBX motion not yet tried in the app; no Auto Convert) |
@@ -161,10 +161,10 @@ Chapter column points at the encyclopedia chapter with the behaviour detail.
 | Retopology (point and face drawing, ghost points across seams) | Retopo mode | ffb-mesh, ui | 14 | 09 | partial: retopo guides and settings landed v0.15.0 in the Output panel; point and face drawing with ghost points across seams was not verified |
 | Unified UV, UV editor, auto packing, UDIM naming | UV mode | ffb-uv | 14 | 09 | landed v0.15.0 |
 | Texture baking (diffuse, normal, metal, roughness, opacity, displacement) | Bake | ffb-uv | 14 | 09 | partial: normal, ambient occlusion and displacement maps landed v0.15.0; diffuse, metal, roughness and opacity are not baked |
-| Python API | formfabric Python API (headless engine module) | ffb-py | 17 | 09 | in progress v0.16.0 (the `ffb-py` engine module exists since v0.2.0; the Python package is being built) |
-| Plugins menu | Python plugins (family extension, formsculpt's PARAMS model) | service | 17 | 12 | in progress v0.16.0 |
-| (no reference feature) | GoF hand-off to formsculpt and formsurface (family extension) | service, ffb-io | 17 | S3 | in progress v0.16.0 (needs the contract agreed with formsculpt's owner) |
-| Unreal LiveSync, USD with simulation data | Live Link and USD sim export | ffb-io, service | 17 | 09 | in progress v0.16.0 (USD time-sample export landed v0.15.0; Live Link not yet tried against Unreal) |
+| Python API | formfabric Python API (headless engine module) | ffb-py | 17 | 09 | landed v0.18.0 (`python/formfabric`: every command as a function, in-process and HTTP backends) |
+| Plugins menu | Python plugins (family extension, formsculpt's PARAMS model) | service | 17 | 12 | landed v0.18.0 (PARAMS validation, a sample drape-and-export plugin) |
+| (no reference feature) | GoF hand-off to formsculpt and formsurface (family extension) | service, ffb-io | 17 | S3 | partial: a sender that needs no format change landed v0.18.0; the full hand-off waits on the contract proposal in docs/integration being agreed with formsculpt's owner |
+| Unreal LiveSync, USD with simulation data | Live Link and USD sim export | ffb-io, service | 17 | 09 | partial: USD time samples landed v0.15.0 and Live Link (a usda layer rewritten while draping) in v0.18.0; not yet tried against Unreal |
 | Game-ready pipeline (optimize, seal, rig and weights, UV pack, bake, FBX) | Game-Ready Export | ffb-io, ffb-uv | 14 | 11 | landed v0.15.0 |
 
 ## Visualization
@@ -175,7 +175,7 @@ Chapter column points at the encyclopedia chapter with the behaviour detail.
 | Schematic render | Schematic | ui/viewport | 15 | 10 | landed v0.15.0 (SVG and PDF export) |
 | Lights, shadows, HDRI, background image | Stage | ui/viewport | 15 | 10 | partial: lights, shadows, HDRI and ground landed v0.15.0; a background image is not verified |
 | Saved custom views with display state | Saved Views | ui/viewport | 15 | 10 | landed v0.15.0 |
-| Snapshot (multi-view, transparent, ppi), video capture, turntable | Capture | ui/viewport, service | 15 | 10 | partial: PNG snapshot, WebM video, GIF and turntable landed v0.15.0; multi-view, transparent background and ppi options were not verified; the exit capture used the pre-fix jacket and the re-capture on a drafted sample is a v0.16.0 exit |
+| Snapshot (multi-view, transparent, ppi), video capture, turntable | Capture | ui/viewport, service | 15 | 10 | partial: PNG snapshot, WebM video, GIF and turntable landed v0.15.0; multi-view, transparent background and ppi options were not verified; the strain map snapshot and a turntable were re-captured on the drafted T-shirt in v0.18.0, early in its drape under software rendering |
 | Strain, stress and pressure maps with units and bins | Fit Maps | ffb-sim, ui/viewport | 15 | 10 | landed v0.15.0 |
 | 3D measure (circumference, length) | Measure 3D | ffb-body, ui | 15 | 10 | landed v0.15.0 |
 
@@ -184,6 +184,6 @@ Chapter column points at the encyclopedia chapter with the behaviour detail.
 | Reference feature | Why deferred | Status |
 | --- | --- | --- |
 | AI Studio (texture, graphic, PBR map, pose generator, pattern drafter) | Needs model hosting and data licensing decisions; a later plan | deferred: model hosting and data licensing undecided |
-| Modular block system with structure files and ML labeling | Planned in Phase 16 as Components (the word block is not used) without the ML labeling | in progress v0.16.0 for Components; ML labeling deferred: no training data or hosting |
+| Modular block system with structure files and ML labeling | Planned in Phase 16 as Components (the word block is not used) without the ML labeling | landed v0.18.0 for Components (ports, joins, swap and check by port name and length, PATENT_NOTES 2.6); ML labeling deferred: no training data or hosting |
 | CONNECT asset marketplace | A service, not an app feature | deferred: a service, not an app feature |
 | Reading .zprj, .zpac or other proprietary files | Undocumented formats; interop goes through open formats | deferred: undocumented proprietary formats, by decision |
