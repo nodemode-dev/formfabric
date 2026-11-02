@@ -43,6 +43,9 @@ The DXF-AAMA reader and writer follow the public ASTM D6673 conventions as descr
 | codespan-reporting 0.13.1, gl_generator 0.14.0, glutin_wgl_sys 0.6.1, khronos_api 3.1.0, spirv 0.4.0 | Apache-2.0 only | GPU solver shader and binding support, desktop builds only |
 | libloading 0.7.4 and 0.8.9 | ISC | GPU solver dynamic loading, desktop builds only |
 | slotmap 1.1.1 | Zlib | GPU solver, desktop builds only |
+| png 0.17, fdeflate, bitflags 1.3 | MIT or Apache-2.0 | baked texture maps |
+| simd-adler32 | MIT | baked texture maps |
+| zlib-rs | Zlib | baked texture maps |
 | FastAPI, Starlette, pydantic | MIT, BSD-3-Clause | engine service |
 | uvicorn, websockets, python-dotenv, click | BSD-3-Clause | engine service |
 | python-multipart | Apache-2.0 | engine service |
