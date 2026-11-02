@@ -1,8 +1,9 @@
+mod abc;
 mod gltf_reader;
 mod obj;
 
 #[cfg(not(target_arch = "wasm32"))]
-mod fbx;
+pub mod fbx;
 
 use std::path::Path;
 
@@ -90,10 +91,14 @@ pub(crate) const MAX_TRIANGLES: usize = 10_000_000;
 pub(crate) const MAX_JOINTS: usize = 1024;
 
 pub fn extensions() -> &'static [&'static str] {
-    &["obj", "glb", "gltf", "fbx"]
+    &["obj", "glb", "gltf", "fbx", "abc"]
 }
 
 pub fn read(path: &str, options: &Options) -> Result<Body, String> {
+    read_sample(path, options, None)
+}
+
+pub fn read_sample(path: &str, options: &Options, sample: Option<usize>) -> Result<Body, String> {
     let ext = Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
     let meta = std::fs::metadata(path).map_err(|e| format!("could not read {path}: {e}"))?;
     if !meta.is_file() {
@@ -107,7 +112,8 @@ pub fn read(path: &str, options: &Options) -> Result<Body, String> {
         "obj" => obj::read(&bytes)?,
         "glb" | "gltf" => gltf_reader::read(&bytes, Path::new(path).parent())?,
         "fbx" => read_fbx(path, &bytes)?,
-        other => return Err(format!("unsupported body format .{other}; Import Body reads .obj, .glb, .gltf and .fbx (Alembic is deferred)")),
+        "abc" => abc::read(&bytes, sample)?,
+        other => return Err(format!("unsupported body format .{other}; Import Body reads .obj, .glb, .gltf, .fbx and .abc")),
     };
     let stem = Path::new(path).file_stem().and_then(|s| s.to_str()).unwrap_or("Body").to_string();
     finish(raw, options, stem)

@@ -1,3 +1,4 @@
+pub mod abc;
 pub mod cache;
 pub mod fbx;
 pub mod gltf;
@@ -6,6 +7,7 @@ pub mod png;
 pub mod thick;
 pub mod usd;
 pub mod uv;
+pub mod weld;
 
 use serde_json::{json, Value};
 
@@ -47,19 +49,56 @@ pub struct Object {
     pub uvs: Vec<[f32; 2]>,
     pub indices: Vec<u32>,
     pub quads: Vec<[u32; 4]>,
+    pub uv_ix: Vec<u32>,
     pub groups: Vec<Group>,
 }
 
 impl Object {
+    pub fn face_count(&self) -> usize {
+        self.indices.len() / 3 + self.quads.len()
+    }
+
     pub fn triangulated(&self) -> Object {
-        let mut out = self.clone();
-        for q in out.quads.drain(..) {
-            out.indices.extend_from_slice(&[q[0], q[1], q[2], q[0], q[2], q[3]]);
+        if self.quads.is_empty() {
+            return self.clone();
         }
-        let total = out.indices.len() / 3;
-        let first = out.groups.first().map_or(0, |g| g.material);
-        if !self.quads.is_empty() {
-            out.groups = vec![Group { material: first, first: 0, count: total }];
+        let (t, q) = (self.indices.len() / 3, self.quads.len());
+        let mut out = Object { quads: Vec::new(), indices: Vec::new(), uv_ix: Vec::new(), groups: Vec::new(), ..self.clone() };
+        let mut covered = vec![false; t + q];
+        let mut groups = self.groups.clone();
+        let fallback = groups.first().map_or(0, |g| g.material);
+        for g in &groups {
+            covered.iter_mut().take((g.first + g.count).min(t + q)).skip(g.first).for_each(|c| *c = true);
+        }
+        for (f, c) in covered.iter().enumerate() {
+            if !c {
+                groups.push(Group { material: fallback, first: f, count: 1 });
+            }
+        }
+        let keep_uv = !self.uv_ix.is_empty();
+        for g in &groups {
+            let start = out.indices.len() / 3;
+            for f in g.first..(g.first + g.count).min(t + q) {
+                if f < t {
+                    out.indices.extend_from_slice(&self.indices[3 * f..3 * f + 3]);
+                    if keep_uv {
+                        out.uv_ix.extend_from_slice(&self.uv_ix[3 * f..3 * f + 3]);
+                    }
+                } else {
+                    let k = f - t;
+                    let c = self.quads[k];
+                    out.indices.extend_from_slice(&[c[0], c[1], c[2], c[0], c[2], c[3]]);
+                    if keep_uv {
+                        let b = 3 * t + 4 * k;
+                        let u = &self.uv_ix[b..b + 4];
+                        out.uv_ix.extend_from_slice(&[u[0], u[1], u[2], u[0], u[2], u[3]]);
+                    }
+                }
+            }
+            let count = out.indices.len() / 3 - start;
+            if count > 0 {
+                out.groups.push(Group { material: g.material, first: start, count });
+            }
         }
         out
     }
@@ -91,6 +130,7 @@ pub struct SrcObject {
     pub positions: Vec<V3>,
     pub uvs: Vec<[f32; 2]>,
     pub indices: Vec<u32>,
+    pub quads: Vec<[u32; 4]>,
     pub front: usize,
     pub back: usize,
     pub side: usize,
@@ -104,14 +144,29 @@ pub struct Thickness {
 
 pub struct Built {
     pub scene: Scene,
+    pub weld: Option<weld::Weld>,
     extrusions: Vec<Option<thick::Extrusion>>,
-    sources: Vec<(Vec<u32>, usize)>,
+    sources: Vec<usize>,
     amount: f32,
 }
 
 impl Built {
     pub fn raw_vertex_count(&self) -> usize {
-        self.sources.iter().map(|s| s.1).sum()
+        self.sources.iter().sum()
+    }
+
+    pub fn point_count(&self) -> usize {
+        self.weld.as_ref().map_or_else(|| self.scene.vertex_count(), |w| w.count)
+    }
+
+    pub fn welded(&self) -> Result<(Scene, weld::Report), String> {
+        match &self.weld {
+            Some(w) => weld::apply(&self.scene, w),
+            None => {
+                let n = self.scene.vertex_count();
+                Ok((self.scene.clone(), weld::Report { vertices: n, points: n, dropped_faces: 0 }))
+            }
+        }
     }
 
     pub fn frame(&self, raw: &[V3]) -> Result<Vec<V3>, String> {
@@ -120,7 +175,7 @@ impl Built {
         }
         let mut out = Vec::with_capacity(self.scene.vertex_count());
         let mut at = 0;
-        for (i, (_, n)) in self.sources.iter().enumerate() {
+        for (i, n) in self.sources.iter().enumerate() {
             let part = &raw[at..at + n];
             at += n;
             match &self.extrusions[i] {
@@ -128,29 +183,47 @@ impl Built {
                 None => out.extend_from_slice(part),
             }
         }
-        Ok(out)
+        Ok(match &self.weld {
+            Some(w) => w.reduce(&out),
+            None => out,
+        })
     }
 }
 
 pub fn build(objects: &[SrcObject], materials: Vec<Material>, thickness: Option<&Thickness>) -> Result<Built, String> {
+    build_welded(objects, materials, thickness, None)
+}
+
+pub fn build_welded(objects: &[SrcObject], materials: Vec<Material>, thickness: Option<&Thickness>, groups: Option<&[u32]>) -> Result<Built, String> {
+    let raw: usize = objects.iter().map(|o| o.positions.len()).sum();
+    if groups.is_some_and(|g| g.len() != raw) {
+        return Err(format!("the weld groups cover {} vertices but the garment has {raw}", groups.map_or(0, <[u32]>::len)));
+    }
+    let shared = groups.map(|g| thick::shared_edges(objects, g));
     let mut scene = Scene { objects: Vec::new(), materials };
     let mut extrusions = Vec::new();
     let mut sources = Vec::new();
+    let mut keys: Vec<u32> = Vec::new();
+    let mut base = 0usize;
+    let extrude = thickness.filter(|t| t.amount > 0.0);
     for o in objects {
-        if o.uvs.len() != o.positions.len() {
-            return Err(format!("{} has {} UVs for {} vertices", o.name, o.uvs.len(), o.positions.len()));
+        let n = o.positions.len();
+        if o.uvs.len() != n {
+            return Err(format!("{} has {} UVs for {} vertices", o.name, o.uvs.len(), n));
         }
-        if o.indices.iter().any(|i| *i as usize >= o.positions.len()) || o.indices.len() % 3 != 0 {
-            return Err(format!("{} has invalid triangle indices", o.name));
+        if o.indices.iter().any(|i| *i as usize >= n) || o.indices.len() % 3 != 0 || o.quads.iter().flatten().any(|i| *i as usize >= n) {
+            return Err(format!("{} has invalid face indices", o.name));
         }
-        sources.push((o.indices.clone(), o.positions.len()));
-        match thickness {
-            Some(t) if t.amount > 0.0 => {
-                let (object, e) = thick::extrude(o, t);
+        sources.push(n);
+        let local = groups.map(|g| &g[base..base + n]);
+        match extrude {
+            Some(t) => {
+                let weave = local.zip(shared.as_ref()).map(|(g, s)| thick::Weave { groups: g, shared: s });
+                let (object, e) = thick::extrude(o, t, weave.as_ref());
                 extrusions.push(Some(e));
                 scene.objects.push(object);
             }
-            _ => {
+            None => {
                 extrusions.push(None);
                 let mut object = Object {
                     name: o.name.clone(),
@@ -158,20 +231,29 @@ pub fn build(objects: &[SrcObject], materials: Vec<Material>, thickness: Option<
                     normals: Vec::new(),
                     uvs: o.uvs.clone(),
                     indices: o.indices.clone(),
-                    quads: Vec::new(),
-                    groups: vec![Group { material: o.front, first: 0, count: o.indices.len() / 3 }],
+                    quads: o.quads.clone(),
+                    uv_ix: Vec::new(),
+                    groups: vec![Group { material: o.front, first: 0, count: o.indices.len() / 3 + o.quads.len() }],
                 };
-                object.normals = vertex_normals(&object.positions, &object.indices);
+                object.normals = vertex_normals(&object.positions, &object.triangulated().indices);
                 scene.objects.push(object);
             }
         }
+        if let Some(l) = local {
+            keys.extend(l.iter().map(|g| g * 2));
+            if extrude.is_some() {
+                keys.extend(l.iter().map(|g| g * 2 + 1));
+            }
+        }
+        base += n;
     }
-    Ok(Built { scene, extrusions, sources, amount: thickness.map_or(0.0, |t| t.amount) })
+    let weld = groups.map(|_| weld::Weld::from_keys(&keys));
+    Ok(Built { scene, weld, extrusions, sources, amount: extrude.map_or(0.0, |t| t.amount) })
 }
 
 pub fn vertex_normals(positions: &[V3], indices: &[u32]) -> Vec<V3> {
     let mut acc = vec![[0.0f32; 3]; positions.len()];
-    for t in indices.chunks_exact(3) {
+    for t in indices.as_chunks::<3>().0 {
         let (a, b, c) = (positions[t[0] as usize], positions[t[1] as usize], positions[t[2] as usize]);
         let n = cross(sub(b, a), sub(c, a));
         for i in t {
@@ -210,10 +292,11 @@ pub enum Format {
     Usd,
     Mdd,
     Pc2,
+    Abc,
 }
 
 impl Format {
-    pub const ALL: [Format; 7] = [Format::Obj, Format::Gltf, Format::Glb, Format::Fbx, Format::Usd, Format::Mdd, Format::Pc2];
+    pub const ALL: [Format; 8] = [Format::Obj, Format::Gltf, Format::Glb, Format::Fbx, Format::Usd, Format::Mdd, Format::Pc2, Format::Abc];
 
     pub fn parse(name: &str) -> Option<Format> {
         Some(match name {
@@ -224,6 +307,7 @@ impl Format {
             "usd" | "usda" => Format::Usd,
             "mdd" => Format::Mdd,
             "pc2" => Format::Pc2,
+            "abc" => Format::Abc,
             _ => return None,
         })
     }
@@ -237,6 +321,7 @@ impl Format {
             Format::Usd => "usd",
             Format::Mdd => "mdd",
             Format::Pc2 => "pc2",
+            Format::Abc => "abc",
         }
     }
 
@@ -308,6 +393,9 @@ fn convert_scene(scene: &Scene, o: &Options) -> Scene {
 }
 
 fn merge(scene: &Scene) -> Scene {
+    if let [only] = scene.objects.as_slice() {
+        return Scene { objects: vec![Object { name: "garment".into(), ..only.clone() }], materials: scene.materials.clone() };
+    }
     let mut merged = Object { name: "garment".into(), ..Object::default() };
     let first = scene.objects.first().and_then(|o| o.groups.first()).map(|g| g.material);
     let same = scene.objects.iter().all(|o| o.groups.len() == 1 && Some(o.groups[0].material) == first);
@@ -320,12 +408,18 @@ fn merge(scene: &Scene) -> Scene {
         merged.normals.extend_from_slice(&obj.normals);
         merged.uvs.extend_from_slice(&obj.uvs);
         merged.indices.extend(obj.indices.iter().map(|i| i + base));
+        if same {
+            continue;
+        }
         for g in &obj.groups {
             match merged.groups.last_mut() {
                 Some(last) if last.material == g.material && last.first + last.count == tri_base + g.first => last.count += g.count,
                 _ => merged.groups.push(Group { material: g.material, first: tri_base + g.first, count: g.count }),
             }
         }
+    }
+    if same {
+        merged.groups = vec![Group { material: first.unwrap_or(0), first: 0, count: merged.face_count() }];
     }
     Scene { objects: vec![merged], materials: scene.materials.clone() }
 }
@@ -341,6 +435,7 @@ pub fn estimate_bytes(scene: &Scene, frames: usize, format: Format) -> usize {
         Format::Usd => base + frames * v * 36,
         Format::Fbx => base * 2 + frames * v * 40,
         Format::Gltf | Format::Glb => base + frames * per_frame,
+        Format::Abc => base + frames * v * 24,
     }
 }
 
@@ -363,16 +458,32 @@ pub fn write(format: Format, scene: &Scene, animation: Option<&Animation>, optio
     if options.merged {
         base = merge(&base);
     }
-    let z_up = options.z_up && !matches!(format, Format::Gltf | Format::Glb);
+    let z_up = options.z_up && !matches!(format, Format::Gltf | Format::Glb | Format::Abc);
     let mut base = convert_scene(&base, &Options { z_up, ..options.clone() });
     if matches!(format, Format::Gltf | Format::Glb) {
         base.objects = base.objects.iter().map(Object::triangulated).collect();
     }
-    let anim: Option<Animation> = animation.filter(|a| !a.frames.is_empty()).map(|a| Animation { frames: a.frames.iter().map(|f| f.iter().map(|p| convert(*p, options.scale, z_up)).collect()).collect() });
+    let mut anim: Option<Animation> = animation.filter(|a| !a.frames.is_empty()).map(|a| Animation { frames: a.frames.iter().map(|f| f.iter().map(|p| convert(*p, options.scale, z_up)).collect()).collect() });
     if let Some(a) = &anim {
         if a.frames.iter().any(|f| f.len() != base.vertex_count()) {
             return Err("an animation frame does not match the exported vertex count".into());
         }
+    }
+    if matches!(format, Format::Gltf | Format::Glb) && base.objects.iter().any(|o| !o.uv_ix.is_empty()) {
+        let counts: Vec<usize> = base.objects.iter().map(|o| o.positions.len()).collect();
+        let (objects, origins): (Vec<Object>, Vec<Vec<u32>>) = base.objects.iter().map(|o| weld::single_index(o, options.uv)).unzip();
+        if let Some(a) = anim.as_mut() {
+            for f in a.frames.iter_mut() {
+                let mut next = Vec::with_capacity(objects.iter().map(|o| o.positions.len()).sum());
+                let mut at = 0;
+                for (n, origin) in counts.iter().zip(&origins) {
+                    next.extend(origin.iter().map(|k| f[at + *k as usize]));
+                    at += n;
+                }
+                *f = next;
+            }
+        }
+        base.objects = objects;
     }
     let files = match format {
         Format::Obj => obj::write(&base, anim.as_ref(), options),
@@ -382,6 +493,7 @@ pub fn write(format: Format, scene: &Scene, animation: Option<&Animation>, optio
         Format::Usd => usd::write(&base, anim.as_ref(), options),
         Format::Mdd => Ok(cache::mdd(anim.as_ref().ok_or("no frames")?, options)),
         Format::Pc2 => Ok(cache::pc2(anim.as_ref().ok_or("no frames")?, options)),
+        Format::Abc => abc::write(&base, anim.as_ref(), options),
     }?;
     let total: usize = files.iter().map(|f| f.bytes.len()).sum();
     if total > MAX_BYTES {
@@ -396,7 +508,8 @@ pub fn format_options() -> Value {
         "units": {"type": "string", "enum": ["mm", "cm", "m", "in"], "default": "mm", "description": "Unit of the numbers in the file. The engine works in millimetres. glTF and GLB default to m (the glTF unit) and always use Y up."},
         "axis": {"type": "string", "enum": ["y_up", "z_up"], "default": "y_up", "description": "y_up keeps the engine axes. z_up rotates to Z up, Y forward (Blender, 3ds Max)."},
         "single_object": {"type": "boolean", "default": false, "description": "Merge every panel into one object."},
-        "thickness": {"type": "boolean", "description": "Extrude the back face and the border strips using thickness.set. Defaults to the project setting."},
+        "weld": {"type": "string", "enum": ["unweld", "weld", "weld_selected"], "default": "unweld", "title": "Weld seams", "description": "unweld keeps every panel's own vertices. weld merges the vertices of sewn seam edges into shared points in one object (UVs stay per corner, so UV seams are kept). weld_selected welds only seams whose two panels are both in panels; every other panel is exported unwelded in the same object."},
+        "thickness": {"type": "boolean", "description": "Extrude the back face and the border strips using thickness.set. Quad meshes are extruded as quads with quad side walls. With weld the side walls follow the welded boundary. Defaults to the project setting."},
         "uv": {"type": "string", "enum": ["packed", "tiled", "none"], "default": "packed", "description": "packed uses the island layout (0..1 and UDIM tiles along U). tiled uses grain aligned millimetres divided by the fabric map scale, so texture maps repeat."},
         "materials": {"type": "boolean", "default": true, "description": "Write fabric materials: base colour, roughness, metalness, opacity and texture paths."},
         "animation": {"type": "boolean", "default": false, "description": "Include the active cache layer as animation."},
@@ -426,6 +539,6 @@ pub fn formats() -> Value {
         {"id": "usd", "extension": "usda", "files": ["usda"], "animation": "time sampled points on each Mesh", "options": with(json!({}))},
         {"id": "mdd", "extension": "mdd", "files": ["mdd"], "animation": "point cache (needs a cache)", "options": with(json!({}))},
         {"id": "pc2", "extension": "pc2", "files": ["pc2"], "animation": "point cache (needs a cache)", "options": with(json!({}))},
-        {"id": "abc", "extension": "abc", "files": [], "available": false, "note": "Alembic needs an Ogawa writer; deferred. Export USD or glTF animation, or MDD/PC2, and convert."}
+        {"id": "abc", "extension": "abc", "files": ["abc"], "animation": "uniform time sampling at the cache fps, one P sample per frame with constant topology; Y up, clockwise faces, UVs per face corner, vertex normals; one Xform plus PolyMesh per panel", "options": with(json!({}))}
     ])
 }

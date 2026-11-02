@@ -1,10 +1,11 @@
 use ffb_anim::cachefmt::Cache;
 use ffb_io::export::uv::{self, Island};
-use ffb_io::export::{self, Animation, Format, Object, Options, Thickness};
+use ffb_io::export::{self, Animation, Format, Options, SrcObject, Thickness};
 use serde_json::{json, Value};
 
 use super::scene::{bad, collect, effective_islands, flag, grain_angle, materials, number, source_objects, PanelGeo};
-use crate::{args, no_args, Command, CommandError, Group, Session, EXTERNAL, READ};
+use super::weld;
+use crate::{args, no_args, Command, CommandError, Group, QuadPanel, Session, EXTERNAL, READ};
 
 fn formats(_: &mut Session, _: &Value) -> Result<Value, CommandError> {
     let mut list = export::formats();
@@ -29,10 +30,10 @@ fn formats(_: &mut Session, _: &Value) -> Result<Value, CommandError> {
 
 fn run_schema() -> Value {
     let mut props = export::format_options().as_object().cloned().unwrap_or_default();
-    props.insert("format".into(), json!({"type": "string", "enum": ["obj", "gltf", "glb", "fbx", "usd", "mdd", "pc2", "abc"], "description": "Output format. abc (Alembic) is not available; the call explains what to use instead."}));
+    props.insert("format".into(), json!({"type": "string", "enum": ["obj", "gltf", "glb", "fbx", "usd", "mdd", "pc2", "abc"], "description": "Output format. abc writes an Alembic Ogawa archive (Xform plus PolyMesh per panel, Y up, metres by default; animation is uniform time sampling at the cache fps)."}));
     props.insert("path".into(), json!({"type": "string", "description": "Absolute path of the file to write; the extension must match the format (.usda or .usd for usd). Companion files (mtl, bin, OBJ sequence frames) are written beside it."}));
-    props.insert("panels".into(), json!({"type": "array", "items": {"type": "integer"}, "description": "Panel ids to export. Omit for every panel."}));
-    props.insert("quads".into(), json!({"type": "boolean", "description": "Write the quad mesh made by quad.remesh (OBJ, FBX and USD keep quads; glTF is triangulated by the format). Defaults to true when the project mesh kind is quad and there is no thickness or animation. Cannot be combined with thickness or animation."}));
+    props.insert("panels".into(), json!({"type": "array", "items": {"type": "integer"}, "description": "Panel ids to export. Omit for every panel. With weld weld_selected this list names the panels to weld together (at least two) and every panel is exported."}));
+    props.insert("quads".into(), json!({"type": "boolean", "description": "Write the quad mesh made by quad.remesh (OBJ, FBX and USD keep quads; glTF is triangulated by the format). Defaults to true when the project mesh kind is quad and there is no animation. Works with thickness (quad faces are extruded, side walls are quads). Cannot be combined with animation."}));
     props.insert("binary".into(), json!({"type": "boolean", "default": false, "description": "FBX only: binary FBX 7.4 instead of ASCII."}));
     json!({"type": "object", "properties": Value::Object(props), "required": ["format", "path"], "additionalProperties": false})
 }
@@ -53,7 +54,7 @@ pub(super) struct Common {
 }
 
 pub(super) fn common(a: &Value) -> Result<Common, CommandError> {
-    let fallback = if matches!(a.get("format").and_then(Value::as_str), Some("gltf" | "glb")) { "m" } else { "mm" };
+    let fallback = if matches!(a.get("format").and_then(Value::as_str), Some("gltf" | "glb" | "abc")) { "m" } else { "mm" };
     let units = a.get("units").and_then(Value::as_str).unwrap_or(fallback);
     let factor = unit_factor(units).ok_or_else(|| bad(format!("unknown units {units}")))?;
     let multiplier = number(a, "scale", 1e-6, 1e6)?.unwrap_or(1.0);
@@ -88,22 +89,40 @@ struct Frames {
 
 fn cache_frames(s: &Session, a: &Value, geos: &[PanelGeo], built: &export::Built) -> Result<Frames, CommandError> {
     let anim = &s.garment.anim;
-    let wanted = a.get("cache").and_then(Value::as_u64).map(|x| x as u32).or(anim.active_cache).or_else(|| anim.caches.first().map(|c| c.id));
-    let layer = wanted.and_then(|id| anim.caches.iter().find(|c| c.id == id)).ok_or_else(|| CommandError::new("not_found", "there is no cache layer to export; record one with anim.record"))?;
-    let (_, bytes) = s.unknown.iter().find(|(n, _)| *n == layer.entry).ok_or_else(|| CommandError::new("not_found", format!("the cache data {} is not in the session", layer.entry)))?;
-    let cache = Cache::parse(bytes).map_err(|e| CommandError::new("invalid_cache", e))?;
-    let mut slots = Vec::new();
-    for geo in geos {
-        let at = cache.header.panels.iter().position(|p| p.id == geo.id).ok_or_else(|| CommandError::new("invalid_cache", format!("panel {} is not in the cache", geo.id)))?;
-        if cache.header.panels[at].vertices as usize != geo.pos3.len() {
-            return Err(CommandError::new("invalid_cache", format!("panel {} has {} vertices now but {} in the cache; re-record the cache", geo.id, geo.pos3.len(), cache.header.panels[at].vertices)));
+    let explicit = a.get("cache").and_then(Value::as_u64).map(|x| x as u32);
+    let mut chosen: Vec<&ffb_pattern::anim::CacheLayer> = Vec::new();
+    if let Some(id) = explicit {
+        let layer = anim.caches.iter().find(|c| c.id == id).ok_or_else(|| CommandError::new("not_found", format!("cache layer {id} does not exist")))?;
+        if layer.kind == ffb_pattern::anim::CacheKind::Trim {
+            return Err(bad("a trim cache layer cannot be exported; pick a pattern cache layer"));
         }
-        slots.push(at);
+        chosen.push(layer);
+    } else {
+        chosen.extend(anim.caches.iter().rev().filter(|c| c.visible && c.kind == ffb_pattern::anim::CacheKind::Pattern));
     }
-    let total = cache.header.frames;
-    if total == 0 {
-        return Err(CommandError::new("invalid_cache", "the cache has no frames"));
+    if chosen.is_empty() {
+        return Err(CommandError::new("not_found", "there is no visible pattern cache layer to export; record one with anim.record"));
     }
+    let mut stack = Vec::new();
+    for layer in &chosen {
+        let (_, bytes) = s.unknown.iter().find(|(n, _)| *n == layer.entry).ok_or_else(|| CommandError::new("not_found", format!("the cache data {} is not in the session", layer.entry)))?;
+        let cache = Cache::parse(bytes).map_err(|e| CommandError::new("invalid_cache", e))?;
+        let mut slots = Vec::new();
+        for geo in geos {
+            let at = cache.header.panels.iter().position(|p| p.id == geo.id).ok_or_else(|| CommandError::new("invalid_cache", format!("panel {} is not in the cache", geo.id)))?;
+            if cache.header.panels[at].vertices as usize != geo.pos3.len() {
+                return Err(CommandError::new("invalid_cache", format!("panel {} has {} vertices now but {} in the cache; re-record the cache", geo.id, geo.pos3.len(), cache.header.panels[at].vertices)));
+            }
+            slots.push(at);
+        }
+        if cache.header.frames == 0 {
+            return Err(CommandError::new("invalid_cache", "the cache has no frames"));
+        }
+        stack.push((layer.start, cache, slots));
+    }
+    let origin = if explicit.is_some() { stack[0].0 } else { stack.iter().map(|l| l.0).min().unwrap_or(0) };
+    let last = stack.iter().map(|l| l.0 + l.1.header.frames - 1).max().unwrap_or(0);
+    let total = last - origin + 1;
     let start = number(a, "start", 0.0, f64::from(total - 1))?.map_or(0, |x| x as u32);
     let end = number(a, "end", 0.0, f64::from(total - 1))?.map_or(total - 1, |x| x as u32);
     let step = number(a, "step", 1.0, f64::from(total))?.map_or(1, |x| x as u32);
@@ -114,23 +133,25 @@ fn cache_frames(s: &Session, a: &Value, geos: &[PanelGeo], built: &export::Built
     if count > export::MAX_FRAMES {
         return Err(bad(format!("{count} frames is over the limit of {}; raise step", export::MAX_FRAMES)));
     }
-    let held = count.saturating_mul(built.scene.vertex_count()).saturating_mul(12);
+    let held = count.saturating_mul(built.point_count()).saturating_mul(12);
     if held > export::MAX_BYTES / 2 {
-        return Err(bad(format!("{count} frames of {} vertices need about {} MiB in memory, over the {} MiB limit; raise step or narrow start and end", built.scene.vertex_count(), held >> 20, export::MAX_BYTES >> 21)));
+        return Err(bad(format!("{count} frames of {} vertices need about {} MiB in memory, over the {} MiB limit; raise step or narrow start and end", built.point_count(), held >> 20, export::MAX_BYTES >> 21)));
     }
     let mut list = Vec::with_capacity(count);
     let mut frame = start;
     while frame <= end {
+        let at = origin + frame;
+        let (layer_start, cache, slots) = stack.iter().find(|l| at >= l.0 && at < l.0 + l.1.header.frames).ok_or_else(|| bad(format!("no visible cache layer covers frame {at}; narrow start and end")))?;
         let mut raw = Vec::new();
-        for slot in &slots {
-            let f = cache.panel_frame(frame, *slot).ok_or_else(|| CommandError::new("invalid_cache", "a cache frame is missing"))?;
-            raw.extend(f.chunks_exact(3).map(|c| [c[0], c[1], c[2]]));
+        for slot in slots {
+            let f = cache.panel_frame(at - layer_start, *slot).ok_or_else(|| CommandError::new("invalid_cache", "a cache frame is missing"))?;
+            raw.extend(f.as_chunks::<3>().0.iter().copied());
         }
         list.push(built.frame(&raw).map_err(|e| CommandError::new("invalid_cache", e))?);
         frame += step;
     }
-    let base_fps = if cache.header.fps > 0.0 { cache.header.fps } else { anim.fps };
-    Ok(Frames { list, fps: base_fps / step as f32, first: layer.start + cache.header.start + start })
+    let base_fps = if stack[0].1.header.fps > 0.0 { stack[0].1.header.fps } else { anim.fps };
+    Ok(Frames { list, fps: base_fps / step as f32, first: origin + start })
 }
 
 pub(super) fn write_files(dir: &std::path::Path, files: &[export::File]) -> Result<Vec<Value>, CommandError> {
@@ -157,9 +178,8 @@ pub(super) fn write_files(dir: &std::path::Path, files: &[export::File]) -> Resu
     Ok(written)
 }
 
-fn quad_swap(s: &mut Session, geos: &[PanelGeo], islands: &[Island], mode: &str, scene: &mut export::Scene) -> usize {
-    let meshes = crate::quad_meshes(s);
-    let mut total = 0;
+fn quad_swap(s: &Session, geos: &[PanelGeo], islands: &[Island], mode: &str, meshes: &[QuadPanel], objects: &mut [SrcObject]) -> Vec<bool> {
+    let mut swapped = vec![false; geos.len()];
     for (i, geo) in geos.iter().enumerate() {
         let Some(qp) = meshes.iter().find(|q| q.panel == geo.id).filter(|q| !q.quads.is_empty() && q.positions.len() == q.positions2d.len()) else { continue };
         let Some(index) = s.garment.index_of(geo.id) else { continue };
@@ -169,28 +189,18 @@ fn quad_swap(s: &mut Session, geos: &[PanelGeo], islands: &[Island], mode: &str,
             "none" => vec![[0.0, 0.0]; aligned.len()],
             _ => uv::island_uvs(&aligned, &islands[i]),
         };
-        let material = scene.objects[i].groups.first().map_or(0, |g| g.material);
-        let mut object = Object {
-            name: scene.objects[i].name.clone(),
-            positions: qp.positions.clone(),
-            normals: Vec::new(),
-            uvs,
-            indices: qp.tris.iter().flatten().copied().collect(),
-            quads: qp.quads.clone(),
-            groups: vec![export::Group { material, first: 0, count: qp.tris.len() }],
-        };
-        object.normals = export::vertex_normals(&object.positions, &object.triangulated().indices);
-        total += qp.quads.len();
-        scene.objects[i] = object;
+        let object = &mut objects[i];
+        object.positions = qp.positions.clone();
+        object.uvs = uvs;
+        object.indices = qp.tris.iter().flatten().copied().collect();
+        object.quads = qp.quads.clone();
+        swapped[i] = true;
     }
-    total
+    swapped
 }
 
 fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let name = args::string(a, "format")?;
-    if name == "abc" {
-        return Err(CommandError::new("unsupported", "Alembic (.abc) needs an Ogawa writer, which is not implemented in this build. Export USD (usda) or glTF for animation, or MDD/PC2 point caches, and convert in the target application."));
-    }
     let format = Format::parse(name).ok_or_else(|| bad(format!("unknown format {name}")))?;
     let path = args::file_path(a, "path", None)?;
     let location = std::path::Path::new(&path);
@@ -201,7 +211,8 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let stem = location.file_stem().and_then(|x| x.to_str()).filter(|x| !x.is_empty()).ok_or_else(|| bad("path needs a file name"))?.to_string();
     let dir = location.parent().filter(|p| !p.as_os_str().is_empty()).ok_or_else(|| bad("path has no folder"))?.to_path_buf();
     let common = common(a)?;
-    let filter = panel_filter(s, a)?;
+    let weld_mode = weld::mode(s, a)?;
+    let filter = if matches!(weld_mode, weld::Mode::Selected(_)) { None } else { panel_filter(s, a)? };
     let geos = collect(s, filter.as_deref())?;
     let thick_on = flag(a, "thickness").unwrap_or(s.garment.output.thickness.enabled);
     let thickness = thick_on.then_some(Thickness { amount: s.garment.output.thickness.amount, sides: s.garment.output.thickness.sides });
@@ -212,18 +223,29 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let (islands, _) = effective_islands(&s.garment, &geos);
     let want_materials = flag(a, "materials").unwrap_or(true);
     let mats = materials(&s.garment, &geos, thickness.is_some());
-    let objects = source_objects(&geos, &islands, &mats, uv_mode);
-    let mut built = export::build(&objects, mats.materials.clone(), thickness.as_ref()).map_err(|e| CommandError::new("invalid_geometry", e))?;
+    let mut objects = source_objects(&geos, &islands, &mats, uv_mode);
     let want_animation = flag(a, "animation").unwrap_or(false) || matches!(format, Format::Mdd | Format::Pc2);
-    let quad_mode = flag(a, "quads").unwrap_or(s.garment.output.mesh == ffb_pattern::output::MeshKind::Quad && thickness.is_none() && !want_animation) && !matches!(format, Format::Mdd | Format::Pc2);
+    let quad_mode = flag(a, "quads").unwrap_or(s.garment.output.mesh == ffb_pattern::output::MeshKind::Quad && !want_animation) && !matches!(format, Format::Mdd | Format::Pc2);
+    let mut quad_meshes: Vec<QuadPanel> = Vec::new();
+    let mut swapped = vec![false; geos.len()];
     if quad_mode {
-        if thickness.is_some() || want_animation {
-            return Err(bad("quads cannot be combined with thickness or animation; pass quads false, or turn thickness off and export without a cache"));
+        if want_animation {
+            return Err(bad("quads cannot be combined with animation; pass quads false, or export without a cache"));
         }
-        if quad_swap(s, &geos, &islands, uv_mode, &mut built.scene) == 0 {
+        quad_meshes = crate::quad_meshes(s);
+        swapped = quad_swap(s, &geos, &islands, uv_mode, &quad_meshes, &mut objects);
+        if !swapped.iter().any(|x| *x) {
             return Err(CommandError::new("not_found", "there is no quad mesh to export; run quad.remesh first or pass quads false"));
         }
     }
+    let grouping = if weld_mode.on() {
+        let sources: Vec<weld::Source> = geos.iter().enumerate().map(|(i, g)| weld::Source { panel: g.id, count: objects[i].positions.len(), quad: swapped[i].then(|| quad_meshes.iter().find(|q| q.panel == g.id)).flatten() }).collect();
+        Some(weld::groups(s, &sources, &weld_mode))
+    } else {
+        None
+    };
+    let built = export::build_welded(&objects, mats.materials.clone(), thickness.as_ref(), grouping.as_ref().map(|g| g.groups.as_slice())).map_err(|e| CommandError::new("invalid_geometry", e))?;
+    let (scene, report) = built.welded().map_err(|e| CommandError::new("invalid_geometry", e))?;
     let mut frames = if want_animation { Some(cache_frames(s, a, &geos, &built)?) } else { None };
     let animation = frames.as_mut().map(|f| Animation { frames: std::mem::take(&mut f.list) });
     let options = Options {
@@ -238,21 +260,25 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         binary_fbx: flag(a, "binary").unwrap_or(false),
         meters_per_unit: 0.001 / common.scale,
     };
-    let files = export::write(format, &built.scene, animation.as_ref(), &options).map_err(|e| CommandError::new("export_failed", e))?;
+    let files = export::write(format, &scene, animation.as_ref(), &options).map_err(|e| CommandError::new("export_failed", e))?;
     let written = write_files(&dir, &files)?;
-    Ok(json!({
+    let mut out = json!({
         "format": format.id(),
         "path": path,
         "files": written,
-        "objects": if options.merged { 1 } else { built.scene.objects.len() },
-        "vertices": built.scene.vertex_count(),
-        "triangles": built.scene.triangle_count(),
-        "quads": built.scene.quad_count(),
-        "materials": built.scene.materials.len(),
+        "objects": if options.merged { 1 } else { scene.objects.len() },
+        "vertices": scene.vertex_count(),
+        "triangles": scene.triangle_count(),
+        "quads": scene.quad_count(),
+        "materials": scene.materials.len(),
         "frames": animation.as_ref().map_or(0, |a| a.frames.len()),
         "thickness": thickness.is_some(),
         "uv": uv_mode
-    }))
+    });
+    if let Some(g) = &grouping {
+        out["weld"] = g.report(&weld_mode, report.points, report.vertices, report.dropped_faces);
+    }
+    Ok(out)
 }
 
 pub(super) fn commands() -> Vec<Command> {
@@ -262,7 +288,7 @@ pub(super) fn commands() -> Vec<Command> {
             mcp: "export_formats",
             group: Group::Export,
             label: "Export Formats",
-            description: "List the export formats (obj with mtl, gltf, glb, fbx 7.4 ASCII or binary, usd as usda text, mdd, pc2; abc is reported unavailable) with their file sets, how animation is stored and the option schema of each.",
+            description: "List the export formats (obj with mtl, gltf, glb, fbx 7.4 ASCII or binary, usd as usda text, mdd, pc2, abc as an Alembic Ogawa archive) with their file sets, how animation is stored and the option schema of each.",
             keys: &[],
             hints: READ,
             schema: no_args,

@@ -98,7 +98,8 @@ fn import_body(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         None => math::IDENTITY,
     };
     let options = Options { units, up, ground: a.get("ground").and_then(Value::as_bool).unwrap_or(true), name: a.get("name").and_then(Value::as_str).map(str::to_string) };
-    let mut body = import::read(path, &options).map_err(|e| CommandError::new("import_failed", e))?;
+    let sample = a.get("sample").and_then(Value::as_u64).map(|x| x as usize);
+    let mut body = import::read_sample(path, &options, sample).map_err(|e| CommandError::new("import_failed", e))?;
     body.source = std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().into_owned());
     Ok(add(s, "Import Body", body))
 }
@@ -258,7 +259,7 @@ pub(super) fn commands() -> Vec<Command> {
             mcp: "body_import",
             group: Group::Body,
             label: "Import Body",
-            description: "Import a body from an OBJ, glTF, GLB or FBX file (FBX on native builds only), convert to millimetres with y up and stand it on the ground. Skins and skeletons are read from glTF and FBX; Alembic is deferred. One undo step.",
+            description: "Import a body from an OBJ, glTF, GLB or FBX file (FBX on native builds only), convert to millimetres with y up and stand it on the ground. Skins and skeletons are read from glTF and FBX. Alembic (.abc, Ogawa) imports the polygon meshes of one sample (first by default, or sample), faces reversed from clockwise, transforms ignored. One undo step.",
             keys: &[],
             hints: EXTERNAL,
             schema: || {
@@ -269,7 +270,8 @@ pub(super) fn commands() -> Vec<Command> {
                         "units": {"type": "string", "enum": ["auto", "mm", "cm", "m", "in", "ft"], "description": "Units of the file; auto reads glTF as metres and guesses OBJ from its height."},
                         "up": {"type": "string", "enum": ["y", "-y", "z", "-z", "x", "-x"], "description": "Up axis of the file; default y."},
                         "name": {"type": "string", "description": "Name for the body; default the file name."},
-                        "ground": {"type": "boolean", "description": "Stand the body on y = 0; default true."}
+                        "ground": {"type": "boolean", "description": "Stand the body on y = 0; default true."},
+                        "sample": {"type": "integer", "minimum": 0, "description": "Alembic (.abc) only: which sample (frame) of an animated mesh to import; default 0, the first."}
                     },
                     "required": ["path"],
                     "additionalProperties": false

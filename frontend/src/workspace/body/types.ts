@@ -79,4 +79,4 @@ export const MAIN_JOINTS = [
   'l_ankle', 'r_ankle', 'foot.L', 'foot.R',
 ];
 
-export const IMPORT_EXT = ['obj', 'glb', 'gltf', 'fbx'];
+export const IMPORT_EXT = ['obj', 'glb', 'gltf', 'fbx', 'abc'];
