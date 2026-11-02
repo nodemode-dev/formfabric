@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.15.0 · 2026-11-02
+
+Phases 13, 14 and 15, plus the drape problems reported from testing v0.9.0, built together and released as one version.
+
+Fixed from the owner's report:
+
+- **Collisions:** contact only searched within the 3 mm skin offset, so cloth that got deeper was never pushed out (garments sank 12 to 38 mm into the body). Every substep now reaches 40 mm and clamps the approach to the body. Penetration is 0 mm at every sampled frame of every sample garment and of a 120-frame walk.
+- **Shrink-wrap look and seams:** on sewn garments the implicit solver never converged. The cloth crumpled and rode up onto the shoulders, which looked like shrink-wrap. Drapes of sewn garments now use block descent by default. The drafted T-shirt hangs to the hip with seams within 4 mm and the neckline within 13 mm of the neck.
+- **Space did nothing:** on a garment the drape runner starved state reads, so the window never saw a frame. The first frame now arrives in 0.3 s.
+- **Claude Code dock lag:** the chat pane relaid the page on every streamed token (500 messages took 288 s under 4x CPU throttling, now 5.7 s). The terminal output is batched, its backpressure is acknowledged by bytes, and dragging the dock no longer re-renders the 3D and Pattern Views on each step.
+
+New:
+
+- **Sample garments:** File, Open Sample drafts a T-shirt, A-line skirt or sleeveless dress from the current body's measurements.
+- **Animation:** BVH, glTF and FBX motion import with retargeting and lead-in; key tracks for body pose and measurements, wind, panel state and fabric; recorded cache layers saved in the project; playback, scrubbing and body morph; a timeline dock.
+- **Export:** OBJ, glTF, GLB, FBX, USD, MDD and PC2 with UVs, materials, thickness and the animated cache, checked in Blender 5.2. Also UV layout with UDIM tiles and a UV Editor, field-aligned quad remeshing with seam-matched borders and retopo guides, baked normal, AO and displacement maps, and game-ready export.
+- **Visualization:** strain, stress, pressure, fit, contact and thickness maps; compare maps; 3D length, circumference and distance measures; stage lights with shadows, HDRI and ground; saved views; fur; schematic SVG and PDF export; snapshot, video and turntable capture.
+- **3D tools:** Style Lines (stiffen or fold bands) and Fit Shell.
+- **GPU solver:** opt-in through the solver device setting.
+
+Not yet:
+
+- The walk keeps the T-shirt out of the body, but the cloth passes through itself in 92 of 120 frames (the Quality preset's self contact is unstable on sewn garments).
+- CPU speed is far from the targets: about 15 to 22 ms per frame at 676 vertices, about 200 to 260 ms at 5,000.
+- The GPU path pushes wind the wrong way and lets layers interpenetrate.
+- Alembic export is deferred.
+
 ## v0.12.0 · 2026-11-01
 
 Phases 10, 11 and 12, built in parallel and released together.

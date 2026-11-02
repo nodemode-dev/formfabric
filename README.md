@@ -2,7 +2,7 @@
 
 **Garment pattern design and cloth simulation, in the NodeMode style**
 
-![version](https://img.shields.io/badge/version-0.12.0-f97316) ![status](https://img.shields.io/badge/status-in%20development-f97316) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
+![version](https://img.shields.io/badge/version-0.15.0-f97316) ![status](https://img.shields.io/badge/status-in%20development-f97316) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 ## What it is
 
@@ -12,7 +12,24 @@ Planned stack · Rust engine (`native/`, one Cargo workspace, wgpu compute solve
 
 ## Status
 
-Phases 1 to 12 of 18 have landed: the family window shell, the Rust engine, pattern drafting with DXF-AAMA exchange, meshing and the 3D View, fabrics, cloth simulation, sewing, bodies with placement, 3D editing, and trims. You can draft and sew panels, put them on a CC0 body or formfabric's own Basic Form, drape them with the implicit solver, pinch, pin, freeze, stiffen and refit them in 3D, and add zippers, buttons, topstitch, edge finishes, prints and quilting. Not there yet: whole garments do not hang cleanly on the body, refit leaves cloth inside the new body, the CPU solver is slow above a few thousand vertices, and the GPU solver is not wired into the drape (see BUILD_NOTES). Animation and export follow (see the parity matrix).
+Phases 1 to 15 of 18 have landed: the family window shell, the Rust engine, pattern drafting with DXF-AAMA exchange, meshing and the 3D View, fabrics, cloth simulation, sewing, bodies with placement, 3D editing, trims, animation, export with UV and quad remeshing, and visualization.
+
+You can:
+- Open a drafted T-shirt, skirt or dress from File, Open Sample, or draft and sew your own.
+- Drape it on a CC0 body or formfabric's own Basic Form.
+- Edit it in 3D: pinch, pin, freeze, stiffen and refit.
+- Add trims: zippers, buttons, topstitch, edge finishes, prints and quilting.
+- Animate it: import a walk, record a cache and play it back.
+- Export to OBJ, glTF, FBX, USD, MDD or PC2. Exports open in Blender with UVs, materials and the animation.
+- Look at strain and fit maps, and capture snapshots and turntables.
+
+Not there yet:
+- Recorded walks still push cloth through the body and the garment.
+- The CPU solver is slow above a few thousand vertices.
+- The GPU solver is opt-in and has known bugs.
+- Alembic export is deferred.
+
+See BUILD_NOTES and the parity matrix for details.
 
 ## Quick start
 
