@@ -2,6 +2,17 @@
 
 Living context for the window. What would be comments in `frontend/` lives here, newest first. Read before editing.
 
+## v0.23.1 · 2026-11-02
+
+From the owner's test run (fixes made on v0.18.0, landed by hand on v0.23.0).
+
+- 3D View fabric maps: the engine's albedo key is `base_color`; `firstMap` checks it first, then `base`, `color`, `albedo`, `diffuse`.
+- `map_scale` arrives as `[width_mm, height_mm]`; `scaleOf` takes a number or a pair and uses the first value, because the shader has one scale uniform. A non-uniform repeat needs a second uniform.
+- Local texture paths load through `previewUrl` (`fabric/files.ts`: fetch with the window token, cached blob URL); only `http(s):`, `blob:` and `data:` go straight to `img.src`. An `img` request never carries the token.
+- Textures upload without `UNPACK_FLIP_Y`: texture v = 0 is the image's top row and lands at local y = `map_offset.y` (the hem), so an image meant to read upright on a panel is stored upside down.
+- App icon: `assets/formfabric_icon.png` is now the owner's 1024 px icon (the pinwheel of eight gradient bars on a dark rounded tile) and `src-tauri/icons/*` were regenerated from it with `tauri icon`; `assets/icon.svg` and `frontend/public/icon.svg` (the window favicon) draw the same bars on a 32 unit grid; `ui/brand.ts` already drew this pinwheel and is unchanged.
+- Open: prints (`print.add`, `print.set`) draw only in the Pattern View (`trims/draw.ts`), not in 3D. A Vite hot reload reloads the document from the autosave, which can be older than the live engine document and clears undo.
+
 ## v0.19.0 to v0.23.0 · 2026-11-02
 
 - Title bar: Animate and Render tabs are live and every tab applies its layout through `applyWorkspace` (the dock is untouched); UV and Retopo are Window items that dispatch `ffb:output-section` on `window` with `detail.section`, which `output/panel.ts` handles without re-rendering the drawer.
