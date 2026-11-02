@@ -222,7 +222,7 @@ pub fn read(bytes: &[u8], dir: Option<&Path>) -> Result<Raw, String> {
             match reader.read_indices() {
                 Some(ix) => {
                     let ix: Vec<u32> = ix.into_u32().collect();
-                    for t in ix.chunks_exact(3) {
+                    for t in ix.as_chunks::<3>().0 {
                         raw.triangles.push([base + t[0], base + t[1], base + t[2]]);
                     }
                 }

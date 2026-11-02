@@ -517,7 +517,7 @@ impl GpuSolver {
         let h = self.params.time_step.max(1.0e-6) / substeps as f32;
         let g = self.params.gravity;
         let damp = 1.0 / (1.0 + self.params.air_damping.max(0.0) * 10.0 * h);
-        let (gi, gt) = self.grab.map_or((u32::MAX, [0.0; 3]), |(v, t)| (v, t));
+        let (gi, gt) = self.grab.unwrap_or((u32::MAX, [0.0; 3]));
         let base = self.params.collision_thickness.max(0.0);
         let max_th = self.model.thickness.iter().copied().fold(0.0, f32::max);
         let reach = base.max(max_th) * 3.0;

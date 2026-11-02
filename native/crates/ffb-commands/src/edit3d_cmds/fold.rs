@@ -62,7 +62,7 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let n = m.positions.len();
     let unfolded: Vec<[f32; 3]> = match before.place3d.as_ref().and_then(|p| p.pose.as_ref()).filter(|p| p.len() == n) {
         Some(pose) => pose.clone(),
-        None => layout::positions_3d(m, &before).chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect(),
+        None => layout::positions_3d(m, &before).as_chunks::<3>().0.to_vec(),
     };
     let world = |i: usize| -> V { unfolded[i].map(f64::from) };
     let signed: Vec<f64> = m.positions.iter().map(|p| dir2[0] * (p[1] - pts[0][1]) - dir2[1] * (p[0] - pts[0][0])).collect();

@@ -374,7 +374,7 @@ fn lattice_points(boundary: &[V2], bb: [V2; 2], d: f64, jitter: f64, guard: &Seg
         }
         xs.sort_by(f64::total_cmp);
         let shift = if r % 2 == 0 { 0.0 } else { 0.5 * d };
-        for pair in xs.chunks_exact(2) {
+        for pair in xs.as_chunks::<2>().0 {
             let c0 = ((pair[0] - bb[0][0] - shift) / d).ceil() as i64;
             let c1 = ((pair[1] - bb[0][0] - shift) / d).floor() as i64;
             for c in c0..=c1 {

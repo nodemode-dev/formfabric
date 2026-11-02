@@ -83,7 +83,7 @@ pub(crate) fn build(s: &mut Session, version: u64) -> Result<Scene, CommandError
         panels.push(PanelScene {
             id,
             rest,
-            triangles: layout::indices(m, flip).chunks_exact(3).map(|t| [t[0], t[1], t[2]]).collect(),
+            triangles: layout::indices(m, flip).as_chunks::<3>().0.to_vec(),
             material,
             density: physical.density as f32,
             thickness: if physical.thickness > 0.0 { physical.thickness as f32 } else { 0.3 },

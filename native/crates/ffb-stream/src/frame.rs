@@ -78,7 +78,7 @@ pub fn encode_positions(frame: u32, object: u32, positions: &[f32]) -> Vec<u8> {
     let count = positions.len() / 3;
     let mut lo = [f32::INFINITY; 3];
     let mut hi = [f32::NEG_INFINITY; 3];
-    for v in positions.chunks_exact(3) {
+    for v in positions.as_chunks::<3>().0 {
         for a in 0..3 {
             if v[a].is_finite() {
                 lo[a] = lo[a].min(v[a]);
@@ -97,7 +97,7 @@ pub fn encode_positions(frame: u32, object: u32, positions: &[f32]) -> Vec<u8> {
     }
     let mut out = Vec::with_capacity(HEADER_LEN + count * 6);
     put_header(&mut out, KIND_POSITIONS, frame, object, count as u32, lo, scale);
-    for v in positions.chunks_exact(3) {
+    for v in positions.as_chunks::<3>().0 {
         for a in 0..3 {
             let t = if v[a].is_finite() { ((v[a] - lo[a]) / scale[a]).clamp(0.0, 1.0) } else { 0.0 };
             out.extend_from_slice(&((t * 65535.0).round() as u16).to_le_bytes());
@@ -178,7 +178,7 @@ pub fn decode(bytes: &[u8]) -> Result<Frame, DecodeError> {
                 return Err(DecodeError::BadLength);
             }
             let mut positions = Vec::with_capacity(n * 3);
-            for (k, c) in body.chunks_exact(2).enumerate() {
+            for (k, c) in body.as_chunks::<2>().0.iter().enumerate() {
                 let a = k % 3;
                 let q = u16::from_le_bytes([c[0], c[1]]) as f32;
                 positions.push(header.origin[a] + q / 65535.0 * header.scale[a]);
@@ -217,7 +217,9 @@ pub fn decode(bytes: &[u8]) -> Result<Frame, DecodeError> {
             };
             let extent = max - min;
             let values = body
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|c| {
                     let q = u16::from_le_bytes([c[0], c[1]]);
                     if q == SCALAR_NONE {
