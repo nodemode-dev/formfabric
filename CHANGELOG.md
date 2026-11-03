@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.23.3 · 2026-11-03
+
+- The unified v3 app icon for the desktop icons, the window favicon (now a PNG) and the README.
+- The compiled app name is FormFabric (window and splash titles).
+- `.github/CODEOWNERS` added.
+
 ## v0.23.2 · 2026-11-02
 
 - CI: every action moved to its Node 24 major (`checkout@v6`, `setup-node@v6`, `setup-python@v6`). GitHub removed Node 20 from its hosted runners in September 2026, and all four jobs failed within seconds on the first push.
