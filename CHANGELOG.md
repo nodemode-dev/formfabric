@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.23.4 · 2026-11-04
+
+- README rewritten to the Form family layout, with screenshots of a draped dress in `docs/images/`.
+
 ## v0.23.3 · 2026-11-03
 
 - The unified v3 app icon for the desktop icons, the window favicon (now a PNG) and the README.
