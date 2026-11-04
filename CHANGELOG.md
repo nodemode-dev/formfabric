@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.23.5 · 2026-11-04
+
+- The README hero is now the owner's screenshot of the printed dress on the body; the old plain-white-dress screenshots are removed.
+
 ## v0.23.4 · 2026-11-04
 
 - README rewritten to the Form family layout, with screenshots of a draped dress in `docs/images/`.
