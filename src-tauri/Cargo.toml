@@ -1,6 +1,6 @@
 [package]
 name = "formfabric"
-version = "0.23.3"
+version = "0.23.4"
 description = "formfabric desktop shell"
 authors = ["nodemode-ai"]
 license = "Apache-2.0"
