@@ -28,9 +28,9 @@
 <br>
 
 <p align="center">
-  <img src="docs/images/formfabric-hero.png" alt="The FormFabric Pattern workspace: dress pattern pieces with a script F logo and colored seam lines on the left, the dress draped on a navy body in the 3D View on the right with a swirling orange, violet and teal print and the F logo, and the Inspector at the far right" width="100%">
+  <img src="docs/images/formfabric-pattern-and-drape.png" alt="The FormFabric Pattern workspace with the Dress Front piece selected: the pattern piece with a script F logo and colored seam lines on the left, the dress draped on a navy body in the 3D View with a swirling orange, violet and teal print and the F logo, and the Inspector showing the piece's name, position, particle distance, perimeter and area" width="100%">
   <br>
-  <sub>The Pattern workspace: the flat dress pieces on the left, the printed dress draped on a body in the 3D View.</sub>
+  <sub>The Pattern workspace: Dress Front selected on the flat pattern, the printed dress draped on a body in the 3D View.</sub>
 </p>
 
 <p align="center"><a href="#features">Features</a> · <a href="#everything-in-the-box">In the box</a> · <a href="#built-for-agents">Agents</a> · <a href="#under-the-hood">Under the hood</a> · <a href="#download">Download</a> · <a href="#run-it-from-source">Run from source</a> · <a href="#the-form-family">Form family</a></p>
