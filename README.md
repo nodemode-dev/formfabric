@@ -28,9 +28,9 @@
 <br>
 
 <p align="center">
-  <img src="docs/images/formfabric-hero.png" alt="A summer floral dress draped on the MPFB2 female body in the 3D View, beside its flat Pattern View and the Inspector" width="100%">
+  <img src="docs/images/formfabric-hero.png" alt="The FormFabric Pattern workspace: dress pattern pieces with a script F logo and colored seam lines on the left, the dress draped on a navy body in the 3D View on the right with a swirling orange, violet and teal print and the F logo, and the Inspector at the far right" width="100%">
   <br>
-  <sub>A dress draped on a body in the 3D View, next to the flat pattern it was sewn from.</sub>
+  <sub>The Pattern workspace: the flat dress pieces on the left, the printed dress draped on a body in the 3D View.</sub>
 </p>
 
 <p align="center"><a href="#features">Features</a> · <a href="#everything-in-the-box">In the box</a> · <a href="#built-for-agents">Agents</a> · <a href="#under-the-hood">Under the hood</a> · <a href="#download">Download</a> · <a href="#run-it-from-source">Run from source</a> · <a href="#the-form-family">Form family</a></p>
@@ -50,36 +50,14 @@
 
 ## Features
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/images/formfabric-pattern.png" alt="The Pattern View showing the front dress panel with seams, notches and the Inspector" width="100%">
-      <br><sub>The Pattern View with the Dress Front panel selected.</sub>
-      <h3>Sewing patterns</h3>
-      Flat panels carry seams, darts, grain lines and notches. A live seam check shows mismatches in millimetres.
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/images/formfabric-simulation.png" alt="The Drape workspace with the dress on the body, the Body panel and the cloth controls" width="100%">
-      <br><sub>The Drape workspace: body, presets and cloth controls around the 3D View.</sub>
-      <h3>Cloth simulation</h3>
-      Fast, normal, quality and final presets, pins, wind and body collision with skin offset. Choose a body, then press Space.
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/images/formfabric-animation.png" alt="The Animate workspace with the timeline under the 3D View" width="100%">
-      <br><sub>The Animate workspace with the timeline.</sub>
-      <h3>Animation</h3>
-      A timeline with motion import and retargeting, recorded caches in layers, and keys for wind, fabric values and pins.
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/images/formfabric-export.png" alt="The Output panel with the export format, quad mesh and retopology tools" width="100%">
-      <br><sub>The Output panel: export format, quad remesh, retopology and UV tools.</sub>
-      <h3>Export</h3>
-      Weld or unweld, thick or thin, quad remesh with seam-matched borders, texture baking and game-ready export.
-    </td>
-  </tr>
-</table>
+- **Sewing patterns.** Flat panels carry seams, darts, grain lines and notches, with a live seam check in millimetres.
+- **Exact drafting.** Draw panels in millimetres with numeric input, seam allowance and DXF-AAMA exchange.
+- **Cloth simulation.** Fast, normal, quality and final presets, with pins, wind and body collision with skin offset.
+- **Real bodies.** Drape on CC0 MPFB2 bodies or a Basic Form, then refit and re-drape as the pattern changes.
+- **Finishing details.** Zippers, buttons, topstitch, piping, elastic, pleats and gather.
+- **Animation.** A timeline with motion import and retargeting, recorded caches in layers, and keys for wind, fabric values and pins.
+- **Export.** Weld or unweld, thick or thin, quad remesh with seam-matched borders, texture baking and game-ready output.
+- **Any 3D tool.** OBJ, FBX, glTF, USD and Alembic with UVs and caches, or the whole garment as a `.ffbrc` project.
 
 ## Everything in the box
 
@@ -214,4 +192,4 @@ Code owners are set in [`.github/CODEOWNERS`](.github/CODEOWNERS).
 
 FormFabric is licensed under the Apache License 2.0 ([`LICENSE`](LICENSE), SPDX `Apache-2.0`). Copyright 2026 NodeAgentc, Inc. Third-party notices: [`NOTICE.md`](NOTICE.md).
 
-<sub>Screenshot content: the owner's summer floral dress project on the CC0 MPFB2 female body.</sub>
+<sub>Screenshot content: the owner's dress project on a CC0 MPFB2 body.</sub>
