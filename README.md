@@ -1,130 +1,217 @@
 <p align="center">
-  <img src="assets/formfabric_icon.png" alt="formfabric logo" width="160" />
+  <img src="assets/app-icon/formfabric-256.png" width="128" height="128" alt="FormFabric icon">
 </p>
 
-<h1 align="center">formfabric</h1>
-
-<p align="center"><b>The garment studio of the form family: draw sewing patterns, sew them, drape them on a body w/ a real cloth simulation, animate & export.</b></p>
+<h1 align="center">FormFabric</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.23.2-f97316" alt="version v0.23.2" />
-  <img src="https://img.shields.io/badge/Node.js-20.19%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 20.19+" />
-  <img src="https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white" alt="Python 3.12+" />
-  <img src="https://img.shields.io/badge/Rust-1.99-000000?logo=rust&logoColor=white" alt="Rust 1.99" />
-  <img src="https://img.shields.io/badge/license-Apache--2.0-555555" alt="license Apache-2.0" />
+  <b>Garment design; sewing patterns draped on a body with a real cloth simulation.</b><br>
+  Draw pattern pieces, sew them edge to edge, drape them, animate and export,<br>
+  in one window on your own computer. Agents drive it over MCP.
 </p>
 
-## What it is
+<p align="center">
+  <img alt="version v0.23.4" src="https://img.shields.io/badge/version-v0.23.4-f97316?style=flat-square">
+  <img alt="Rust 1.99" src="https://img.shields.io/badge/Rust-1.99-000000?style=flat-square&logo=rust&logoColor=white">
+  <img alt="TypeScript and Vite" src="https://img.shields.io/badge/TypeScript-Vite-3178C6?style=flat-square&logo=typescript&logoColor=white">
+  <img alt="macOS, Linux, Windows" src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-native-2f7bf5?style=flat-square">
+  <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-3a3a3a?style=flat-square">
+  <img alt="Status: pre-1.0" src="https://img.shields.io/badge/status-pre--1.0-d69e2e?style=flat-square">
+</p>
 
-formfabric is a desktop garment studio for macOS, Linux & Windows, built in the image of its siblings formvis (image) & formsculpt (sculpting). You draft flat pattern pieces in the Pattern View, sew them edge to edge, & drape them on a body in the 3D View, where a native cloth solver settles the fabric under gravity, contact & seams. Garments animate on a walk, export to every common 3D format w/ their UVs & caches, & save as `.ffbrc` projects. Every action is one engine command, so the window, a Python script & an AI agent over MCP all drive the same document.
+<p align="center">
+  <a href="https://formai.studio/"><b>Download FormFabric on formai.studio</b></a> ·
+  <a href="#run-it-from-source">Run it from source</a> ·
+  <a href="#the-form-family">All Form apps</a>
+</p>
 
-**Stack:** Rust engine (14 crates) · vanilla TypeScript + Vite · Python + FastAPI · Tauri 2 · **Scale:** 255 engine commands, every interface string in 30 languages
+<br>
 
-## Highlights
+<p align="center">
+  <img src="docs/images/formfabric-hero.png" alt="A summer floral dress draped on the MPFB2 female body in the 3D View, beside its flat Pattern View and the Inspector" width="100%">
+  <br>
+  <sub>A dress draped on a body in the 3D View, next to the flat pattern it was sewn from.</sub>
+</p>
 
-- **Pattern drafting** panels, rectangles, ellipses, inner shapes & lines, curve tools, exact numeric input w/ arithmetic, snapping, darts, slash & spread, seam allowance, notches, grain lines, mirror & linked instances, unfold, measure & match lengths
-- **Pattern exchange** DXF-AAMA import & export in the ASTM D6673 dialect, round trip within 0.05 mm
-- **Sewing** seams, free & multi seams, seam side, fold angle & tension, tack, pleats, gather, a live seam check that shows mismatches in millimetres
-- **Real cloth** a native solver (block descent & implicit) w/ orthotropic stretch, directional bending, seams, body collision w/ skin offset & friction, stable self contact, pins, wind, pressure & shrink; fast, normal, quality & final presets; an opt-in GPU path on Metal, Vulkan & DX12
-- **Bodies** CC0 MPFB2 female & male bodies & the Basic Form, measured & resized, posed, imported from OBJ, glTF, FBX & Alembic; placement volumes & points, Auto Seam proposals
-- **3D editing** grab, pinch, pins, fold place, freeze, stiffen, hold shape, body tape, style lines, fit shell, refit to a new body & re-drape
-- **Fabrics** physical values in SI units, 15 presets, a Fabric Lab that turns test measurements into parameters, PBR looks front, back & side, colorways, `.ffab` files
-- **Trims & details** zippers, buttons & buttonholes, topstitch, piping, binding, elastic, press, tape, bond, skive, prints, quilting, rigid trims from OBJ & FBX
-- **Animation** a timeline w/ motion import & retargeting, recorded caches in layers you can cut, merge, move & lock, keys w/ auto key, keyable wind, fabric values & pins
-- **Export** OBJ, FBX, glTF & GLB, USD, Alembic, MDD, PC2 & OBJ sequences, weld or unweld, thick or thin, quad remesh w/ seam-matched borders, retopology drawing w/ ghost points across seams, texture baking & game-ready export
-- **Visualization** strain & fit maps, 3D measures, overlay compare, a Stage w/ lights, HDRI, shadows & a background image, saved views, snapshots up to ten views at any ppi, video & transparent turntables
-- **Workspace** a Library of fabrics, trims, poses, motions, arrangements & garment Components, an Object Browser, snapshots, named layouts, crash recovery from autosave & a command journal, settings export
-- **Agents & scripting** every command is an MCP tool; a standard-library Python package w/ plugins; a Live Link that streams a USD layer to Unreal; drafted sample garments to start from
-- **The form family shell** the same splash & reveal, title bar, menus, Home screen, Preferences & status bar as formvis, w/ 28 shared themes & zero flash on load
+<p align="center"><a href="#features">Features</a> · <a href="#everything-in-the-box">In the box</a> · <a href="#built-for-agents">Agents</a> · <a href="#under-the-hood">Under the hood</a> · <a href="#download">Download</a> · <a href="#run-it-from-source">Run from source</a> · <a href="#the-form-family">Form family</a></p>
 
-## Quick Start
+<br>
 
-### Requirements
+<table>
+  <tr>
+    <td width="25%" valign="top"><h3>Pattern first</h3>Draw panels in millimetres with exact numeric input, darts, notches and seam allowance, and exchange them as DXF-AAMA.</td>
+    <td width="25%" valign="top"><h3>Real cloth</h3>A native solver settles the fabric under gravity, contact and seams, with an opt-in GPU path on Metal, Vulkan and DX12.</td>
+    <td width="25%" valign="top"><h3>To any 3D tool</h3>Export OBJ, FBX, glTF, USD and Alembic with UVs and caches, or save the whole garment as a <code>.ffbrc</code> project.</td>
+    <td width="25%" valign="top"><h3>Agent-ready</h3>Every action is one engine command, so the window, a Python script and an AI agent over MCP drive the same document.</td>
+  </tr>
+</table>
 
-Node 20.19+ (22 recommended), Python 3.12+, Rust (the version pinned by `rust-toolchain.toml`, installed by `rustup`). Desktop builds on Linux also need the Tauri 2 system packages. `./formfabric doctor` checks them.
+<br>
 
-### macOS & Linux
+## Features
 
-```shell
-chmod +x formfabric_oc_install formfabric
-./formfabric_oc_install
-./formfabric
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/formfabric-pattern.png" alt="The Pattern View showing the front dress panel with seams, notches and the Inspector" width="100%">
+      <br><sub>The Pattern View with the Dress Front panel selected.</sub>
+      <h3>Sewing patterns</h3>
+      Flat panels carry seams, darts, grain lines and notches. A live seam check shows mismatches in millimetres.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/images/formfabric-simulation.png" alt="The Drape workspace with the dress on the body, the Body panel and the cloth controls" width="100%">
+      <br><sub>The Drape workspace: body, presets and cloth controls around the 3D View.</sub>
+      <h3>Cloth simulation</h3>
+      Fast, normal, quality and final presets, pins, wind and body collision with skin offset. Choose a body, then press Space.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/formfabric-animation.png" alt="The Animate workspace with the timeline under the 3D View" width="100%">
+      <br><sub>The Animate workspace with the timeline.</sub>
+      <h3>Animation</h3>
+      A timeline with motion import and retargeting, recorded caches in layers, and keys for wind, fabric values and pins.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/images/formfabric-export.png" alt="The Output panel with the export format, quad mesh and retopology tools" width="100%">
+      <br><sub>The Output panel: export format, quad remesh, retopology and UV tools.</sub>
+      <h3>Export</h3>
+      Weld or unweld, thick or thin, quad remesh with seam-matched borders, texture baking and game-ready export.
+    </td>
+  </tr>
+</table>
+
+## Everything in the box
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <h4>Draft and sew</h4>
+      Panels · Rectangles and ellipses · Curve tools · Darts · Slash and spread · Mirror and linked instances · Seams · Pleats · Gather · Tack
+    </td>
+    <td width="33%" valign="top">
+      <h4>Drape and finish</h4>
+      CC0 MPFB2 bodies · Basic Form · Pins · Grab and pinch · Fit shell · Refit and re-drape · Zippers · Buttons · Topstitch · Piping · Elastic
+    </td>
+    <td width="33%" valign="top">
+      <h4>Formats</h4>
+      Opens: <code>.ffbrc</code>, DXF-AAMA, OBJ, glTF, FBX, Alembic · Saves: <code>.ffbrc</code>, OBJ, FBX, glTF, GLB, USD, Alembic, MDD, PC2 · Native: <code>.ffbrc</code>
+    </td>
+  </tr>
+</table>
+
+## Built for agents
+
+255 engine commands are declared once, in one registry; the UI, the Python package and the MCP server call the same ones.
+
+```sh
+./formfabric py -m formfabric commands   # list the engine commands
+./formfabric py my_script.py             # run a script against the engine
+./formfabric mcp                         # MCP server on stdio for Claude Code, Codex and Cursor
 ```
 
-Desktop app:
+`.mcp.json`, `.codex/config.toml` and `.cursor/mcp.json` are already wired in this repo. See [`AGENTS.md`](AGENTS.md).
 
-```shell
-./formfabric desktop dev
-./formfabric desktop build
+## Under the hood
+
+- **Engine:** a Rust workspace of 14 crates, with a native cloth solver (block descent and implicit) and an opt-in wgpu compute path
+- **Interface:** vanilla TypeScript and Vite, with the shared Form shell, zero flash on load and every string in 30 languages
+- **Service:** Python and FastAPI on 127.0.0.1 only, with autosave, a recovery journal and plugins
+- **Desktop:** Tauri 2, with the engine as a sidecar and the frame stream as a binary WebSocket
+- **Scripting:** a standard-library Python package, plus a Live Link that streams a USD layer to Unreal
+
+## Download
+
+**Get the app:** download FormFabric from [formai.studio](https://formai.studio/). That is the easiest way to install it.
+
+**Keep it updated:** [FormPortal](https://github.com/nodemode-dev/formportal) installs, updates and rolls back every Form app from the same signed catalogue.
+
+Not released yet. Run it from source below.
+
+Releases are compiled and published from [`nodemode-dev/formcompiler`](https://github.com/nodemode-dev/formcompiler/releases), not from this repo. This repo holds the source.
+
+## Run it from source
+
+Prefer it in your browser, or want to contribute? Run the web UI straight from this repo.
+
+**Requires:** Node 20.19+ (22 recommended), Python 3.12+, and Rust at the version pinned by `rust-toolchain.toml` (installed by `rustup`). `./formfabric doctor` checks them.
+
+```sh
+git clone git@github.com:nodemode-dev/formfabric.git
+cd formfabric
+./formfabric_oc_install     # installs the backend, the engine and the frontend
+./formfabric                # web UI at http://localhost:5280
 ```
 
-First drape: File, Open Sample, T-shirt, pick a body, then press Space.
+`./formfabric desktop dev` opens the desktop window instead.
 
-### Windows
+On Windows use `formfabric_oc_install.bat` and `formfabric.bat`. The backend listens on 127.0.0.1:8280 only. `FORMFABRIC_DATA_DIR` moves autosaves, recovery and the Library.
 
-```shell
-formfabric_oc_install.bat
-formfabric.bat
-```
+> [!IMPORTANT]
+> **Status:** pre-1.0. The GPU path and solver speed on real hardware, the Unreal run and a few other items still wait for sign-off before v1.0.0.
 
-### Ports
+**Contributing:** branch from `main`, keep changes to source here, and leave packaging and releases to formcompiler. See [`.docs/BRANCHING.md`](.docs/BRANCHING.md) and [`AGENTS.md`](AGENTS.md).
 
-| Service | URL | Notes |
-|---|---|---|
-| Frontend | http://127.0.0.1:5280 | Vite dev server, `server.host` false, proxies `/api/*` to the backend |
-| Backend | http://127.0.0.1:8280 | FastAPI/uvicorn, local only; the desktop app picks a free port |
-| Frame stream | 127.0.0.1, OS-assigned port | binary WebSocket from the native engine, token required |
+Layout: `native/` (engine), `frontend/`, `backend/`, `python/`, `src-tauri/`, `setup/`, `assets/`. Docs: [`.docs/wiki`](.docs/wiki) · Agents: [`CLAUDE.md`](CLAUDE.md), [`AGENTS.md`](AGENTS.md) · Contributing: [`.docs/BRANCHING.md`](.docs/BRANCHING.md)
 
-## Configuration
+## The Form family
 
-| Variable | Purpose |
+FormFabric is one of the **Form apps**: native creative tools that install, update and roll back through FormPortal and can all be driven by agents.
+
+| | App | What it's for | Download | Code |
+|:-:|---|---|---|---|
+| <img src=".github/assets/family/form.md.png" alt="" width="32" height="32"> | **form.md** | Documents, databases and realtime editing together | [formai.studio](https://formmd.formai.studio/) | [GitHub](https://github.com/nodemode-dev/form.md) |
+| <img src=".github/assets/family/format.png" alt="" width="32" height="32"> | **FormAT** | Chat and agent workspace on your key | [formai.studio](https://format.formai.studio/) | [GitHub](https://github.com/nodemode-dev/format) |
+| <img src=".github/assets/family/formCAD.png" alt="" width="32" height="32"> | **FormCAD** | Drafting, parametric parts and NURBS surfaces | | [GitHub](https://github.com/nodemode-dev/formCAD) |
+| <img src=".github/assets/family/formcel.png" alt="" width="32" height="32"> | **FormCel** | Spreadsheets agents can read and edit | [formai.studio](https://formcel.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formcel) |
+| <img src=".github/assets/family/formcraft.png" alt="" width="32" height="32"> | **FormCraft** | Generate images, video, audio, 3D and worlds | | [GitHub](https://github.com/nodemode-dev/formcraft) |
+| <img src=".github/assets/family/formcut.png" alt="" width="32" height="32"> | **FormCut** | Multi-track video editing with no upload | [formai.studio](https://formcut.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formcut) |
+| <img src=".github/assets/family/formDAM.png" alt="" width="32" height="32"> | **FormDAM** | Photo library and asset manager | [formai.studio](https://formdam.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formDAM) |
+| <img src=".github/assets/family/formdeck.png" alt="" width="32" height="32"> | **FormDeck** | Presentations and pitch decks | [formai.studio](https://formdeck.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formdeck) |
+| <img src=".github/assets/family/formdesign.png" alt="" width="32" height="32"> | **FormDesign** | Page layout for print and the web | [formai.studio](https://formdesign.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formdesign) |
+| <img src=".github/assets/family/formencoder.png" alt="" width="32" height="32"> | **FormEncoder** | Media encoding queue with presets | [formai.studio](https://formencoder.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formencoder) |
+| <img src=".github/assets/family/formfabric.png" alt="" width="32" height="32"> | **FormFabric** | Sewing patterns draped with cloth simulation | | [GitHub](https://github.com/nodemode-dev/formfabric) |
+| <img src=".github/assets/family/formlit.png" alt="" width="32" height="32"> | **FormLit** | Photo library and raw development | [formai.studio](https://formlit.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formlit) |
+| <img src=".github/assets/family/formmorpheus.png" alt="" width="32" height="32"> | **FormMorpheus** | Frame-by-frame and performed animation | | [GitHub](https://github.com/nodemode-dev/formmorpheus) |
+| <img src=".github/assets/family/formNET.png" alt="" width="32" height="32"> | **FormNET** | See what your computer sends online | | [GitHub](https://github.com/nodemode-dev/formNET) |
+| <img src=".github/assets/family/formpath.png" alt="" width="32" height="32"> | **FormPath** | Vector illustration with artboards and type | [formai.studio](https://formpath.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formpath) |
+| <img src=".github/assets/family/formpdf.png" alt="" width="32" height="32"> | **FormPDF** | Edit, redact, sign and fill PDFs | [formai.studio](https://formpdf.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formpdf) |
+| <img src=".github/assets/family/formpromo.png" alt="" width="32" height="32"> | **FormPromo** | Promo films from your own media | [formai.studio](https://formpromo.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formpromo) |
+| <img src=".github/assets/family/formref.png" alt="" width="32" height="32"> | **FormRef** | Reference boards for creative work | [formai.studio](https://formref.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formref) |
+| <img src=".github/assets/family/formrig.png" alt="" width="32" height="32"> | **FormRig** | Rig, skin and retarget any mesh | | [GitHub](https://github.com/nodemode-dev/formrig) |
+| <img src=".github/assets/family/formsculpt.png" alt="" width="32" height="32"> | **FormSculpt** | 3D sculpting, remeshing and painting | [formai.studio](https://formsculpt.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formsculpt) |
+| <img src=".github/assets/family/formsurface.png" alt="" width="32" height="32"> | **FormSurface** | Texture painting with PBR export | [formai.studio](https://formsurface.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formsurface) |
+| <img src=".github/assets/family/formtools.png" alt="" width="32" height="32"> | **FormTools** | Viewers, batch tools and file utilities | | [GitHub](https://github.com/nodemode-dev/formtools) |
+| <img src=".github/assets/family/formtxt.png" alt="" width="32" height="32"> | **FormTxt** | Word processing with .docx round trips | [formai.studio](https://formtxt.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formtxt) |
+| <img src=".github/assets/family/formvfx.png" alt="" width="32" height="32"> | **FormVFX** | Motion graphics and VFX compositing | [formai.studio](https://formvfx.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formvfx) |
+| <img src=".github/assets/family/formvis.png" alt="" width="32" height="32"> | **FormVis** | Layered image editing with local AI | [formai.studio](https://formvis.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formvis) |
+| <img src=".github/assets/family/formwav.png" alt="" width="32" height="32"> | **FormWav** | Multitrack audio editing and mixing | [formai.studio](https://formwav.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formwav) |
+| <img src=".github/assets/family/formweb.png" alt="" width="32" height="32"> | **FormWeb** | Visual website building with a CMS | [formai.studio](https://formweb.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formweb) |
+| <img src=".github/assets/family/formportal.png" alt="" width="32" height="32"> | **FormPortal** | Install, update and roll back Form apps | [formai.studio](https://formportal.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formportal) |
+| <img src=".github/assets/family/formtray.png" alt="" width="32" height="32"> | **FormTray** | One dock icon for every app | [formai.studio](https://formtray.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formtray) |
+| <img src=".github/assets/family/formMCP.png" alt="" width="32" height="32"> | **FormMCP** | One MCP connection to the family | [formai.studio](https://formmcp.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formMCP) |
+| <img src=".github/assets/family/formskills.png" alt="" width="32" height="32"> | **FormSkills** | Every app's agent skills in one place | [formai.studio](https://formskill.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formskills) |
+| <img src=".github/assets/family/formbench.png" alt="" width="32" height="32"> | **FormBench** | Parity, testing and rankings for the family | [formai.studio](https://formranker.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formbench) |
+| <img src=".github/assets/family/formslot.png" alt="" width="32" height="32"> | **FormSlot** | Codebase memory for coding agents | | [GitHub](https://github.com/nodemode-dev/formslot) |
+| <img src=".github/assets/family/subform.png" alt="" width="32" height="32"> | **SubForm** | Workbench for parallel Claude Code agents | | [GitHub](https://github.com/nodemode-dev/subform) |
+| <img src=".github/assets/family/formcompiler.png" alt="" width="32" height="32"> | **FormCompiler** | Builds, signs and releases every app | [formai.studio](https://formcompiler.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formcompiler) |
+| <img src=".github/assets/family/formpipe.png" alt="" width="32" height="32"> | **FormPipe** | Release pipeline and update feeds | | [GitHub](https://github.com/nodemode-dev/formpipe) |
+
+<br>
+
+---
+
+## Maintainers
+
+| Maintainer | Role |
 |---|---|
-| `FFB_PORT` | the backend port (desktop app: 0, a free port) |
-| `FFB_FRONTEND_PORT` | the frontend port the backend accepts the window from |
-| `FFB_WINDOW_TOKEN` | the window's proof for the backend, 32 or more characters (the desktop app makes one per launch) |
-| `FORMFABRIC_DATA_DIR` | where the engine keeps autosaves, recovery, the Library & settings (default: the platform's app data folder) |
-| `FFB_AUTOSAVE_SECONDS` | the autosave interval (default 180) |
-| `FFB_PLUGIN_DIR` | an extra folder of Python plugins |
-| `FFB_ENGINE_URL` | the Python package's HTTP target when it is not run in process |
+| [@nodemode-ai](https://github.com/nodemode-ai) | Owner |
+| [@gbarnai](https://github.com/gbarnai) | Co-owner |
 
-Set them in the shell. No `.env` is read or committed.
+Code owners are set in [`.github/CODEOWNERS`](.github/CODEOWNERS).
 
-## Architecture
+## License
 
-```
-formfabric/
-├── native/                the engine: one Cargo workspace of 14 crates
-│   ├── crates/ffb-pattern/    panels, seams, trims, components, the garment document
-│   ├── crates/ffb-sim/        the cloth solver: block descent, implicit, contact, untangle
-│   ├── crates/ffb-gpu/        the opt-in wgpu compute solver
-│   ├── crates/ffb-body/       bodies, skeletons, placement, body import
-│   ├── crates/ffb-io/         the .ffbrc project, DXF-AAMA, every exporter, Alembic
-│   ├── crates/ffb-commands/   the one command registry behind menus, MCP & Python
-│   └── crates/ffb-stream/     the binary frame stream to the 3D View
-├── frontend/              the interface (vanilla TS + Vite): shell, dock, Pattern View, 3D View, drawers
-├── backend/               the engine service (FastAPI): dispatch, events, MCP, autosave & recovery, plugins
-├── python/                the formfabric Python package
-├── src-tauri/             the desktop shell (Tauri 2): splash, reveal, title bar, engine sidecar
-├── setup/                 install, boot, build, freeze, version & agent scripts behind ./formfabric
-├── docs/integration/      drafts for formcompiler, formportal, GoF & the Unreal Live Link
-├── .docs/wiki/            the GitHub wiki pages
-├── .github/workflows/     CI: frontend build, engine check & clippy, service selfcheck, desktop shell check
-├── build_app              the desktop build, start to finish
-└── assets/                the app icon, bodies & sample garments
-```
+FormFabric is licensed under the Apache License 2.0 ([`LICENSE`](LICENSE), SPDX `Apache-2.0`). Copyright 2026 NodeAgentc, Inc. Third-party notices: [`NOTICE.md`](NOTICE.md).
 
-## Status
-
-Phases 1 to 23 of the plan have landed: the family shell, the Rust engine & command registry, pattern drafting & exchange, meshing & the 3D View, fabrics, the cloth solver, sewing, bodies & placement, 3D editing, trims, animation w/ cache layers, export w/ weld, Alembic & retopology, visualization, the workspace, & agents w/ the Python API, plugins & Live Link. v1.0.0 follows the owner's sign-off of the items still deferred (the GPU path & solver speed on real hardware, the Unreal run, body soft body, and a few others). The Linux build is checked here; the macOS & Windows desktop builds come from formcompiler.
-
-## Development
-
-Changes follow the family's rules: single-region hand edits, zero DOM flash, tokens only, no emoji, decisions & removed code in `frontend/HASHOUT_LOG.md`, `backend/HASHOUT_LOG.md` & `native/HASHOUT_LOG.md`. Commands are declared once, in `native/crates/ffb-commands`; `./formfabric agents sync` refreshes the agent tool reference after a change. Commits are Conventional Commits as `nodemode-ai <mackin@nodemode.ai>` w/o attribution trailers.
-
-## Contributors
-
-- nodemode-ai · owner
-
-## Licensing
-
-Apache-2.0, see `LICENSE` & `NOTICE.md`. Bodies are MPFB2 (CC0). Marvelous Designer & CLO are trademarks of CLO Virtual Fashion Inc. & are named for comparison only; formfabric contains none of their code, artwork or text.
+<sub>Screenshot content: the owner's summer floral dress project on the CC0 MPFB2 female body.</sub>
