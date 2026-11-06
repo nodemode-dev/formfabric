@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.23.5 · 2026-11-04
+
+- The README hero is now the owner's screenshot of the printed dress on the body; the old plain-white-dress screenshots are removed.
+
+## v0.23.4 · 2026-11-04
+
+- README rewritten to the Form family layout, with screenshots of a draped dress in `docs/images/`.
+
+## v0.23.3 · 2026-11-03
+
+- The unified v3 app icon for the desktop icons, the window favicon (now a PNG) and the README.
+- The compiled app name is FormFabric (window and splash titles).
+- `.github/CODEOWNERS` added.
+
 ## v0.23.2 · 2026-11-02
 
 - CI: every action moved to its Node 24 major (`checkout@v6`, `setup-node@v6`, `setup-python@v6`). GitHub removed Node 20 from its hosted runners in September 2026, and all four jobs failed within seconds on the first push.
