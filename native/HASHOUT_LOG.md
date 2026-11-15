@@ -2,6 +2,62 @@
 
 Living context for the Rust engine. What would be comments in the crates lives here, newest first. Read before editing anything under `native/`.
 
+## v0.24.0 · 2026-11-15
+
+### Command audit (ffb-commands, first half)
+
+- `component_cmds.rs` :: `create_run` · port `groups` are summed with `checked_add`; the plain sum wrapped in release builds, so `[u64::MAX, 2]` passed for one span and `Port::runs` sliced out of range. `ffb-pattern` `Port::runs` now uses a checked fold as well (see File hardening).
+- `component_cmds/file.rs` :: `check_numbers` · a panel's `place3d.pose` must be finite. It is the only `f32` data in a panel and serde reads `1e39` as infinity; the project then saved `null` and could not be opened.
+- `exchange_cmds/import.rs` :: `run` · imported panel ids always start after the ids in use, also for `as_new`. Numbering from 1 made the replaced panels' seams, tacks, pins and style lines match the new panels; with fresh ids the sew and component hooks prune seams, tacks and components in the same undo step, and pins and style lines are left pointing at no panel, as after `pattern.delete`.
+- `body_cmds/library.rs` :: `title` · upper-cases the first letter by `chars()`; the byte slice panicked on a folder such as `élan-form`, which took `body.list`, `body.load_default` and `sample.load` down.
+- `body_cmds/ops.rs` :: `quaternion` · `{axis, angle}` takes an angle within 1e6 degrees. A larger one became infinity in `f32` and a NaN pose, saved as `null`.
+- `anim_cmds.rs` :: `after_change` · `sample.load` is treated like `file.*`: it resets the document without `file.new` when a body is kept, and a running recording went on and was harvested into the new project.
+- `fabric_cmds/package.rs` :: `read_map`, `MAP_EXTENSIONS` · a map read from disk must be a regular image file (png, jpg, jpeg, webp, tif, tiff, bmp, gif) of at most `ffab::MAX_IMAGE`. Any path was packed before, including `/proc/self/environ`, and `ffab::unpack` refuses larger maps anyway. Project entries are not limited.
+- `args.rs` :: `write_atomic` · returns `unsupported` on wasm32 before `SystemTime::now` and `process::id`, which panic there.
+- `lib.rs` :: `dispatch` · the hooks run whenever the epoch moved, also when the command returned an error; the error is returned unchanged. With `?` on the run call a command that changed the document and then failed (a late failure in `sample.load` after its reset) left the stream, seam repair, solver and anim clean-up one step behind. Hooks never read the command result, and nothing runs when the epoch did not move.
+- `file_cmds.rs` :: `open_data` · runs `sew::prune` then `trim::prune` on the garment before `Session::reset`, outside the history. The hooks skip both for `file.*`, so seams with an empty side or a segment past the outline survived until the first edit and were then removed inside that edit's undo step. A no-op on the four sample projects. `args::validate` still checks only presence, type and enum; central range checks were left for after the release.
+
+### Pre-release audit · commands from mesh_cmds onward
+
+- `pattern_cmds/points.rs` :: `split_line` · `count` on a segment shorter than 1e-6 mm returns `invalid_geometry`. `t_at_length` gives 0 for every piece there and `path::split_many` divides by the previous parameter, so the split wrote a NaN point that `file.save` stored as `null` and `file.open` refused.
+- `sample_cmds.rs` :: `pick_body`, `no_skeleton` · the body is validated before the document is reset. A session body is checked with `Info::new` first; a default body is loaded with `body.load_default` first, checked, then carried across the nested `file.new` and renumbered to id 1, so the end state of a successful call is unchanged. Before, a body without a skeleton or an unknown body name failed after the garment and history were already gone (the window always sends `force: true`).
+- `sim_cmds.rs` :: `after_change`, `viz_cmds/run.rs` :: `after_change` · `sample.load` is treated like a `file.` command: the overlay signature cache is cleared and an active map or comparison job is stopped. With a kept body `sample.load` resets through `Session::reset` without a nested `file.new`, so both survived into the new garment. Same change as `anim_cmds.rs`.
+- `place_cmds/volumes.rs` :: `edit_volume` · `joints` must hold exactly two entries; shorter lists indexed out of bounds (the dispatcher does not enforce `minItems`).
+- `sew_cmds/pleat.rs` :: `gather` · a seam with an empty side a returns `bad_args` instead of underflowing `len() - 1`. Reachable only from a damaged project, since `file.open` does not validate seams.
+- `pattern_tools_cmds/tools.rs` :: `trace_run`, `pattern_tools_cmds/links.rs` :: `instance_run` · the new panel name is validated before the first mutation. Both commands changed the source or the existing copies and then returned the name error, with no undo step.
+- `remesh_cmds/ops.rs` :: `remesh` · when every panel fails the garment is restored before the error; `output.retopo.regularize` was written ahead of the run.
+- `pattern_cmds/panels.rs` :: `duplicate` · copied prints get fresh ids from `trim::next_print_id`. Print ids are garment-wide and `print.set` and `print.delete` take the first match, so a copy's prints were unreachable.
+- `viz_cmds/store.rs` :: `edit` · the `Edit::Garment` step is recorded only when the garment changed; an empty `stage.set` used to add a no-op undo step.
+- `trim_cmds/finish.rs` :: `add`, `crease` · ratio (0.2 to 2, elastic kinds), strength (0 to 20) and crease angle (0 to 360) are range checked on creation, with the limits and wording of `finish.set`.
+- `snapshot_cmds.rs` :: `now` · guarded for wasm32 (returns 0), like the other clocks in the crate; `SystemTime::now()` panics there.
+- Not changed, for later: `sew_cmds/common.rs` :: `count` reads a negative integer as 0; `sew.edit` accepts a seam sewn to itself; `bake.run` deletes already written maps when a later write fails instead of restoring them.
+
+### Solver and GPU (pre-release audit)
+
+- `ffb-sim/src/selfcol.rs` :: `SpatialHash::build` · the "more than 64 cells" test uses saturating spans and a saturating product. The plain `i64` form wrapped for a triangle spanning about 1e20 mm or more, the triangle was kept, and the cell loop allocated until the process aborted.
+- `ffb-gpu/src/contact.wgsl` :: `sc_count`, `sc_fill` · the same test returns early when a cell index is beyond plus or minus 2^29 or an axis spans more than 64 cells, before the `i32` product. Both functions carry the identical condition because they must agree on which triangles are hashed. Not run on a GPU; validated with naga 30.0.1.
+- `ffb-sim/src/model.rs` :: `Model::build` · `model.triangles` holds only triangles whose indices are in range (it was a clone of `cloth.triangles`), and `tri_pressure` indexes that list. Self contact indexed positions through the unfiltered list.
+- `ffb-gpu/src/solver.rs` :: `GpuSolver::new` · `required_limits` takes the adapter's `max_buffer_size` and `max_storage_buffer_binding_size`, never below the defaults. At the defaults (256 MiB, 128 MiB) a mesh collider above about 559,000 triangles (160 bytes each, allocated at 1.5 times) failed validation and wgpu panicked in `set_colliders`, past the CPU fallback.
+- `ffb-gpu/src/solver.rs` :: `GpuSolver::step` · the readback uses `try_cast_slice` and stops at the mapped length; a failed mapping keeps the last positions instead of indexing an empty slice.
+- `ffb-commands/src/sim_cmds/runtime.rs` :: `spawn` · the step inside the `ffb-sim` thread runs under `catch_unwind`. A panic there ended the thread while `running` stayed true, so the window showed a simulation that never advanced. Now `running` is cleared and `device_note` says the simulation stopped and needs a reset. `anim_cmds/record.rs` and `link_cmds.rs` already guard their threads. Added in the verification pass; no input was found that makes a step panic, so the guarded path itself was not executed.
+
+### File hardening (ffb-io, ffb-body, ffb-anim, ffb-pattern)
+
+- `ffb-io/src/project.rs` :: `save_with_bodies` · the garment JSON is read back as a `Garment` and every body through `body::decode` before the zip is written. serde_json writes NaN and infinity as `null`, which `open` refuses, so a save that would not reopen now fails with a message and the file on disk stays as it was (`file_cmds::save` writes only after this returns). The reader stays strict: a `null` read as 0 would change a pose or a point without telling anyone.
+- `ffb-io/src/body.rs` :: `decode` · the byte count uses checked arithmetic (vertex and triangle counts come from the file), and a coordinate that is not finite or lies outside plus or minus `dxf::MAX_COORD_MM` is refused. The bound is there because `measure::Slicer::new` and `place::Ring::slice` size buffers from the body's extent; one vertex at 3e12 mm asked for 9 TB, and an allocation failure aborts the process past the panic guard.
+- `ffb-body/src/import/mod.rs` :: `finish` · refuses non-finite points (glTF and FBX let them through; OBJ and Alembic did not) and a body reaching past 100 m after conversion, so nothing can be imported that the save would then refuse. The height message still comes first, because wrong units are the usual cause.
+- `ffb-body/src/import/gltf_reader.rs`, `ffb-anim/src/gltf.rs` :: `read`, `parse` · a node that is its own ancestor is an error; the gltf crate does not check it and every parent walk below assumed a tree. `gltf_reader` also checks each index against its primitive's vertex count before `compact` indexes with it.
+- `ffb-body/src/import/abc.rs` :: `props` · the entries of a leaf property are charged to the byte budget; many leaves may share one group, and only compounds were counted.
+- `ffb-body/src/measure.rs`, `place_defaults.rs`, `ffb-anim/src/retarget.rs` :: `arm_chains`, `leg_chains`, `Retargeter::new` · parent walks stop after one pass over the joints, like `depth` and `ancestors` already did. Joints of a body in a project file are not guaranteed to be a tree.
+- `ffb-anim/src/clip.rs` :: `Clip::check` · parents must come before their joints. `order_parents_first` already guarantees it for imports and `world` already assumed it; a stored entry could break it and index past `children` in `Retargeter::new`.
+- `ffb-anim/src/bvh.rs`, `gltf.rs`, `fbx.rs` :: `parse` · joints times frames is tested against `MAX_VALUES / 7` before the frame buffers are filled; a 40 KB BVH with channel-less joints used 2.7 GiB before `check` refused it.
+- `ffb-io/src/dxf.rs` :: `tokenize` · strips a UTF-8 byte order mark and reads a decimal comma in the real-number group codes (10 to 59, 110 to 149, 210 to 239, 460 to 469, 1010 to 1059). Before, such a value failed to parse and every reader fell back to 0. Text codes keep their commas (`Quantity:0,1`).
+- `ffb-io/src/aama/read.rs` :: `plain` · a notch line goes to the containing outline whose boundary is nearest, not the smallest one. Two pieces at the same place (the T-shirt sleeves) otherwise gave both notches to the first piece.
+- `ffb-pattern/src/sew/remap.rs` :: `on_reverse`, `apply_pending` · `Op::Reverse` now remaps ends on inner paths too. `xform::bake` reverses the outline and every inner path together when a transform flips the panel, so `apply_pending` reads the inner point counts from the panel at apply time; an open path maps segment s to count - 1 - s. Ends with a segment out of range are left for `prune` (the old expression underflowed). `Op` keeps its shape.
+- `ffb-pattern/src/path.rs` :: `split_many` · a ratio that is not finite splits at 0 and ratios are clamped to 0..1. The point count stays one per parameter because dart, slash, notch and seam follow-up index by it.
+- `ffb-pattern/src/component.rs` :: `Port::runs` · group sizes are summed with a checked fold; an overflow is treated like any other mismatch.
+- Known and left: `ffb-io/src/abc/read.rs` has the same leaf accounting gap and no caller; panel-local points outside `Panel` (pins, hardware anchors, tack ends, prints, style lines) do not follow `pattern.transform` mirror or scale, which needs the garment and so belongs to the command.
+
 ## v0.19.0 to v0.23.0 · 2026-11-02
 
 ### Workspace and library (Phase 19)
