@@ -95,7 +95,7 @@ export class BakeDialog extends JobDialog {
     for (const [id, text] of [['diffuse', 'Diffuse'], ['metalness', 'Metalness'], ['roughness', 'Roughness'], ['opacity', 'Opacity'], ['normal', 'Normal'], ['ao', 'Ambient occlusion'], ['displacement', 'Displacement']] as const) {
       const row = toggleRow(text);
       row.set(saved.maps.includes(id));
-      row.onInput(() => this.keep());
+      row.onInput(() => { this.keep(); this.paint(); });
       this.maps.push([id, row]);
       this.body.appendChild(row.el);
     }

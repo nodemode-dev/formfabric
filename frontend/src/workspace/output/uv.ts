@@ -54,8 +54,8 @@ export class UvEditor {
   private readonly info: HTMLElement;
   private readonly empty: HTMLElement;
   private readonly modeButtons = new Map<Mode, HTMLButtonElement>();
-  private readonly padding = numRow('Padding', '', '0.005', 0, 0.5);
-  private readonly tiles = numRow('Tiles', '', '1', 1, 100);
+  private readonly padding = numRow('Padding', '', '0.005', 0, 0.1);
+  private readonly tiles = numRow('Tiles', '', '1', 1, 16);
   private readonly layout = button('Layout', 'primary');
   private cam = { x: 0.5, y: 0.5, s: 220 };
   private w = 0;
