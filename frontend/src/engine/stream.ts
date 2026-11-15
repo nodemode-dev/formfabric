@@ -109,6 +109,8 @@ export class EngineStream {
   private topologies = new Map<number, TopologyFrame>();
   private closed = false;
   private stateListeners = new Set<(state: StreamState) => void>();
+  private retryTimer = 0;
+  private tries = 0;
   state: StreamState = 'idle';
 
   async connect(): Promise<void> {
@@ -126,10 +128,10 @@ export class EngineStream {
       this.setState('closed');
       throw new Error('the engine stream server is not running');
     }
-    if (this.closed) return;
+    if (this.closed || this.socket) return;
     const socket = new WebSocket(`ws://127.0.0.1:${info.port}/?token=${encodeURIComponent(info.token)}`);
     socket.binaryType = 'arraybuffer';
-    socket.onopen = () => this.setState('open');
+    socket.onopen = () => { this.tries = 0; this.setState('open'); };
     socket.onmessage = (event: MessageEvent) => {
       if (!(event.data instanceof ArrayBuffer)) return;
       let frame: StreamFrame;
@@ -140,8 +142,15 @@ export class EngineStream {
     socket.onclose = () => {
       if (this.socket === socket) this.socket = null;
       this.setState('closed');
+      this.retry();
     };
     this.socket = socket;
+  }
+
+  private retry(): void {
+    if (this.closed || this.retryTimer || this.listeners.size === 0 || this.tries >= 8) return;
+    const wait = Math.min(8000, 500 * 2 ** this.tries++);
+    this.retryTimer = window.setTimeout(() => { this.retryTimer = 0; this.connect().catch(() => this.retry()); }, wait);
   }
 
   subscribe(objectId: number, cb: StreamCallback): () => void {
@@ -168,6 +177,8 @@ export class EngineStream {
 
   close(): void {
     this.closed = true;
+    window.clearTimeout(this.retryTimer);
+    this.retryTimer = 0;
     const socket = this.socket;
     this.socket = null;
     if (socket) {
@@ -205,4 +216,8 @@ export function subscribe(objectId: number, cb: StreamCallback): () => void {
 
 export function closeStream(): void {
   shared.close();
+}
+
+export function onStreamState(cb: (state: StreamState) => void): () => void {
+  return shared.onState(cb);
 }

@@ -2,6 +2,54 @@
 
 Living context for the window. What would be comments in `frontend/` lives here, newest first. Read before editing.
 
+## v0.24.0 · 2026-11-15
+
+Pre-release audit of the shell, the engine link and the Output, Drape, Fabric and Library panels.
+
+- Menus: `shell/menus.ts` `group()` compares group names without case. The catalogue's groups are lower-case (`sim`, `sew`, `fabric`) and the window's own are capitalised (`Sew`, `Window`), so Drape and Fabric showed only the placeholder and Sew, Body, Pattern, View, Help and File, Export lacked their engine commands. The Output menu also lists `app.output.topology`.
+- Save: `runEngine` in `app.ts` fills `file.save` with the session path before the required-argument check, so Save on a named project saves at once. Before, the Exact Input path dialog opened on every save and the fill-in line below it could never run.
+- Unsaved changes: `file.new` and `file.open` (Open Recent included) ask through `askSaveChanges` when the session is dirty. Save runs `file.save` first and stops if that save did not finish. The dialog and its strings existed in every table but nothing called them. Exit and the window close button still do not ask.
+- Home: plain keys do not run commands while the Home screen covers the workspace; combos with the modifier still do.
+- Engine link: `engine/events.ts` reports `down` for any stream failure after the first successful open (`seen`), so a dead service reads Engine offline and blocks engine commands with the reason. Before the first open a network failure is still `connecting` (the service is starting). `load()` in `app.ts` skips commands that are already registered, because `Commands.add` throws on a duplicate and the reconnect path lost its refresh, recent list and Home update.
+- Layouts: `ff:dock-toggle` takes an optional `on`. `WorkspaceLayouts.apply` sends the wanted state; `toggleKind('shell')` opened a shell tab instead of closing the dock when a Claude Code or Chat tab was in front.
+- Save As uses the native save dialog in the desktop app (`pickPath`), the name prompt only in the browser. The engine refuses relative paths.
+- Export dialog: `show(format, thickness)` sets every format's Thickness toggle from the project's `output.thickness.enabled`. The toggle used to start off and was sent as `thickness: false`, which overrode Output, Thickness.
+- Bake dialog: map toggles repaint the Bake button (it stayed disabled after the last map was re-ticked, and enabled with none). UV Editor: Padding and Tiles limits follow `uv.layout` (0 to 0.1, 1 to 16).
+- Fabric drawer: `loadPresets` runs again when the drawer opens, since the one call at mount fails for good when the engine is not up yet.
+- Settings file: `settings-io.ts` asks for a native path only when `@tauri-apps/plugin-fs` loads. It is not a dependency, so the desktop app showed a save dialog and then ignored the chosen path (export), or showed two pickers (import). Until the shell can write a file, export is a download and import a file input everywhere.
+- Number fields: `ui/number-fields.ts` `leave` compares the tidied text with the text held at focus as numbers too, so a field shown as `12.50` no longer fires `change` on a plain focus and blur (it wrote the rounded value back and could add an undo step). An emptied field that held nothing still fires when a number is typed.
+- Exact Input: a number whose schema says `unit: mm` is shown and read in the unit preference (`loadPrefs().units`, the same factors as `workspace/state.ts` `UNIT_MM`) and sent to the engine in millimetres; limits clamp after the conversion. The label carries the unit, `Width (in)`. Array and point fields stay raw JSON in millimetres and say `(mm)`. `JsonSchema` gained `unit`. A second `ask` while the dialog is open settles the first promise with `null` instead of leaving it pending.
+- Mesh stream: `EngineStream` reconnects by itself when its socket closes without `close()` (0.5 s doubling to 8 s, eight tries, only while something is subscribed), and `connect()` does not open a second socket when two connects overlap. `onStreamState` is exported. The service resends every topology to a new client, so `MeshFeed` needs no change; its own retry on link-up still covers a service that was down longer.
+- Open: Clear Recent only clears the window's copy (the service has no route to clear `recent.json`); sixteen preferences are stored but read by nothing (list in the audit report); `ChatPane.load` does not retry after a failed first load.
+
+### Pattern View, trims and inspector (release audit)
+
+- `pattern-view/view.ts` `onDown` blurs the focused element before the tool sees the press. Inspector fields commit on blur against the current selection, and the press changes the selection before the browser blurs, so without this a typed value lands on the object just clicked.
+- `view.ts` `onDown`, `onMove`, `onUp` ignore non-primary pointers. A second finger used to call the tool's `down` twice for one release pair, leaving `DocStore.holding` above zero; `refresh()` returns early while a hold is open, so the window stopped following the engine until reload.
+- `render.ts` `drawScene`: the hover hit is kept across document changes, so its segment index can be gone; an absent segment draws nothing instead of throwing mid-frame.
+- `render.ts` `rulers`: label decimals follow the major step (0.1 mm above 20000 % zoom), not a fixed count per unit.
+- `layout.ts` `refreshed`: `sample.load` is a new document like `file.new` and `file.open` (ids restart at 1); a new document cancels the active tool, then clears the selection.
+- `doc.ts` `cancelTrial` puts the base garment back and reloads it into the preview engine before the refresh. A trial begun before that refresh lands would otherwise take the cancelled result as its base (Match Lengths cancels a trial on every hover change).
+- `tools-edit.ts` `SelectTool.up`: an unchanged move, scale or rotate cancels the preview; the engine records `pattern.transform` with scale 1 or translate 0 as an undo step.
+- `tools-create.ts` `InnerShapeTool.finish` uses `ellipseMode` (Alt at press), the flag the preview draws with.
+- `inspector/index.ts` `commit`: Position sends the edited coordinate from the field and the other one from the document, not from its rounded display text.
+- `trims/panel.ts` `optional`: the four "empty means the style's value" inputs carry `data-plain`. `ui/number-fields.ts` restores the old value when a field is emptied and stops the native `change`, so they could not be cleared.
+- Open: a point selection is an index and can move to another point after undo. (The number field and Exact Input items this review left open are closed in the notes above.)
+
+### 3D View, maps, timeline and body drawer (release audit)
+
+- Maps: the stream decides which analysis map is shown. `Garment.viz.map` is never written by the engine, so `Maps.sync` only acts on a real name; before, every document refresh read the missing field as "none" and switched the map off (legend hidden, colours cleared) while the engine kept it. `MeshFeed.scalarFrame` forwards the engine's empty clear frame, `Maps.onScalars` turns the map off on it, adopts the map the frames carry when it differs (not while a menu choice is in flight) and resets range and unit. `VizUi` also turns it off on `file.new` and `file.open`, where the old panels can be unsubscribed before their clear frames arrive.
+- Topology tool: its capture `pointerup` marks a click with `preventDefault()` and `View3D.onUp` skips its own click when the event is prevented. It used `stopImmediatePropagation()`, so `View3D` never ended the drag it began on `pointerdown` and the camera orbited on every later mouse move.
+- Context loss: `View3D` prevents `webglcontextlost` and pauses painting (`lost`). `restore()` runs `Scene.forget()` (null handles, all dirty), `setup()` again (programs and the mesh, extras, stage, fur and style renderers; seams and pins carried over), `Maps.contextRestored()` (ramp textures) and `applyViz()` with a cleared `vizSource` so stage, fur and style lines are pushed again.
+- Stream: `MeshFeed.streaming` only guards the connect in flight. It used to stay true after the first connect, so a closed socket was never reopened. (`engine/stream.ts` now reconnects on its own, see above.)
+- Style lines: `pullStyle` reschedules when a request is in flight instead of dropping the pull (the late reply of the previous document could stay drawn).
+- Overlay: the statistics line sets its font and bottom baseline on every paint; tapes and measures set a middle baseline on the same context.
+- Stage: a failed HDRI load only marks `failed` when it is still the selected image, as the backdrop already did.
+- Capture: recorder tracks are stopped in `onstop`. No supported WebM type raises "This window cannot record video" before recording, because `capture.write` refuses anything else. The recorder is created before `anim.play`.
+- Timeline: `paintList` drops picked cache ids that are no longer layers (Merge Layers stayed enabled on merged-away ids) and re-clamps the row scroll.
+- Body drawer: `BodyStore.originals` is cleared on `file.new`, `file.open` and `sample.load`. Body ids restart at 1 per document, so Reset to original could apply the previous document's measurements.
+- Open: a stream-sourced panel keeps its last mesh when the engine sends an empty topology; fabric textures are cached for the life of the window; a pixel ratio change with no resize keeps the old backing store; the timeline shortcuts have no default keys.
+
 ## v0.23.1 · 2026-11-02
 
 From the owner's test run (fixes made on v0.18.0, landed by hand on v0.23.0).

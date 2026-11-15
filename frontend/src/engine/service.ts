@@ -20,6 +20,7 @@ export interface JsonSchema {
   minimum?: number;
   maximum?: number;
   default?: unknown;
+  unit?: string;
 }
 
 export interface CatalogueCommand {
