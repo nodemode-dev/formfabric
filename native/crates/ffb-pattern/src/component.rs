@@ -17,7 +17,7 @@ pub struct Port {
 
 impl Port {
     pub fn runs(&self) -> Vec<&[SeamEnd]> {
-        if self.groups.is_empty() || self.groups.iter().sum::<usize>() != self.spans.len() || self.groups.contains(&0) {
+        if self.groups.is_empty() || self.groups.iter().try_fold(0usize, |a, n| a.checked_add(*n)) != Some(self.spans.len()) || self.groups.contains(&0) {
             return vec![self.spans.as_slice()];
         }
         let mut at = 0;

@@ -121,11 +121,13 @@ fn on_reproject(seams: &mut [Seam], panel: u32, old: &[Point], new: &[Point]) {
     }
 }
 
-fn on_reverse(seams: &mut [Seam], panel: u32, n: usize) {
+fn on_reverse(seams: &mut [Seam], panel: u32, paths: &[(Option<u32>, usize, bool)]) {
     for seam in seams.iter_mut() {
         for end in seam.a.iter_mut().chain(seam.b.iter_mut()) {
-            if end.panel == panel && end.inner.is_none() && n >= 2 {
-                end.segment = (2 * n - 2 - end.segment) % n;
+            let Some(&(_, n, closed)) = paths.iter().find(|p| end.panel == panel && p.0 == end.inner) else { continue };
+            let count = path::seg_count(n, closed);
+            if end.segment < count {
+                end.segment = if closed { (2 * n - 2 - end.segment) % n } else { count - 1 - end.segment };
                 end.t0 = 1.0 - end.t0;
                 end.t1 = 1.0 - end.t1;
             }
@@ -149,8 +151,9 @@ pub fn apply_pending(garment: &mut Garment, ops: Vec<Op>) {
                 }
             }
             Op::Reverse { panel, points } => {
-                if garment.panels.iter().any(|p| p.id == panel && p.outline.len() == points) {
-                    on_reverse(&mut garment.seams, panel, points);
+                if let Some(p) = garment.panels.iter().find(|p| p.id == panel && p.outline.len() == points) {
+                    let paths: Vec<(Option<u32>, usize, bool)> = std::iter::once((None, points, true)).chain(p.inner.iter().map(|i| (Some(i.id), i.points.len(), i.closed))).collect();
+                    on_reverse(&mut garment.seams, panel, &paths);
                 }
             }
         }
