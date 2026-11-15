@@ -142,6 +142,9 @@ export function startApp(): void {
 
   let engineUp: () => void = () => undefined;
   const engineReady = new Promise<void>((done) => { engineUp = done; });
+  const adopt = (): void => {
+    if (!session.active) void call<{ panels?: unknown[] }>('pattern.get', {}).then((g) => { if (g.panels?.length && !session.active) session.set(null, true); }).catch(() => undefined);
+  };
   const load = async (): Promise<void> => {
     if (loaded) return;
     try {
@@ -156,6 +159,7 @@ export function startApp(): void {
       home.refresh();
       void refresh();
       void session.pull();
+      adopt();
       void offerRecovery(() => { session.set(null, true); void refresh(); });
     } catch { loaded = false; }
   };
@@ -327,6 +331,7 @@ export function startApp(): void {
     native?.refresh();
     if (e.name.startsWith('file.')) return;
     session.touch();
+    adopt();
     void refresh();
   });
   void fetchVersion().then((v) => { if (v) { version = v.version; status.setEngine(link, v.version); } });
