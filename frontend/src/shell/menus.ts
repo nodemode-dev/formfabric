@@ -14,7 +14,7 @@ export function buildMenus(commands: Commands, recent: () => string[], layoutSlo
     for (const i of out) if (typeof i === 'string') used.add(i);
     return out;
   };
-  const group = (name: string): string[] => commands.all().filter((c) => c.group === name && !used.has(c.id)).map((c) => c.id);
+  const group = (name: string): string[] => commands.all().filter((c) => (c.group ?? '').toLowerCase() === name.toLowerCase() && !used.has(c.id)).map((c) => c.id);
   const tidy = (items: MenuItem[]): MenuItem[] => {
     const out: MenuItem[] = [];
     for (const i of items) {
@@ -50,7 +50,7 @@ export function buildMenus(commands: Commands, recent: () => string[], layoutSlo
     { label: 'Drape', items: () => withGroup([], 'Sim') },
     { label: 'Body', items: () => withGroup([], 'Body') },
     { label: 'Fabric', items: () => withGroup([], 'Fabric') },
-    { label: 'Output', items: () => { used.clear(); return tidy(fixed(['app.output.panel', 'app.output.uv', '-', 'app.output.guides', 'app.output.bake', 'app.output.gameready'])); } },
+    { label: 'Output', items: () => { used.clear(); return tidy(fixed(['app.output.panel', 'app.output.uv', '-', 'app.output.guides', 'app.output.topology', 'app.output.bake', 'app.output.gameready'])); } },
     { label: 'View', items: () => {
       used.clear();
       return withGroup(fixed(['app.layout_2d', 'app.layout_split', 'app.layout_3d', '-', 'app.snap_grid', 'app.snap_points', 'app.snap_edges', '-', 'app.units_mm', 'app.units_cm', 'app.units_in', '-', 'app.theme_toggle', 'app.custom_title_bar', 'app.menus_in_window']), 'View');
