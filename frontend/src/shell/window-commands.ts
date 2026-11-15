@@ -5,6 +5,7 @@ import { textFieldFocused } from '../ui/native-menu';
 import { loadPrefs, updatePrefs, UNITS, type Prefs } from '../ui/prefs';
 import { PREF_SECTIONS } from '../ui/settings';
 import { readChoice, setTheme } from '../ui/themes';
+import { nativeDialogs, pickPath } from './file-dialog';
 import type { LayoutState } from './layout';
 import type { Session } from './session';
 import { WORKSPACES } from './titlebar';
@@ -66,7 +67,7 @@ export function registerWindowCommands(ctx: WindowCtx): void {
     { id: 'app.terminal', label: 'Show Terminal', icon: 'terminal', keys: [], run: () => { document.dispatchEvent(new CustomEvent('ff:dock-toggle', { detail: { kind: 'shell' } })); } },
     { id: 'app.claude', label: 'Claude Code', icon: 'agent', run: () => { document.dispatchEvent(new CustomEvent('ff:dock-toggle', { detail: { kind: 'claude' } })); } },
     { id: 'app.save_as', label: 'Save As...', keys: ['Mod+Shift+S'], run: async () => {
-      const path = await promptName('Save As', session.path ?? 'untitled.ffbrc', 'Save');
+      const path = nativeDialogs() ? await pickPath('save', session.path) : await promptName('Save As', session.path ?? 'untitled.ffbrc', 'Save');
       if (path) await commands.call('file.save', { path });
     } },
     { id: 'app.clear_recent', label: 'Clear Recent', run: () => session.forget() },

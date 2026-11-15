@@ -96,7 +96,7 @@ export class WorkspaceLayouts {
       html.setAttribute('data-ft-dock-h', String(s.dock.h));
       html.style.setProperty('--ft-dock-size', `${s.dock.h}px`);
     }
-    if (!keepDock && open !== s.dock.open) document.dispatchEvent(new CustomEvent('ff:dock-toggle', { detail: { kind: 'shell' } }));
+    if (!keepDock && open !== s.dock.open) document.dispatchEvent(new CustomEvent('ff:dock-toggle', { detail: { kind: 'shell', on: s.dock.open } }));
     this.remember(name);
     return true;
   }

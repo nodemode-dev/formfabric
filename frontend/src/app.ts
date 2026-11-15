@@ -5,7 +5,7 @@ import { mountWorkspace } from './workspace';
 import { CaptionButtons } from './ui/caption-buttons';
 import { Commands, engineCommands, hasRequired } from './ui/commands';
 import { CommandPalette } from './ui/command-palette';
-import { Dialog, anyDialogOpen } from './ui/dialogs';
+import { Dialog, anyDialogOpen, askSaveChanges } from './ui/dialogs';
 import { el, q, revealApp, setText } from './ui/dom';
 import { enhanceAllSelects } from './ui/dropdown';
 import { exactInput } from './ui/exact-input';
@@ -93,6 +93,11 @@ export function startApp(): void {
 
   const runEngine = async (c: CatalogueCommand, params?: Record<string, unknown>): Promise<unknown> => {
     let args = params;
+    if ((c.id === 'file.new' || c.id === 'file.open') && session.dirty) {
+      const choice = await askSaveChanges(session.name());
+      if (choice === 'cancel') return undefined;
+      if (choice === 'save' && (await commands.call('file.save')).result === undefined) return undefined;
+    }
     const filing = c.id === 'file.open' || c.id === 'file.save';
     if (!args && filing && nativeDialogs() && !(c.id === 'file.save' && session.path)) {
       const picked = await pickPath(c.id === 'file.open' ? 'open' : 'save', session.path);
@@ -106,12 +111,12 @@ export function startApp(): void {
       if (!picked) return undefined;
       args = { path: picked };
     }
+    if (c.id === 'file.save' && !args && session.path) args = { path: session.path };
     if (!args && hasRequired(c.inputSchema)) {
       const initial = c.id === 'file.save' || c.id === 'file.open' ? { path: session.path ?? undefined } : dxf === 'save' && dxfName ? { path: dxfName } : {};
       args = (await exactInput(t(c.label).replace(/\.\.\.$/, ''), c.inputSchema, initial)) ?? undefined;
       if (!args) return undefined;
     }
-    if (c.id === 'file.save' && !args && session.path) args = { path: session.path };
     const end = status.working(c.label);
     try {
       const result = await call(c.id, args ?? {});
@@ -134,7 +139,7 @@ export function startApp(): void {
       loaded = true;
       status.setEngine('up', cat.version);
       version = cat.version;
-      commands.add(...engineCommands(cat, (c, p) => runEngine(c, p)));
+      commands.add(...engineCommands(cat, (c, p) => runEngine(c, p)).filter((c) => !commands.get(c.id)));
       applyShortcuts(commands);
       native?.refresh();
       home.refresh();
@@ -217,6 +222,7 @@ export function startApp(): void {
 
   document.addEventListener('keydown', (e) => {
     if (e.defaultPrevented || anyDialogOpen()) return;
+    if (home.isShown && !(e.ctrlKey || e.metaKey)) return;
     const cmd = commands.forEvent(e);
     if (!cmd) return;
     const field = textFieldFocused();
@@ -250,8 +256,9 @@ export function startApp(): void {
   });
   dock.onChange(() => titlebar.syncDock(dock.isOpen(), dock.isOpen() ? 'shell' : null));
   document.addEventListener('ff:dock-toggle', (e) => {
-    const kind = (e as CustomEvent<{ kind: 'shell' | 'claude' }>).detail.kind;
-    void dock.toggleKind(kind);
+    const { kind, on } = (e as CustomEvent<{ kind: 'shell' | 'claude'; on?: boolean }>).detail;
+    if (on === undefined) void dock.toggleKind(kind);
+    else if (on !== dock.isOpen()) dock.toggle(on);
   });
 
   const fonts = (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts;
