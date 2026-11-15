@@ -356,13 +356,14 @@ export class Capture {
 
   private recorder(): { rec: MediaRecorder; done: Promise<Blob>; push: () => void } {
     if (typeof MediaRecorder === 'undefined') throw new Error(t('This window cannot record video'));
-    const stream = this.host.canvas.captureStream(FPS);
     const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
     const mime = types.find((m) => MediaRecorder.isTypeSupported(m));
-    const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8_000_000 } : undefined);
+    if (!mime) throw new Error(t('This window cannot record video'));
+    const stream = this.host.canvas.captureStream(FPS);
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
     const chunks: Blob[] = [];
     rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
-    const done = new Promise<Blob>((res) => { rec.onstop = () => res(new Blob(chunks, { type: 'video/webm' })); });
+    const done = new Promise<Blob>((res) => { rec.onstop = () => { for (const tr of stream.getTracks()) tr.stop(); res(new Blob(chunks, { type: 'video/webm' })); }; });
     const track = stream.getVideoTracks()[0] as (MediaStreamTrack & { requestFrame?: () => void }) | undefined;
     return { rec, done, push: () => track?.requestFrame?.() };
   }
@@ -370,6 +371,7 @@ export class Capture {
   private async video(): Promise<Blob | null> {
     let secs = Math.max(1, Math.min(120, Number(this.seconds?.value) || 4));
     let played = false;
+    const { rec, done } = this.recorder();
     if (this.range?.checked && hasCommand('anim.get')) {
       const a = obj(await quiet<unknown>('anim.get', {}));
       const fps = num(a.fps);
@@ -380,7 +382,6 @@ export class Capture {
         if (hasCommand('anim.play')) { await quiet('anim.play', { from: start }); played = true; }
       }
     }
-    const { rec, done } = this.recorder();
     rec.start(250);
     const t0 = performance.now();
     while (performance.now() - t0 < secs * 1000 && !this.cancel) {

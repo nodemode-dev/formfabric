@@ -531,13 +531,14 @@ export class AnimDock {
   private paintList(): void {
     const rows = this.line.rows();
     const a = this.store.anim;
+    for (const id of Array.from(this.picked)) if (!a.caches.some((k) => k.id === id)) this.picked.delete(id);
     patchKeyed(this.rows, rows, {
       key: (r) => `${r.kind}:${r.id}`,
       create: (r) => this.makeRow(r),
       update: (n, r) => this.updateRow(n, r),
     });
+    this.line.setRowY(this.line.rowY);
     this.rows.scrollTop = this.line.rowY;
-    void a;
   }
 
   private makeRow(r: Row): HTMLElement {
