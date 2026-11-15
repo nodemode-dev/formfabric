@@ -180,7 +180,13 @@ impl GpuSolver {
     pub fn new(cloth: Cloth, params: Params) -> Result<GpuSolver, GpuError> {
         let (instance, adapter) = request_adapter().ok_or_else(|| GpuError("no GPU adapter".into()))?;
         let adapter_name = adapter.get_info().name;
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("ffb-gpu"), ..Default::default() })).map_err(|e| GpuError(format!("device: {e}")))?;
+        let (have, base) = (adapter.limits(), wgpu::Limits::default());
+        let required_limits = wgpu::Limits {
+            max_buffer_size: have.max_buffer_size.max(base.max_buffer_size),
+            max_storage_buffer_binding_size: have.max_storage_buffer_binding_size.max(base.max_storage_buffer_binding_size),
+            ..base
+        };
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("ffb-gpu"), required_limits, ..Default::default() })).map_err(|e| GpuError(format!("device: {e}")))?;
         let pipes = make_pipelines(&device);
         let model = GpuModel::build(&cloth);
         let n = cloth.positions.len();
@@ -595,8 +601,8 @@ impl GpuSolver {
         let mut contacts = 0u32;
         if matches!(rx.recv(), Ok(Ok(()))) {
             let view = self.staging.slice(..).get_mapped_range().map(|v| v.to_vec()).unwrap_or_default();
-            let data: &[[f32; 4]] = bytemuck::cast_slice(&view);
-            for i in 0..self.n {
+            let data: &[[f32; 4]] = bytemuck::try_cast_slice(&view).unwrap_or(&[]);
+            for i in 0..self.n.min(data.len() / 2) {
                 let p = data[2 * i];
                 self.out[i] = [p[0], p[1], p[2]];
                 vmax = vmax.max(p[3]);
