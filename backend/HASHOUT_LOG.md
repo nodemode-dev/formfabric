@@ -2,6 +2,21 @@
 
 Living context for the FastAPI engine service. What would be comments in `backend/` lives here, newest first. Read before editing.
 
+## v0.24.0 · 2026-11-15
+
+Pre-release audit of `backend/` and `python/`.
+
+- `services/engine.py` :: `dispatch`, `_REBASE`: `file.new`, `file.open` and `exchange.import_dxf` are recorded by the journal but refused by `recovery.replayable`, so a crash before the next autosave restored the later edits onto an empty or wrong document. After one of these succeeds, and only while this process owns the journal, the engine saves the autosave file inside the same lock hold and `recovery.checkpoint()` cuts the log there, so the journal never has to replay them.
+- `services/engine.py` :: `_in_autosave_folder`: a save or open inside `[data dir]/autosave` (the autosave itself, the recovery base) is no longer added to the recent list.
+- `services/recovery.py` :: `active()`: true while this process owns the journal. `services/autosave.py` :: `save_now` does nothing without it: a second service on the same data folder, or the stdio MCP process, used to overwrite the owner's `autosave.ffbrc`, the base its journal replays onto. A second service therefore has no autosave and no crash recovery.
+- `main.py` :: `lifespan`: an `OSError` from `recovery.start()` (disk full, a locked or unwritable autosave folder) is printed and the service starts without the journal, where it used to stop with `Application startup failed`. Shutdown also calls `cmd_chat.cancel()`, so a `claude -p` child of the Chat tab does not outlive the service.
+- `formfabric_engine.py` :: `main`, `boot_backend`, `boot_backend.bat`: uvicorn gets a graceful shutdown limit of 1 second. Without it a connected `/api/events` stream kept a stopping service in `Waiting for connections to close` for ever: the desktop shell then killed it after 1.5 s before `recovery.close()` ran (so the next launch offered a recovery after a normal quit), and `--reload` could not restart the worker while a window was open. `setup/serve` still starts uvicorn without the limit.
+- `services/scripting.py` :: `run_file`: a plugin that ends with `sys.exit()` or another non-`Exception` exit is reported as a plugin failure, not a bare 500.
+- `mcp_stdio.py` :: `main`: stdin and stdout are set to UTF-8 (stdout with `\n` line ends). On Windows a pipe defaults to the ANSI code page, which garbled names outside it and stopped the server on a byte the code page lacks.
+- `routers/mcp.py`: `params`, `_meta` or a tool `name` of the wrong JSON type answer `-32602` with status 400, not a 500. `consent` is `async` so `agents.answer` sets the `asyncio.Event` on the event loop thread, not from a worker thread.
+- `routers/terminal_socket.py` :: `attach`: a JSON frame that is not an object is ignored, where it used to end the socket with an `AttributeError`.
+- `routers/system.py` :: `shutdown`: `POST /api/shutdown` (window rule, like dispatch) closes the journal before it replies, raises SIGINT 0.2 s later so uvicorn stops in its normal way, and ends the process itself after 3 s if that has not happened. It exists for the desktop shell on Windows, which can only hard-kill the service, so that a normal quit is not offered as a recovery on the next launch. No final autosave is written, because a clean journal is never read. Until the shell calls it, Windows quits still leave the journal open.
+
 ## v0.9.0 · 2026-11-01
 
 - `core/window_guard.py`: engine dispatch, terminal and Claude Code commands, `/mcp/consent` and `/mcp/window` need a browser Origin exactly equal to a configured window origin (scheme, host and port; `FFB_FRONTEND_PORT` sets the dev one) or the in-app token. Read-only routes stay open. A local program can still forge an Origin; a per-launch window token from the desktop shell is the planned fix.

@@ -45,6 +45,8 @@ def handle(msg: dict) -> str | None:
 
 
 def main() -> int:
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", newline="\n")
     if not engine.available():
         log(engine.UNAVAILABLE)
     for line in sys.stdin:

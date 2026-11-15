@@ -88,4 +88,4 @@ Python plugins are files with a top-level `run(ffb, args)` and an optional `PARA
 
 ## Check
 
-`/home/claude/ff/tools/family/check_family.py` drives a sample drape through both backends, the Live Link, GoF and the sample plugin.
+`check_family.py`, kept with the build tools outside this tree, drives a sample drape through both backends, the Live Link, GoF and the sample plugin.
