@@ -348,13 +348,44 @@ fn user_data_dir_arg(args: &[String]) -> Option<String> {
         .filter(|dir| !dir.is_empty())
 }
 
+#[cfg(target_os = "linux")]
+fn data_folder() -> std::path::PathBuf {
+    use std::path::PathBuf;
+    let args: Vec<String> = std::env::args().collect();
+    let var = |name: &str| std::env::var(name).ok().filter(|v| !v.trim().is_empty());
+    let home = || var("HOME").map(PathBuf::from).unwrap_or_default();
+    let folder = match user_data_dir_arg(&args).or_else(|| var("FORMFABRIC_DATA_DIR")) {
+        Some(dir) => match dir.trim().strip_prefix("~/") {
+            Some(rest) => home().join(rest),
+            None => PathBuf::from(dir.trim()),
+        },
+        None => home().join("Formfabric"),
+    };
+    let absolute = if folder.is_absolute() {
+        folder
+    } else {
+        std::env::current_dir().unwrap_or_default().join(folder)
+    };
+    std::fs::canonicalize(&absolute).unwrap_or(absolute)
+}
+
 fn single_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
-    tauri_plugin_single_instance::Builder::<tauri::Wry>::new()
-        .callback(|app, args, cwd| {
+    let plugin =
+        tauri_plugin_single_instance::Builder::<tauri::Wry>::new().callback(|app, args, cwd| {
             open_paths(app, paths_from_args(&args, Some(&cwd)));
             show_main_window(app);
-        })
-        .build()
+        });
+    #[cfg(target_os = "linux")]
+    let plugin = {
+        let hash = data_folder()
+            .to_string_lossy()
+            .bytes()
+            .fold(0xcbf29ce484222325u64, |h, b| {
+                (h ^ u64::from(b)).wrapping_mul(0x100000001b3)
+            });
+        plugin.dbus_id(format!("ai.nodemode.formfabric.d{hash:016x}"))
+    };
+    plugin.build()
 }
 
 #[cfg(unix)]
