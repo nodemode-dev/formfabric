@@ -32,7 +32,8 @@ pub fn save_with_bodies(garment: &Garment, bodies: &[ffb_body::Body], unknown: &
     let manifest = json!({"format": "formfabric", "schema": SCHEMA, "app_version": app_version});
     let manifest = serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?;
     let body = serde_json::to_vec(garment).map_err(|e| e.to_string())?;
-    let mut put = |name: &str, data: &[u8]| -> Result<(), String> {
+    serde_json::from_slice::<Garment>(&body).map_err(|e| format!("the garment was not saved because it would not open again; it most likely holds a number that is not finite ({e}); undo the last change and save again"))?;
+    let mut put =|name: &str, data: &[u8]| -> Result<(), String> {
         zip.start_file(name, options()).map_err(|e| e.to_string())?;
         zip.write_all(data).map_err(|e| e.to_string())
     };
@@ -40,6 +41,7 @@ pub fn save_with_bodies(garment: &Garment, bodies: &[ffb_body::Body], unknown: &
     put(GARMENT, &body)?;
     for body in bodies {
         let (json, bin) = crate::body::encode(body)?;
+        crate::body::decode(&json, &bin).map_err(|e| format!("body {} was not saved because it would not open again: {e}", body.id))?;
         put(&crate::body::json_name(body.id), &json)?;
         put(&crate::body::bin_name(body.id), &bin)?;
     }

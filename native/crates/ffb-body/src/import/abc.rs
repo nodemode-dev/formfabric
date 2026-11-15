@@ -151,6 +151,7 @@ fn props(b: &[u8], entry: u64, table: &[String], depth: u32, budget: &mut Budget
         }
         let g = *groups.get(out.len()).ok_or("the Alembic property list is damaged")?;
         let (subs, entries) = if compound { (props(b, g, table, depth + 1, budget)?, Vec::new()) } else { (Vec::new(), group(b, g)?) };
+        budget.bytes(entries.len().saturating_mul(8))?;
         out.push(Prop { name, compound, pod: (info >> 4) & 15, extent: (info >> 12) & 255, n, first, last, constant, array: info & 3 != 1, entries, subs });
     }
     Ok(out)

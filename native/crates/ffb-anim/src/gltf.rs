@@ -219,6 +219,9 @@ pub fn parse(bytes: &[u8], dir: Option<&Path>, options: &Options) -> Result<Clip
             parent[c.index()] = Some(n.index());
         }
     }
+    if (0..node_count).any(|i| std::iter::successors(Some(i), |x| parent[*x]).nth(node_count).is_some()) {
+        return Err("the glTF node tree has a loop".into());
+    }
     let mut keep: BTreeSet<usize> = BTreeSet::new();
     for skin in g.document.skins() {
         for j in skin.joints() {
@@ -289,6 +292,9 @@ pub fn parse(bytes: &[u8], dir: Option<&Path>, options: &Options) -> Result<Clip
     }
     let fps = if options.fps.is_finite() && options.fps >= 1.0 && options.fps <= 240.0 { options.fps } else { 30.0 };
     let frames = ((duration * fps).round() as usize + 1).clamp(1, MAX_FRAMES);
+    if closure.len().saturating_mul(frames) > crate::clip::MAX_VALUES / 7 {
+        return Err("the glTF motion is larger than the import limit".into());
+    }
     let order: Vec<usize> = closure.iter().copied().collect();
     let mut index = BTreeMap::new();
     for (k, n) in order.iter().enumerate() {

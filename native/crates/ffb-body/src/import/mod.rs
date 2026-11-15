@@ -136,6 +136,9 @@ pub fn finish(mut raw: Raw, options: &Options, stem: String) -> Result<Body, Str
     if raw.positions.len() > MAX_VERTICES || raw.triangles.len() > MAX_TRIANGLES || raw.joints.len() > MAX_JOINTS {
         return Err(format!("the mesh is over the import limits ({MAX_VERTICES} vertices, {MAX_TRIANGLES} triangles, {MAX_JOINTS} joints)"));
     }
+    if raw.positions.iter().flatten().any(|x| !x.is_finite()) {
+        return Err("the mesh has points that are not numbers".into());
+    }
     let rot = qnorm(options.up);
     for p in raw.positions.iter_mut() {
         *p = qrot(rot, *p);
@@ -191,6 +194,9 @@ pub fn finish(mut raw: Raw, options: &Options, stem: String) -> Result<Body, Str
     };
     if !(300.0..=4000.0).contains(&final_height) {
         return Err(format!("the body is {final_height:.0} mm tall after conversion; set units (mm, cm, m, in, ft) and the up axis so it reads between 300 and 4000 mm"));
+    }
+    if raw.positions.iter().flatten().any(|x| x.abs() > 100_000.0) {
+        return Err("the body reaches more than 100 m from the origin after conversion; move it to the origin in the source file".into());
     }
     let joint_count = raw.joints.len();
     let mut joints: Vec<Joint> = raw.joints.iter().map(|j| Joint { name: j.name.clone(), parent: j.parent, rest: [0.0; 3], rest_rotation: IDENTITY }).collect();

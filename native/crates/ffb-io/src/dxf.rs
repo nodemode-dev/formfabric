@@ -56,7 +56,7 @@ struct Record {
 }
 
 fn tokenize(text: &str) -> Result<Vec<(i32, String)>, String> {
-    let mut lines = text.lines();
+    let mut lines = text.strip_prefix('\u{feff}').unwrap_or(text).lines();
     let mut out = Vec::new();
     let mut number = 0usize;
     while let Some(code) = lines.next() {
@@ -68,7 +68,9 @@ fn tokenize(text: &str) -> Result<Vec<(i32, String)>, String> {
             continue;
         }
         let parsed = code.parse::<i32>().map_err(|_| format!("line {} is not a DXF group code", number - 1))?;
-        out.push((parsed, value.trim().to_string()));
+        let value = value.trim();
+        let real = matches!(parsed, 10..=59 | 110..=149 | 210..=239 | 460..=469 | 1010..=1059);
+        out.push((parsed, if real && !value.contains('.') { value.replacen(',', ".", 1) } else { value.to_string() }));
     }
     Ok(out)
 }

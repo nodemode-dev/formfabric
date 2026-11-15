@@ -64,7 +64,7 @@ fn leg_chains(joints: &[Joint], pos: &[V3]) -> Vec<LegChain> {
         let mut chain = Vec::new();
         let mut at = i;
         while let Some(p) = parent_of(joints, at) {
-            if !has(&joints[p].name, &["leg", "thigh", "shin", "calf", "knee", "hip"]) || has(&joints[p].name, &["pelvis"]) {
+            if !has(&joints[p].name, &["leg", "thigh", "shin", "calf", "knee", "hip"]) || has(&joints[p].name, &["pelvis"]) || chain.len() >= joints.len() {
                 break;
             }
             chain.push(p);

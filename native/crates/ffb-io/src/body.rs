@@ -103,14 +103,18 @@ pub fn decode(json: &[u8], bin: &[u8]) -> Result<Body, String> {
     let (n, t) = (count("vertex_count")?, count("triangle_count")?);
     let has_weights = meta.get("has_weights").and_then(Value::as_bool).unwrap_or(false);
     let mut body: Body = serde_json::from_value(meta).map_err(|e| format!("a body description is not a body: {e}"))?;
-    let expected = n * 12 + t * 12 + if has_weights { n * 24 } else { 0 };
-    if bin.len() != expected {
-        return Err(format!("body {} data holds {} bytes, expected {expected}", body.id, bin.len()));
+    let expected = n.checked_mul(if has_weights { 36 } else { 12 }).zip(t.checked_mul(12)).and_then(|(a, b)| a.checked_add(b));
+    if expected != Some(bin.len()) {
+        return Err(format!("body {} data holds {} bytes, which does not match {n} vertices and {t} triangles", body.id, bin.len()));
     }
     let mut c = Cursor { data: bin, at: 0 };
     body.positions = Vec::with_capacity(n);
     for _ in 0..n {
         body.positions.push([c.f32()?, c.f32()?, c.f32()?]);
+    }
+    let limit = crate::dxf::MAX_COORD_MM as f32;
+    if body.positions.iter().flatten().any(|v| !v.is_finite() || v.abs() > limit) {
+        return Err(format!("body {} has a coordinate outside plus or minus {limit} mm or not a number", body.id));
     }
     body.triangles = Vec::with_capacity(t);
     for _ in 0..t {

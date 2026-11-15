@@ -450,7 +450,8 @@ fn plain(doc: &Document, opts: &ImportOptions, scale: f64) -> Imported {
             continue;
         }
         let (a, b) = (n.verts[0].p, n.verts[n.verts.len() - 1].p);
-        let Some(i) = owner(&loops, &[a, b]) else { continue };
+        let gap = |i: &usize| boundary_gap(&loops[*i], a).min(boundary_gap(&loops[*i], b));
+        let Some(i) = (0..loops.len()).filter(|i| inside_loop(&loops[*i], a) && inside_loop(&loops[*i], b)).min_by(|x, y| gap(x).total_cmp(&gap(y))) else { continue };
         let (base, tip) = if boundary_gap(&loops[i], a) <= boundary_gap(&loops[i], b) { (a, b) } else { (b, a) };
         let d = sub(tip, base);
         pieces[i].notches.push(RawNotch { p: base, kind, angle: Some(d[1].atan2(d[0]).to_degrees()), depth: len(d), width: None });
