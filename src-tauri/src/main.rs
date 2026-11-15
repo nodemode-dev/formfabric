@@ -57,7 +57,7 @@ fn kill_backend(handle: &tauri::AppHandle) {
                     .is_ok_and(|s| s.success())
             };
             if signal("-TERM") {
-                for _ in 0..30 {
+                for _ in 0..60 {
                     std::thread::sleep(std::time::Duration::from_millis(50));
                     if !signal("-0") {
                         return;
@@ -67,6 +67,72 @@ fn kill_backend(handle: &tauri::AppHandle) {
         }
         let _ = child.kill();
     }
+}
+
+#[cfg(windows)]
+struct Service(Mutex<Option<(u16, String)>>);
+
+#[cfg(windows)]
+fn ask_to_close(port: u16, token: &str) -> bool {
+    use std::io::{Read, Write};
+    let wait = std::time::Duration::from_secs(2);
+    let address = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let Ok(mut stream) = std::net::TcpStream::connect_timeout(&address, wait) else {
+        return false;
+    };
+    let _ = stream.set_read_timeout(Some(wait));
+    let _ = stream.set_write_timeout(Some(wait));
+    let request = format!(
+        "POST /api/shutdown HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nx-ffb-window: {token}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    );
+    if stream.write_all(request.as_bytes()).is_err() {
+        return false;
+    }
+    let mut reply = [0u8; 12];
+    stream.read_exact(&mut reply).is_ok()
+        && reply.starts_with(b"HTTP/1.")
+        && reply.ends_with(b" 200")
+}
+
+#[cfg(windows)]
+fn wait_exit(pid: u32, millis: u32) {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn OpenProcess(access: u32, inherit: i32, pid: u32) -> *mut std::ffi::c_void;
+        fn WaitForSingleObject(handle: *mut std::ffi::c_void, millis: u32) -> u32;
+        fn CloseHandle(handle: *mut std::ffi::c_void) -> i32;
+    }
+    let handle = unsafe { OpenProcess(0x0010_0000, 0, pid) };
+    if !handle.is_null() {
+        unsafe {
+            WaitForSingleObject(handle, millis);
+            CloseHandle(handle);
+        }
+    }
+}
+
+fn close_backend(handle: &tauri::AppHandle) {
+    #[cfg(windows)]
+    {
+        let service = handle
+            .state::<Service>()
+            .0
+            .lock()
+            .ok()
+            .and_then(|slot| slot.clone());
+        let pid = handle
+            .state::<Backend>()
+            .0
+            .lock()
+            .ok()
+            .and_then(|slot| slot.as_ref().map(|child| child.pid()));
+        if let (Some((port, token)), Some(pid)) = (service, pid) {
+            if ask_to_close(port, &token) {
+                wait_exit(pid, 4000);
+            }
+        }
+    }
+    kill_backend(handle);
 }
 
 fn renderer_choice(handle: &tauri::AppHandle, choice: window_state::Choice) {
@@ -191,7 +257,7 @@ fn confirm_exit(app: tauri::AppHandle, cancel: Option<bool>) {
     }
     open_exit_gate(&app);
     if restart {
-        kill_backend(&app);
+        close_backend(&app);
         app.restart();
     }
     app.exit(0);
@@ -263,7 +329,7 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
         .await
         .map_err(|err| format!("Could not install the update: {err}"))?;
     open_exit_gate(&app);
-    kill_backend(&app);
+    close_backend(&app);
     app.restart()
 }
 
@@ -374,6 +440,8 @@ fn main() {
         .setup(|app| {
             let handle = app.handle().clone();
             reveal::round_splash(&handle);
+            #[cfg(windows)]
+            app.manage(Service(Mutex::new(None)));
             let launch_args: Vec<String> = std::env::args().collect();
             open_paths(&handle, paths_from_args(&launch_args, None));
             let engine = match packaged::engine_folder() {
@@ -384,7 +452,10 @@ fn main() {
                     .expect("the formfabric engine sidecar is missing; bundle its binary"),
             };
             let token = window_token();
-            let mut sidecar = engine.env("FFB_PORT", "0").env("FFB_WINDOW_TOKEN", &token);
+            let mut sidecar = engine
+                .env("FFB_PORT", "0")
+                .env("FFB_WINDOW_TOKEN", &token)
+                .env("FFB_PARENT_PID", std::process::id().to_string());
             if let Some(path) = packaged::launcher() {
                 sidecar = sidecar.env("FORMFABRIC_LAUNCHER", path);
             }
@@ -417,6 +488,12 @@ fn main() {
                 }
                 match port {
                     Some(port) => {
+                        #[cfg(windows)]
+                        {
+                            if let Ok(mut slot) = handle.state::<Service>().0.lock() {
+                                *slot = Some((port, token.clone()));
+                            }
+                        }
                         let url = format!("http://127.0.0.1:{port}");
                         let place = window_state::load(&handle);
                         let (width, height) = if place.width > 0.0 {
@@ -502,7 +579,11 @@ fn main() {
     app.run(|handle, event| match event {
         RunEvent::Exit => {
             window_state::flush(handle);
-            kill_backend(handle);
+            if window_state::loop_page_shown() {
+                kill_backend(handle);
+            } else {
+                close_backend(handle);
+            }
         }
         RunEvent::ExitRequested { api, .. } => {
             if ask_page_to_quit(handle) {
