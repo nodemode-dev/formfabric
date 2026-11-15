@@ -1,13 +1,16 @@
+import os
 import platform
+import signal
 import sys
+import threading
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.core import config
-from app.core.window_guard import require_window_read
-from app.services import engine, recent
+from app.core.window_guard import require_window, require_window_read
+from app.services import engine, recent, recovery
 
 router = APIRouter()
 IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif"}
@@ -61,3 +64,13 @@ def capabilities() -> dict:
         "engine": engine.status(),
         "frontend_built": config.dist_dir() is not None,
     }
+
+
+@router.post("/shutdown", dependencies=[Depends(require_window)])
+def shutdown() -> dict:
+    recovery.close()
+    threading.Timer(0.2, signal.raise_signal, args=(signal.SIGINT,)).start()
+    last = threading.Timer(3.0, os._exit, args=(0,))
+    last.daemon = True
+    last.start()
+    return {"closing": True}

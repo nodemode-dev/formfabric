@@ -27,11 +27,15 @@ async def lifespan(_: FastAPI):
     loop = asyncio.get_running_loop()
     bus.bind(loop)
     terminal.start(loop)
-    recovery.start()
+    try:
+        recovery.start()
+    except OSError as exc:
+        print(f"[formfabric] the crash journal could not start, so this session has no autosave or crash recovery: {exc}", flush=True)
     task = asyncio.create_task(autosave.loop())
     yield
     task.cancel()
     recovery.close()
+    cmd_chat.cancel()
     terminal.close_all()
 
 
