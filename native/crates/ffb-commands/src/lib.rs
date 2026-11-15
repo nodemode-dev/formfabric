@@ -257,11 +257,11 @@ pub fn dispatch(session: &mut Session, name: &str, args: &Value) -> Result<Value
     args::coerce_scalars(&schema, &mut args);
     args::validate(&schema, &args)?;
     let before = session.epoch;
-    let result = (command.run)(session, &args)?;
+    let result = (command.run)(session, &args);
     if session.epoch != before {
         hooks::after_change(session, command.id);
     }
-    Ok(result)
+    result
 }
 
 pub fn reply(result: Result<Value, CommandError>) -> Value {

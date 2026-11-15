@@ -7,7 +7,9 @@ pub fn save_data(session: &Session) -> Result<Vec<u8>, CommandError> {
 }
 
 pub fn open_data(session: &mut Session, bytes: Vec<u8>) -> Result<Value, CommandError> {
-    let project = ffb_io::open(bytes).map_err(|e| CommandError::new("open_failed", e))?;
+    let mut project = ffb_io::open(bytes).map_err(|e| CommandError::new("open_failed", e))?;
+    ffb_pattern::sew::prune(&mut project.garment);
+    ffb_pattern::trim::prune(&mut project.garment);
     let panels = project.garment.panels.len();
     session.reset(project.garment);
     session.unknown = project.unknown;
