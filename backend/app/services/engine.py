@@ -16,6 +16,7 @@ _epoch = 0
 _read_only: set[str] | None = None
 _info: dict = {}
 _RECENT_NAMES = {"file.save", "file.open", "file_save", "file_open"}
+_REBASE = {"file.new", "file.open", "exchange.import_dxf"}
 
 
 class EngineUnavailable(RuntimeError):
@@ -82,7 +83,11 @@ def dispatch(name: str, args: dict | None, notify: bool = True) -> dict:
                 recovery.checkpoint()
             elif changed and mutating:
                 recovery.record(command, args, group)
-    if reply.get("ok") and name in _RECENT_NAMES and isinstance((args or {}).get("path"), str):
+                if command in _REBASE and recovery.active():
+                    saved = json.loads(_engine.dispatch("file.save", json.dumps({"path": str(recovery.autosave_file())})))
+                    if saved.get("ok"):
+                        recovery.checkpoint()
+    if reply.get("ok") and name in _RECENT_NAMES and isinstance((args or {}).get("path"), str) and not _in_autosave_folder(args["path"]):
         recent.note(args["path"])
     if reply.get("ok") and changed and mutating:
         _bump()
@@ -93,6 +98,10 @@ def dispatch(name: str, args: dict | None, notify: bool = True) -> dict:
 
 def _is_autosave(path) -> bool:
     return isinstance(path, str) and os.path.abspath(path) == os.path.abspath(str(recovery.autosave_file()))
+
+
+def _in_autosave_folder(path: str) -> bool:
+    return os.path.abspath(path).startswith(os.path.abspath(str(recovery.autosave_file().parent)) + os.sep)
 
 
 def stream_info() -> dict:
