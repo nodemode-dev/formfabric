@@ -1,4 +1,4 @@
-import { fetchRecent } from '../engine/service';
+import { clearRecent, fetchRecent } from '../engine/service';
 
 export class Session {
   path: string | null = null;
@@ -20,6 +20,13 @@ export class Session {
     this.path = path;
     this.dirty = dirty;
     this.active = true;
+    this.emit();
+  }
+
+  close(): void {
+    this.path = null;
+    this.dirty = false;
+    this.active = false;
     this.emit();
   }
 
@@ -57,6 +64,7 @@ export class Session {
   forget(path?: string): void {
     const next = path ? this.recent().filter((p) => p !== path) : [];
     if (this.remote) this.remote = next;
+    void clearRecent(path).then((ok) => { if (ok) void this.pull(); });
     try { localStorage.setItem(this.KEY, JSON.stringify(next)); } catch { return; }
     this.emit();
   }

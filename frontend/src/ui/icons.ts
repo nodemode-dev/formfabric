@@ -140,6 +140,10 @@ export const ICONS: Record<string, string> = {
   moveTool: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.500v17M3.500 12h17"/><path d="M9.500 6L12 3.500 14.500 6M9.500 18L12 20.500 14.500 18M6 9.500L3.500 12 6 14.500M18 9.500l2.500 2.500-2.500 2.500"/></svg>`,
   rotateTool: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19.500 12a7.500 7.500 0 1 1-2.500-5.600"/><path d="M19.500 4.500v4h-4"/></svg>`,
   scaleTool: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.500" y="12.500" width="8" height="8" rx="1"/><path d="M14 10l6.500-6.500M15.500 3.500h5v5"/></svg>`,
+  upload: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>`,
+  template: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3.5" width="13.5" height="11" rx="1.6"/><path d="M7 7.5h13.5M3.5 8.5V18a2 2 0 0 0 2 2H16"/></svg>`,
+  inbox: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9.5H6.8a1.5 1.5 0 0 0-1.4 1L3.5 15v3.5A1.5 1.5 0 0 0 5 20h14a1.5 1.5 0 0 0 1.5-1.5V15l-1.9-4.5a1.5 1.5 0 0 0-1.4-1H16"/><path d="M3.5 15h4.5l1.5 2h5l1.5-2h4.5"/><path d="M12 3.5V12M8.8 8.8L12 12l3.2-3.2"/></svg>`,
+  cloudOff: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5h10a3.750 3.750 0 0 0 .6-7.450A5.500 5.500 0 0 0 6.700 11 3.750 3.750 0 0 0 7 18.500z"/><path d="M3.500 3.500l17 17"/></svg>`,
 };
 
 export function icon(name: string, size = 16): string {

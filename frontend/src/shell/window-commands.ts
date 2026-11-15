@@ -5,6 +5,7 @@ import { textFieldFocused } from '../ui/native-menu';
 import { loadPrefs, updatePrefs, UNITS, type Prefs } from '../ui/prefs';
 import { PREF_SECTIONS } from '../ui/settings';
 import { readChoice, setTheme } from '../ui/themes';
+import { toast } from '../ui/toast';
 import { nativeDialogs, pickPath } from './file-dialog';
 import type { LayoutState } from './layout';
 import type { Session } from './session';
@@ -19,6 +20,8 @@ export interface WindowCtx {
   openShortcuts: () => void;
   openAbout: () => void;
   showHome: () => void;
+  closeGarment: () => Promise<void>;
+  savePlace: () => Promise<string | null>;
   workspace: (id: string) => void;
   openOutput: (section: 'uv' | 'retopo') => void;
   setUnits: (u: string) => void;
@@ -47,7 +50,8 @@ export function registerWindowCommands(ctx: WindowCtx): void {
     { id: 'app.settings', label: 'Preferences...', keys: ['Mod+,'], icon: 'settings', run: () => ctx.openSettings() },
     { id: 'app.palette', label: 'Search commands...', keys: ['Mod+K'], icon: 'search', run: () => ctx.openPalette() },
     { id: 'app.shortcuts', label: 'Keyboard Shortcuts...', keys: ['Mod+/'], run: () => ctx.openShortcuts() },
-    { id: 'app.home', label: 'Launcher', run: () => ctx.showHome() },
+    { id: 'app.home', label: 'Home', keys: ['Mod+Alt+H'], icon: 'panel', run: () => ctx.showHome() },
+    { id: 'app.close', label: 'Close Garment', enabled: () => session.active, run: () => ctx.closeGarment() },
     { id: 'app.about', label: 'About FormFabric', run: () => ctx.openAbout() },
     { id: 'app.source', label: 'Source Code', run: () => { window.open(REPO, '_blank', 'noopener'); } },
     { id: 'app.report_issue', label: 'Report an Issue...', run: () => { window.open(`${REPO}/issues`, '_blank', 'noopener'); } },
@@ -63,17 +67,22 @@ export function registerWindowCommands(ctx: WindowCtx): void {
     toggle('snapEdges', 'app.snap_edges', 'Snap to Edges'),
     { id: 'app.theme_toggle', label: 'Light or Dark', run: () => setTheme(readChoice().theme === 'light' ? 'studio' : 'light') },
     { id: 'app.custom_title_bar', label: 'Custom Title Bar', enabled: () => inTauri() && !isMac, checked: () => localStorage.getItem('formfabric.customTitleBar') === '1', run: () => { localStorage.setItem('formfabric.customTitleBar', localStorage.getItem('formfabric.customTitleBar') === '1' ? '0' : '1'); document.dispatchEvent(new CustomEvent('ff:title-bar')); } },
-    { id: 'app.menus_in_window', label: 'Menus in Window', enabled: () => inTauri() && isMac, checked: () => localStorage.getItem('formfabric.menusInWindow') === '1', run: () => { localStorage.setItem('formfabric.menusInWindow', localStorage.getItem('formfabric.menusInWindow') === '1' ? '0' : '1'); } },
+    { id: 'app.menus_in_window', label: 'Menus in Window', enabled: () => inTauri() && isMac, checked: () => localStorage.getItem('formfabric.menusInWindow') === '1', run: () => {
+      const on = localStorage.getItem('formfabric.menusInWindow') !== '1';
+      localStorage.setItem('formfabric.menusInWindow', on ? '1' : '0');
+      toast(on ? t('The menus stay in the window from the next start.') : t('The menus go to the menu bar from the next start.'));
+    } },
     { id: 'app.terminal', label: 'Show Terminal', icon: 'terminal', keys: [], run: () => { document.dispatchEvent(new CustomEvent('ff:dock-toggle', { detail: { kind: 'shell' } })); } },
     { id: 'app.claude', label: 'Claude Code', icon: 'agent', run: () => { document.dispatchEvent(new CustomEvent('ff:dock-toggle', { detail: { kind: 'claude' } })); } },
     { id: 'app.save_as', label: 'Save As...', keys: ['Mod+Shift+S'], run: async () => {
-      const path = nativeDialogs() ? await pickPath('save', session.path) : await promptName('Save As', session.path ?? 'untitled.ffbrc', 'Save');
+      const from = await ctx.savePlace();
+      const path = nativeDialogs() ? await pickPath('save', from) : await promptName('Save As', from ?? 'untitled.ffbrc', 'Save');
       if (path) await commands.call('file.save', { path });
     } },
     { id: 'app.clear_recent', label: 'Clear Recent', run: () => session.forget() },
-    { id: 'app.exit', label: 'Exit', run: () => {
+    { id: 'app.exit', label: 'Exit', keys: inTauri() ? ['Mod+Q'] : [], run: () => {
       if (inTauri()) void import('@tauri-apps/api/window').then((m) => m.getCurrentWindow().close());
-      else window.close();
+      else document.dispatchEvent(new CustomEvent('ff:exit'));
     } },
   ];
   for (const u of UNITS) list.push({ id: `app.units_${u}`, label: u === 'mm' ? 'Millimetres' : u === 'cm' ? 'Centimetres' : 'Inches', checked: () => loadPrefs().units === u, run: () => { updatePrefs({ units: u }); ctx.setUnits(u); } });

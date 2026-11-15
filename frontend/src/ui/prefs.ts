@@ -20,7 +20,7 @@ export const FONT_SIZES = ['small', 'normal', 'large'] as const;
 const SPEC = {
   language: pick<Lang>('en', LANG_CODES),
   autoShowHome: flag(true),
-  homeOnLastClose: flag(false),
+  homeOnLastClose: flag(true),
   updateAtStart: flag(true),
   recentFileCount: num(10, 0, 40),
   themeAuto: flag(false),

@@ -97,7 +97,7 @@ export class SettingsDialog extends Dialog {
     menusIn.disable(!('__TAURI_INTERNALS__' in window) || !isMac);
 
     add('General',
-      grp('Startup', toggle('autoShowHome', 'Show the launcher at start').el, toggle('homeOnLastClose', 'Show the launcher when the last project closes').el, toggle('updateAtStart', 'Look for updates at start').el),
+      grp('Startup', toggle('autoShowHome', 'Show Home screen at launch').el, toggle('homeOnLastClose', 'Show Home screen when the last document closes').el, toggle('updateAtStart', 'Look for updates at start').el),
       grp('Recent Files', slider('recentFileCount', 'Recent files listed', 0, 40, 1).el),
       grp('Reset', reset));
 

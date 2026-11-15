@@ -93,6 +93,13 @@ export async function fetchRecent(): Promise<string[] | null> {
   } catch { return null; }
 }
 
+export async function clearRecent(path?: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${base()}/api/recent${path ? `?path=${encodeURIComponent(path)}` : ''}`, { method: 'DELETE', cache: 'no-store' });
+    return response.ok;
+  } catch { return false; }
+}
+
 export async function fetchVersion(): Promise<Version | null> {
   try {
     const response = await fetch(`${base()}/api/version`, { cache: 'no-store' });

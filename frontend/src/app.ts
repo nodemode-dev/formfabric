@@ -21,7 +21,11 @@ import { ShortcutsDialog, applyShortcuts } from './ui/shortcuts';
 import { applyTheme } from './ui/themes';
 import { toast } from './ui/toast';
 import type { ShellDeps } from './shell/deps';
-import { HomeScreen } from './shell/home';
+import { mountHome } from './shell/home/index';
+import { api as libraryApi } from './shell/home/api';
+import { saveThumb } from './shell/home/thumb';
+import { DEMOS } from './ui/demos';
+import { confirmExit, inDesktop, listenShell } from './shell/desktop';
 import { probeGpu } from './shell/gpu';
 import { LayoutState } from './shell/layout';
 import { buildMenus } from './shell/menus';
@@ -91,6 +95,8 @@ export function startApp(): void {
     }
   };
 
+  const savePlace = async (): Promise<string | null> => session.path ?? (await libraryApi.library().catch(() => null))?.untitled ?? null;
+
   const runEngine = async (c: CatalogueCommand, params?: Record<string, unknown>): Promise<unknown> => {
     let args = params;
     if ((c.id === 'file.new' || c.id === 'file.open') && session.dirty) {
@@ -100,7 +106,7 @@ export function startApp(): void {
     }
     const filing = c.id === 'file.open' || c.id === 'file.save';
     if (!args && filing && nativeDialogs() && !(c.id === 'file.save' && session.path)) {
-      const picked = await pickPath(c.id === 'file.open' ? 'open' : 'save', session.path);
+      const picked = await pickPath(c.id === 'file.open' ? 'open' : 'save', c.id === 'file.save' ? await savePlace() : session.path);
       if (!picked) return undefined;
       args = { path: picked };
     }
@@ -113,7 +119,7 @@ export function startApp(): void {
     }
     if (c.id === 'file.save' && !args && session.path) args = { path: session.path };
     if (!args && hasRequired(c.inputSchema)) {
-      const initial = c.id === 'file.save' || c.id === 'file.open' ? { path: session.path ?? undefined } : dxf === 'save' && dxfName ? { path: dxfName } : {};
+      const initial = c.id === 'file.save' ? { path: (await savePlace()) ?? undefined } : c.id === 'file.open' ? { path: session.path ?? undefined } : dxf === 'save' && dxfName ? { path: dxfName } : {};
       args = (await exactInput(t(c.label).replace(/\.\.\.$/, ''), c.inputSchema, initial)) ?? undefined;
       if (!args) return undefined;
     }
@@ -123,6 +129,8 @@ export function startApp(): void {
       const path = typeof args?.path === 'string' ? args.path : session.path;
       if (c.id === 'file.new') session.set(null, false);
       else if ((c.id === 'file.open' || c.id === 'file.save') && path) { session.set(path, false); session.remember(path, loadPrefs().recentFileCount); void session.pull(); }
+      if (c.id === 'file.save' && path) void saveThumb(path).then(() => home.refresh());
+      else if (c.id === 'file.new' || c.id === 'file.open') home.leave();
       void refresh();
       return result;
     } catch (err) {
@@ -132,6 +140,8 @@ export function startApp(): void {
     } finally { end(); }
   };
 
+  let engineUp: () => void = () => undefined;
+  const engineReady = new Promise<void>((done) => { engineUp = done; });
   const load = async (): Promise<void> => {
     if (loaded) return;
     try {
@@ -141,6 +151,7 @@ export function startApp(): void {
       version = cat.version;
       commands.add(...engineCommands(cat, (c, p) => runEngine(c, p)).filter((c) => !commands.get(c.id)));
       applyShortcuts(commands);
+      engineUp();
       native?.refresh();
       home.refresh();
       void refresh();
@@ -166,14 +177,75 @@ export function startApp(): void {
 
   const menus = () => buildMenus(commands, () => session.recent(), () => (wsLayouts ? layoutSlotIds(wsLayouts) : []));
   const palette = new CommandPalette(commands, menus);
-  const home = new HomeScreen(root, {
+  const openPattern = async (path: string): Promise<void> => {
+    if (!/\.dxf$/i.test(path)) { await commands.call('file.open', { path }); return; }
+    if ((await commands.call('file.new')).result === undefined) return;
+    await commands.call('exchange.import_dxf', { path, mode: 'as_new' });
+  };
+  const closeGarment = async (): Promise<void> => {
+    if (!session.active) return;
+    if (session.dirty) {
+      const choice = await askSaveChanges(session.name());
+      if (choice === 'cancel') return;
+      if (choice === 'save' && (await commands.call('file.save')).result === undefined) return;
+    }
+    try { await call('file.new', {}); } catch (err) { toast(message(err), 'error'); return; }
+    session.close();
+    void refresh();
+  };
+  let quitting = false;
+  const exitApp = async (): Promise<void> => {
+    if (quitting) return;
+    quitting = true;
+    try {
+      let go = true;
+      if (session.dirty) {
+        const choice = await askSaveChanges(session.name());
+        go = choice !== 'cancel' && (choice !== 'save' || (await commands.call('file.save')).result !== undefined);
+      }
+      if (inDesktop()) await confirmExit(!go);
+      else if (go) { window.close(); toast(t('This page can be closed now.')); }
+    } catch (err) {
+      toast(message(err), 'error');
+      if (inDesktop()) await confirmExit(true).catch(() => undefined);
+    } finally { quitting = false; }
+  };
+  const home = mountHome(root, {
+    openGarment: (g) => { if (session.active && session.path === g.path) home.leave(); else openPath(g.path); },
+    closeGarment: (path) => {
+      if (!session.active || session.path !== path) return;
+      if (session.dirty) session.set(null, true);
+      else void closeGarment();
+    },
+    createGarment: async (template, name) => {
+      try {
+        const made = await libraryApi.create(template, name);
+        home.refresh();
+        await commands.call('file.open', { path: made.path });
+      } catch (err) { toast(message(err), 'error'); }
+    },
+    blankGarment: () => { commands.run('file.new'); },
+    openFile: () => { commands.run('file.open'); },
+    chooseFile: () => {
+      if (!nativeDialogs()) return false;
+      void pickPath('open', null, 'pattern').then((p) => (p ? openPattern(p) : undefined)).catch((err) => toast(message(err), 'error'));
+      return true;
+    },
+    openFiles: (files) => {
+      const file = files.find((f) => /\.(ffbrc|dxf)$/i.test(f.name)) ?? files[0];
+      if (file) void libraryApi.importFile(file).then((got) => { home.refresh(); return openPattern(got.path); }).catch((err) => toast(message(err), 'error'));
+    },
+    openPaths: (paths) => {
+      const path = paths.find((p) => /\.(ffbrc|dxf)$/i.test(p));
+      if (path) void openPattern(path);
+    },
+    recentChanged: () => { void session.pull(); },
+    preferences: () => settings.show(),
+    agents: () => settings.show('Plugins'),
+    demo: (id) => { const d = DEMOS.find((x) => x.id === id); if (d) commands.run(d.command); },
+    hasGarment: () => session.active,
     autoShow: () => loadPrefs().autoShowHome,
     afterClose: () => loadPrefs().homeOnLastClose,
-    recent: () => session.recent(),
-    openPath,
-    hasProject: () => session.active,
-    can: (id) => { const c = commands.get(id); return !!c && commands.enabled(c); },
-    run: (id) => { commands.run(id); },
   });
 
   registerWindowCommands({
@@ -182,7 +254,9 @@ export function startApp(): void {
     openPalette: () => palette.show(),
     openShortcuts: () => shortcuts.show(),
     openAbout: () => about.open(),
-    showHome: () => home.show(),
+    showHome: () => home.force('start'),
+    closeGarment,
+    savePlace,
     workspace: (id) => titlebar.choose(id),
     openOutput: (section) => {
       titlebar.choose('render');
@@ -202,6 +276,15 @@ export function startApp(): void {
     void native.build().catch(() => undefined);
     onLanguage(() => { void native?.build().catch(() => undefined); });
   }
+  void listenShell({
+    open: async (paths) => {
+      await engineReady;
+      const path = paths.find((p) => /\.ffbrc$/i.test(p)) ?? paths[0];
+      if (path) await commands.call('file.open', { path });
+    },
+    exitRequested: () => { void exitApp(); },
+  }).catch(() => undefined);
+  document.addEventListener('ff:exit', () => { void exitApp(); });
 
   status.onUnits = () => {
     const order = ['mm', 'cm', 'in'] as const;
@@ -209,11 +292,11 @@ export function startApp(): void {
   };
 
   const title = (): void => {
-    const text = session.title();
+    const text = session.active ? session.title() : 'FormFabric';
     document.title = text;
     setText(q(app, '.cv-tb-doc'), text);
     if ('__TAURI_INTERNALS__' in window) void import('@tauri-apps/api/core').then((m) => m.invoke('set_window_title', { title: text })).catch(() => undefined);
-    home.refresh();
+    home.setOpenGarments(session.active ? [{ id: 'open', title: session.path ? session.name().replace(/\.ffbrc$/i, '') : '' }] : []);
     home.sync();
     native?.refresh();
   };
@@ -222,13 +305,14 @@ export function startApp(): void {
 
   document.addEventListener('keydown', (e) => {
     if (e.defaultPrevented || anyDialogOpen()) return;
-    if (home.isShown && !(e.ctrlKey || e.metaKey)) return;
+    if (home.isOpen && !(e.ctrlKey || e.metaKey)) return;
     const cmd = commands.forEvent(e);
     if (!cmd) return;
     const field = textFieldFocused();
-    const native = ['history.undo', 'history.redo', 'app.cut', 'app.copy', 'app.paste', 'app.select_all'].includes(cmd.id);
-    if (field && (native || !(e.ctrlKey || e.metaKey))) return;
+    const own = ['history.undo', 'history.redo', 'app.cut', 'app.copy', 'app.paste', 'app.select_all'].includes(cmd.id);
+    if (field && (own || !(e.ctrlKey || e.metaKey))) return;
     e.preventDefault();
+    if (native && !native.claim(cmd.id, 'key')) return;
     commands.run(cmd.id);
   });
 
@@ -240,6 +324,7 @@ export function startApp(): void {
     home.refresh();
   });
   onEngineChanged((e) => {
+    native?.refresh();
     if (e.name.startsWith('file.')) return;
     session.touch();
     void refresh();
