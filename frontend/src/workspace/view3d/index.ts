@@ -549,6 +549,7 @@ export class View3D {
   }
 
   private onDown(e: PointerEvent): void {
+    if (!e.isPrimary) return;
     this.canvas.setPointerCapture(e.pointerId);
     const r = this.canvas.getBoundingClientRect();
     const pan = e.button === 1 || e.button === 2 || (e.button === 0 && e.shiftKey);
@@ -672,6 +673,7 @@ export class View3D {
   }
 
   private onMove(e: PointerEvent): void {
+    if (!e.isPrimary) return;
     const d = this.drag;
     if (!d) {
       const r = this.canvas.getBoundingClientRect();
@@ -714,6 +716,7 @@ export class View3D {
   }
 
   private onUp(e: PointerEvent): void {
+    if (!e.isPrimary) return;
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
     const d = this.drag;
     this.drag = null;

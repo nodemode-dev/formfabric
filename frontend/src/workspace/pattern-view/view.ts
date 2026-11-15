@@ -135,7 +135,7 @@ export class PatternView implements ViewCtx {
     const step = Math.max(p.gridSize, gridStep(this.cam.s).minor);
     let out: SnapResult = { pt: w, kind: null };
     const wasm = this.doc.wasm;
-    if (wasm) {
+    if (wasm && !wasm.stopped) {
       const targets: string[] = [];
       if (p.snapPoints) targets.push('point', 'midpoint', 'inner');
       if (p.snapEdges) targets.push('segment');
