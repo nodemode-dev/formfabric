@@ -29,7 +29,7 @@ fn roots() -> Vec<PathBuf> {
 }
 
 fn title(stem: &str) -> String {
-    stem.split(['-', '_']).filter(|w| !w.is_empty()).map(|w| if w.chars().any(|c| c.is_ascii_digit()) { w.to_uppercase() } else { w[..1].to_uppercase() + &w[1..] }).collect::<Vec<_>>().join(" ")
+    stem.split(['-', '_']).filter(|w| !w.is_empty()).map(|w| if w.chars().any(|c| c.is_ascii_digit()) { w.to_uppercase() } else { w.chars().take(1).flat_map(char::to_uppercase).chain(w.chars().skip(1)).collect() }).collect::<Vec<_>>().join(" ")
 }
 
 fn license_of(dir: &Path) -> Option<String> {
