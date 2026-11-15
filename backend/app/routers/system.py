@@ -32,6 +32,14 @@ def recent_files() -> dict:
     return {"files": recent.listing()}
 
 
+@router.delete("/recent", dependencies=[Depends(require_window)])
+def clear_recent(path: str | None = None):
+    try:
+        return {"ok": True, "removed": recent.forget(path)}
+    except (OSError, ValueError) as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+
 @router.get("/files/image", dependencies=[Depends(require_window_read)])
 def file_image(path: str):
     target = Path(path)

@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core import config, quiet_log
 from app.core.isolation import CrossOriginIsolation
 from app.core.local_guard import LocalGuard
-from app.routers import commands, engine, events, mcp, plugins, recovery as recovery_router, system, terminal_socket
+from app.routers import commands, engine, events, library, mcp, plugins, recovery as recovery_router, system, terminal_socket
 from app.services import autosave, claude_code, cmd_chat, cmd_terminal, recovery, terminal
 from app.services import events as bus
 
@@ -50,6 +50,7 @@ app.include_router(plugins.router, prefix="/api")
 app.include_router(commands.router, prefix="/api")
 app.include_router(events.router, prefix="/api")
 app.include_router(recovery_router.router, prefix="/api")
+app.include_router(library.router, prefix="/api")
 app.include_router(terminal_socket.router)
 
 dist = config.dist_dir()
