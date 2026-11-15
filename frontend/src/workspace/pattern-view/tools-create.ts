@@ -157,10 +157,10 @@ export class InnerShapeTool extends BoxTool {
     return true;
   }
 
-  protected finish(b: Box, p: Ptr): void {
+  protected finish(b: Box): void {
     if (this.panel === null) return;
     const panel = this.panel;
-    if (p.alt) void this.create('pattern.inner_shape', { panel, kind: 'ellipse', ellipse: { cx: (b.x0 + b.x1) / 2, cy: (b.y0 + b.y1) / 2, rx: (b.x1 - b.x0) / 2, ry: (b.y1 - b.y0) / 2 } }, false);
+    if (this.ellipseMode) void this.create('pattern.inner_shape', { panel, kind: 'ellipse', ellipse: { cx: (b.x0 + b.x1) / 2, cy: (b.y0 + b.y1) / 2, rx: (b.x1 - b.x0) / 2, ry: (b.y1 - b.y0) / 2 } }, false);
     else void this.create('pattern.inner_shape', { panel, kind: 'rectangle', rect: { x: b.x0, y: b.y0, width: b.x1 - b.x0, height: b.y1 - b.y0 } }, false);
   }
 
