@@ -356,7 +356,7 @@ export class StageGL {
       bmp.close();
       this.hdriState = 'ready';
     } catch {
-      this.hdriState = 'failed';
+      if (path === this.skyUrl) this.hdriState = 'failed';
     }
     this.onLoaded?.();
   }

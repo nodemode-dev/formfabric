@@ -117,7 +117,7 @@ export class MeshFeed {
     this.watchBodies();
     if (this.streaming) return;
     this.streaming = true;
-    connectStream().then(() => { this.streamTries = 0; }, () => { this.streaming = false; this.retryStream(); });
+    connectStream().then(() => { this.streamTries = 0; this.streaming = false; }, () => { this.streaming = false; this.retryStream(); });
   }
 
   private retryStream(): void {
@@ -199,8 +199,8 @@ export class MeshFeed {
 
   private scalarFrame(id: number, f: ScalarsFrame): void {
     const b = this.scene.get(id);
-    if (!b || f.vertexCount !== b.vcount) return;
-    this.scene.setScalars(b, f.values);
+    if (!b || (f.vertexCount !== 0 && f.vertexCount !== b.vcount)) return;
+    this.scene.setScalars(b, f.vertexCount === 0 ? null : f.values);
     this.onScalars?.(id, f);
     this.changed();
   }
