@@ -57,6 +57,7 @@
 - **Animation.** A timeline with motion import and retargeting, recorded caches in layers, and keys for wind, fabric values and pins.
 - **Export.** Weld or unweld, thick or thin, quad remesh with seam-matched borders, texture baking and game-ready output.
 - **Any 3D tool.** OBJ, FBX, glTF, USD and Alembic with UVs and caches, or the whole garment as a `.ffbrc` project.
+- **Home & library.** The window opens on Home: recent garments w/ previews, the four sample garments as templates & a Trash you can restore from, over a Garments folder on your own disk. Files outside that folder are never moved or deleted.
 
 ## Everything in the box
 
@@ -94,7 +95,7 @@
 - **Engine:** a Rust workspace of 14 crates, with a native cloth solver (block descent and implicit) and an opt-in wgpu compute path
 - **Interface:** vanilla TypeScript and Vite, with the shared Form shell, zero flash on load and every string in 30 languages
 - **Service:** Python and FastAPI on 127.0.0.1 only, with autosave, a recovery journal and plugins
-- **Desktop:** Tauri 2, with the engine as a sidecar and the frame stream as a binary WebSocket
+- **Desktop:** Tauri 2, with the engine as a sidecar and the frame stream as a binary WebSocket; the Form family splash & menu bar, w/ the same menus in the native macOS menu bar
 - **Scripting:** a standard-library Python package, plus a Live Link that streams a USD layer to Unreal
 
 ## Download
@@ -122,12 +123,12 @@ cd formfabric
 
 `./formfabric desktop dev` opens the desktop window instead.
 
-On Windows use `formfabric_oc_install.bat` and `formfabric.bat`. The backend listens on 127.0.0.1:8280 only. `FORMFABRIC_DATA_DIR` moves autosaves, recovery and the Library.
+On Windows use `formfabric_oc_install.bat` and `formfabric.bat`. The backend listens on 127.0.0.1:8280 only. `FORMFABRIC_DATA_DIR` moves autosaves, recovery, the Library and the Garments folder Home lists.
 
 > [!IMPORTANT]
 > **Status:** pre-1.0. The GPU path and solver speed on real hardware, the Unreal run and a few other items still wait for sign-off before v1.0.0.
 
-**Contributing:** branch from `main`, keep changes to source here, and leave packaging and releases to formcompiler. See [`.docs/BRANCHING.md`](.docs/BRANCHING.md) and [`AGENTS.md`](AGENTS.md).
+**Contributing:** branch from `main`, keep changes to source here, and leave packaging and releases to formcompiler. See [`CONTRIBUTING.md`](CONTRIBUTING.md), [`.docs/BRANCHING.md`](.docs/BRANCHING.md) and [`AGENTS.md`](AGENTS.md).
 
 Layout: `native/` (engine), `frontend/`, `backend/`, `python/`, `src-tauri/`, `setup/`, `assets/`. Docs: [`.docs/wiki`](.docs/wiki) · Agents: [`CLAUDE.md`](CLAUDE.md), [`AGENTS.md`](AGENTS.md) · Contributing: [`.docs/BRANCHING.md`](.docs/BRANCHING.md)
 
