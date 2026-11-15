@@ -184,7 +184,7 @@ fn sweep(s: &mut Session) {
 }
 
 pub(crate) fn after_change(session: &mut Session, command: &str) {
-    if command.starts_with("file.") {
+    if command.starts_with("file.") || command == "sample.load" {
         session.anim.cancel.store(true, Ordering::Release);
         session.anim.cancel = Arc::new(AtomicBool::new(false));
         session.anim.playing.store(false, Ordering::Release);

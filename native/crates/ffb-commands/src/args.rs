@@ -27,6 +27,9 @@ pub(crate) fn file_path(args: &Value, key: &str, extension: Option<&str>) -> Res
 
 pub(crate) fn write_atomic(path: &str, bytes: &[u8]) -> Result<(), CommandError> {
     use std::io::Write;
+    if cfg!(target_arch = "wasm32") {
+        return Err(CommandError::new("unsupported", "this build cannot write files"));
+    }
     let io = |e: std::io::Error| CommandError::new("io", format!("could not write {path}: {e}"));
     let target = std::path::Path::new(path);
     let folder = target.parent().filter(|p| !p.as_os_str().is_empty()).ok_or_else(|| CommandError::new("bad_args", format!("{path} has no folder")))?;
