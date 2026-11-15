@@ -65,6 +65,8 @@ async def attach(ws: WebSocket, sid: str) -> None:
                 msg = json.loads(raw)
             except ValueError:
                 continue
+            if not isinstance(msg, dict):
+                continue
             if msg.get("type") == "input" and session.alive:
                 terminal.write(sid, str(msg.get("data", "")))
             elif msg.get("type") == "resize":

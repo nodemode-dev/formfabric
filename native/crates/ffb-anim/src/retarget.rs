@@ -290,6 +290,7 @@ impl Retargeter {
                     }
                 } else if kids.is_empty() {
                     let mut p = tparent[*t];
+                    let mut steps = 0;
                     while let Some(x) = p {
                         if src_of[x].is_some() && z_done[x] {
                             z[*t] = z[x];
@@ -297,6 +298,10 @@ impl Retargeter {
                             break;
                         }
                         p = tparent[x];
+                        steps += 1;
+                        if steps > n {
+                            break;
+                        }
                     }
                 }
             }

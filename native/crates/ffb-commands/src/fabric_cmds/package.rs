@@ -6,6 +6,8 @@ use super::common::*;
 use super::schema as sc;
 use crate::{args, Command, CommandError, Group, Session, EXTERNAL};
 
+const MAP_EXTENSIONS: [&str; 8] = ["png", "jpg", "jpeg", "webp", "tif", "tiff", "bmp", "gif"];
+
 fn export_schema() -> Value {
     sc::obj(json!({"fabric": sc::fabric_id("Fabric to export."), "path": sc::path("File path of the .ffab file to write.")}), &["fabric", "path"])
 }
@@ -13,6 +15,10 @@ fn export_schema() -> Value {
 fn read_map(s: &Session, reference: &str) -> Result<Vec<u8>, CommandError> {
     if let Some((_, data)) = s.unknown.iter().find(|(n, _)| n == reference) {
         return Ok(data.clone());
+    }
+    let image = std::path::Path::new(reference).extension().and_then(|e| e.to_str()).is_some_and(|e| MAP_EXTENSIONS.iter().any(|x| x.eq_ignore_ascii_case(e)));
+    if !image || !std::fs::metadata(reference).is_ok_and(|m| m.is_file() && m.len() <= ffab::MAX_IMAGE) {
+        return Err(bad(format!("the map {reference} is not an image file ({}) of at most {} MiB", MAP_EXTENSIONS.join(", "), ffab::MAX_IMAGE / 1024 / 1024)));
     }
     std::fs::read(reference).map_err(|e| CommandError::new(if e.kind() == std::io::ErrorKind::NotFound { "not_found" } else { "io" }, format!("could not read the map {reference}: {e}")))
 }

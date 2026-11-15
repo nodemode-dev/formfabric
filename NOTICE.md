@@ -6,14 +6,17 @@ formfabric is licensed under the Apache License 2.0 (see `LICENSE`). Copyright 2
 
 | Work | License | Where |
 | --- | --- | --- |
-| formvis desktop shell (nodemode-ai) | Apache-2.0 | `src-tauri/src/{reveal,traffic_lights,text_edit,window_state,packaged,main}.rs`, `src-tauri/build.rs`, `capabilities/`, `entitlements.plist`, `about.*`, `frontend/public/splash.html` (geometry and timing), `setup/freeze_backend` (adapted) |
-| formvis window shell (nodemode-ai) | Apache-2.0 | `frontend/index.html` (theme boot), `frontend/src/ui/{dom,dialogs,dialog-history,dropdown,number-fields,toast,menu,native-menu,caption-buttons,commands,command-palette,i18n,themes,icons}.ts`, `frontend/src/ui/i18n/` (core tables), `frontend/src/styles/` (tokens and shell rules) (adapted) |
+| formvis desktop shell (nodemode-ai) | Apache-2.0 | `src-tauri/src/{reveal,traffic_lights,text_edit,window_state,packaged,main}.rs`, `src-tauri/build.rs`, `capabilities/`, `entitlements.plist`, `about.*`, `frontend/public/splash.html` (the family splash with formfabric's name), `setup/freeze_backend` (adapted) |
+| formvis window shell (nodemode-ai) | Apache-2.0 | `frontend/index.html` (theme boot), `frontend/src/ui/{dom,dialogs,dialog-history,dropdown,number-fields,toast,menu,native-menu,caption-buttons,commands,command-palette,i18n,themes,icons}.ts`, `frontend/src/shell/desktop.ts` (opened files and the quit request), `frontend/src/ui/i18n/` (core tables), `frontend/src/styles/` (tokens and shell rules) (adapted) |
+| formdeck native menu (nodemode-ai) | Apache-2.0 | `frontend/src/ui/native-menu.ts` (the accelerator guard, the application menu items, the Window and Help menu registration, the rebuild by signature) (adapted) |
 | formsculpt scripts, service, dock and engine pieces (nodemode-ai) | Apache-2.0 | `formfabric`, `formfabric.bat`, `build_app`, `setup/`, `backend/app/` (core, terminal, Claude Code, chat, agents, MCP), `frontend/src/dock/`, `frontend/src/styles/dock.css`, `native/crates/ffb-core/src/{bvh,mesh}.rs`, the registry and history shape in `native/crates/ffb-commands`, `ffb-py`, `ffb-wasm`, `frontend/src/workspace/view3d/{camera,math}.ts`, `.claude/` and `.agents/` kit layout, `setup/agents.py` (adapted) |
 | NodeMode design system tokens | MIT | `frontend/src/styles/tokens.css` (values) |
 
 ## Data
 
 Default bodies: the female and male base bodies are derived from the MakeHuman community assets distributed with MPFB2 (base mesh, macro targets, default rig and skin weights), dedicated to the public domain under CC0 1.0 Universal. Source: https://github.com/makehumancommunity/mpfb2 (assets, not the GPLv3 code; no MPFB code is included). Licence text: `assets/bodies/mpfb2-female/LICENSE.txt` and `assets/bodies/mpfb2-male/LICENSE.txt`. Converted, scaled and re-skinned by formfabric. The Basic Form body is formfabric's own.
+
+Home templates: the four garment projects in `assets/samples` are formfabric's own. Their preview pictures (`assets/samples/*.webp`) are captures of formfabric's 3D View showing those garments on the default bodies above (CC0 1.0); they are formfabric's own.
 
 Fabric presets and Fabric Lab formulas are derived from published measurements and textile-testing literature cited in the project's research notes (kept with its planning documents, not distributed); the values are formfabric's own and no dataset is redistributed.
 

@@ -89,6 +89,11 @@ export class Maps {
     return tex;
   }
 
+  contextRestored(): void {
+    this.ramps.clear();
+    if (this.kind !== 'none') this.host.fx.map.ramp = this.ramp(MAP_RAMP[this.kind] ?? 'viridis');
+  }
+
   private setKind(kind: string): void {
     this.kind = kind;
     delete this.unit.dataset.unit;
@@ -152,15 +157,20 @@ export class Maps {
   }
 
   sync(map: string | null): void {
-    const want = map && MAP_KINDS.includes(map as never) ? map : 'none';
-    if (this.busy || want === this.kind) return;
-    this.setKind(want);
+    if (!map || !MAP_KINDS.includes(map as never) || this.busy || map === this.kind) return;
+    this.setKind(map);
   }
 
   onScalars(f: ScalarsFrame): void {
     const name = NAMES[f.map] ?? this.kind;
-    if (this.kind === 'none' && name === 'none') return;
-    if (this.kind === 'none' || (name === 'compare' && this.kind !== 'compare')) {
+    if (name === 'none') {
+      if (f.vertexCount === 0) this.sync('none');
+      return;
+    }
+    if (this.kind === 'none' || (name !== this.kind && !this.busy)) {
+      this.seen = null;
+      this.fixed = false;
+      delete this.unit.dataset.unit;
       this.kind = name;
       for (const [k, b] of this.items) setClass(b, 'is-on', k === name);
       this.pop.setActive(true);

@@ -87,7 +87,7 @@ fn run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let mut imp = aama::import(&text, &opts).map_err(|m| CommandError::new("open_failed", format!("{path}: {m}")))?;
 
     lay_out(&mut imp, if as_new { None } else { existing_bounds(s) });
-    let used: Vec<u32> = if as_new { Vec::new() } else { s.garment.panels.iter().flat_map(|p| std::iter::once(p.id).chain(p.inner.iter().map(|i| i.id))).collect() };
+    let used: Vec<u32> = s.garment.panels.iter().flat_map(|p| std::iter::once(p.id).chain(p.inner.iter().map(|i| i.id))).collect();
     let mut ids = IdGen::starting_after(used);
     for p in imp.panels.iter_mut() {
         p.id = ids.next_id();

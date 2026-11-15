@@ -114,6 +114,7 @@ export class View3D {
   private w = 0;
   private h = 0;
   private dpr = 1;
+  private lost = false;
   private queued = false;
   private drag: { x: number; y: number; sx: number; sy: number; left: number; top: number; mode: 'orbit' | 'pan' | 'gizmo' | 'grab' | 'tool'; moved: boolean; shift: boolean; button: number } | null = null;
   private grabPlane: { panel: number; p: Float64Array } | null = null;
@@ -239,6 +240,8 @@ export class View3D {
     canvas.addEventListener('pointercancel', (e) => this.onUp(e));
     canvas.addEventListener('pointerleave', () => this.leave());
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; });
+    canvas.addEventListener('webglcontextrestored', () => this.restore());
     canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.autoFrame = false; this.camera.zoom(Math.exp(e.deltaY * (e.ctrlKey ? 0.01 : 0.0012))); this.redraw(); }, { passive: false });
     canvas.addEventListener('dblclick', () => this.frameAll());
     pane.addEventListener('pointerenter', () => { this.pointerIn = true; });
@@ -290,7 +293,11 @@ export class View3D {
 
   private async pullStyle(): Promise<void> {
     const gl = this.styleGL;
-    if (!gl || this.styleBusy) return;
+    if (!gl) return;
+    if (this.styleBusy) {
+      this.scheduleStyle();
+      return;
+    }
     const g = this.doc.garment as unknown as { style_lines?: unknown[] };
     if (!g.style_lines || g.style_lines.length === 0) {
       if (gl.count > 0) { gl.set([]); this.redraw(); }
@@ -467,6 +474,24 @@ export class View3D {
     this.styleGL = new StyleGL(gl);
   }
 
+  private restore(): void {
+    const gl = this.gl;
+    if (!gl) return;
+    const seams = this.extras?.seams ?? [];
+    const pins = this.extras?.pins ?? [];
+    this.fence = null;
+    this.scene.forget();
+    this.setup(gl);
+    if (this.extras) {
+      this.extras.seams = seams;
+      this.extras.pins = pins;
+    }
+    this.viz?.maps.contextRestored();
+    this.lost = false;
+    this.vizSource = null;
+    this.applyViz();
+  }
+
   private rgb(name: string): [number, number, number] {
     this.probe.style.color = `var(${name})`;
     const css = getComputedStyle(this.probe).color;
@@ -524,6 +549,7 @@ export class View3D {
   }
 
   private onDown(e: PointerEvent): void {
+    if (!e.isPrimary) return;
     this.canvas.setPointerCapture(e.pointerId);
     const r = this.canvas.getBoundingClientRect();
     const pan = e.button === 1 || e.button === 2 || (e.button === 0 && e.shiftKey);
@@ -647,6 +673,7 @@ export class View3D {
   }
 
   private onMove(e: PointerEvent): void {
+    if (!e.isPrimary) return;
     const d = this.drag;
     if (!d) {
       const r = this.canvas.getBoundingClientRect();
@@ -689,6 +716,7 @@ export class View3D {
   }
 
   private onUp(e: PointerEvent): void {
+    if (!e.isPrimary) return;
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
     const d = this.drag;
     this.drag = null;
@@ -708,7 +736,7 @@ export class View3D {
       void this.finishGizmo();
       return;
     }
-    if (!d.moved && e.type === 'pointerup' && d.button === 0) this.click(e.clientX - d.left, e.clientY - d.top, d.shift);
+    if (!d.moved && e.type === 'pointerup' && d.button === 0 && !e.defaultPrevented) this.click(e.clientX - d.left, e.clientY - d.top, d.shift);
   }
 
   private leave(): void {
@@ -880,7 +908,7 @@ export class View3D {
 
   private paint(): void {
     const gl = this.gl;
-    if (!gl || !this.program || !this.meshes || this.w === 0 || this.h === 0) return;
+    if (!gl || this.lost || !this.program || !this.meshes || this.w === 0 || this.h === 0) return;
     const t0 = performance.now();
     const p = this.palette();
     this.drape.syncSelection(this.sel.panels);
@@ -953,7 +981,7 @@ export class View3D {
 
   private renderSnapshot(w: number, h: number, transparent: boolean): HTMLCanvasElement | null {
     const gl = this.gl;
-    if (!gl || !this.program || !this.meshes) return null;
+    if (!gl || this.lost || !this.program || !this.meshes) return null;
     const p = this.palette();
     this.scene.upload(gl, this.style === 'shaded-mesh' || this.style === 'mesh');
     const samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES) as number);
@@ -1053,9 +1081,9 @@ export class View3D {
     if (this.font !== this.fontCss) {
       this.font = this.fontCss;
       this.statShown = '';
-      ctx.font = this.fontCss;
-      ctx.textBaseline = 'bottom';
     }
+    ctx.font = this.fontCss;
+    ctx.textBaseline = 'bottom';
     if (this.statText !== this.statShown) {
       this.statShown = this.statText;
       this.statW = ctx.measureText(this.statText).width;

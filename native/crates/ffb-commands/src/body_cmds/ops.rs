@@ -209,7 +209,7 @@ fn quaternion(name: &str, v: &Value) -> Result<Q, CommandError> {
     if let Some(e) = v.get("euler").and_then(|e| nums(e, 3)) {
         return Ok(math::qeuler([e[0], e[1], e[2]]));
     }
-    if let (Some(axis), Some(angle)) = (v.get("axis").and_then(|x| nums(x, 3)), v.get("angle").and_then(Value::as_f64)) {
+    if let (Some(axis), Some(angle)) = (v.get("axis").and_then(|x| nums(x, 3)), v.get("angle").and_then(Value::as_f64).filter(|x| x.abs() <= 1e6)) {
         return Ok(math::qaxis([axis[0], axis[1], axis[2]], (angle as f32).to_radians()));
     }
     Err(bad(format!("joint {name} needs [x, y, z, w], {{\"euler\": [x, y, z]}} in degrees or {{\"axis\": [x, y, z], \"angle\": degrees}}")))

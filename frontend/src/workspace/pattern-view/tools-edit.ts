@@ -169,7 +169,10 @@ export class SelectTool extends BaseTool {
     this.mode = 'idle';
     this.start = null;
     this.ctx.setSnapMark(null);
-    if (mode === 'move') {
+    const still = (mode === 'move' && this.applied[0] === 0 && this.applied[1] === 0) || (mode === 'scale' && this.applied[0] === 1 && this.applied[1] === 1) || (mode === 'rotate' && this.appliedRot === 0);
+    if (still) {
+      void this.ctx.doc.cancelPreview();
+    } else if (mode === 'move') {
       void this.ctx.doc.commitPreview([['pattern.transform', { panels: ids, translate: this.applied }]], 'Move Panels');
     } else if (mode === 'scale') {
       const [sx, sy] = this.applied;

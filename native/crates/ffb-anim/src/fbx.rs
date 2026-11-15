@@ -50,6 +50,9 @@ pub fn parse(path: &str, fps: f32, name: String) -> Result<Clip, String> {
     }
     let fps = if fps.is_finite() && (1.0..=240.0).contains(&fps) { fps } else { 30.0 };
     let frames = (((t1 - t0) * f64::from(fps)).round() as usize + 1).clamp(1, MAX_FRAMES);
+    if list.len().saturating_mul(frames) > crate::clip::MAX_VALUES / 7 {
+        return Err("the FBX motion is larger than the import limit".into());
+    }
     let mut joints = Vec::with_capacity(list.len());
     for i in &list {
         let node = &scene.nodes[*i];

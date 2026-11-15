@@ -1,5 +1,6 @@
 import { el, setClass } from '../ui/dom';
 import { icon } from '../ui/icons';
+import { brandMark } from '../ui/brand';
 import { t } from '../ui/i18n';
 import { readChoice, setTheme } from '../ui/themes';
 import type { Commands } from '../ui/commands';
@@ -21,6 +22,7 @@ export class TitleBar {
 
   constructor(readonly header: HTMLElement, private readonly commands: Commands, private readonly onWorkspace: (id: string) => void) {
     header.insertAdjacentHTML('beforeend',
+      `<div class="cv-brand" role="button" tabindex="0" data-cmd="app.home" title="Home" aria-label="Home">${brandMark(18)}</div>` +
       '<nav class="cv-menubar" aria-label="Main menu"></nav>' +
       '<div class="cv-tb-doc"></div>' +
       '<div class="cv-tb-app">FormFabric</div>' +
@@ -63,6 +65,12 @@ export class TitleBar {
     header.addEventListener('click', (e) => {
       const b = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-cmd]') : null;
       if (b?.dataset.cmd) this.commands.run(b.dataset.cmd);
+    });
+    header.querySelector('.cv-brand')?.addEventListener('keydown', (e) => {
+      const key = (e as KeyboardEvent).key;
+      if (key !== 'Enter' && key !== ' ') return;
+      e.preventDefault();
+      this.commands.run('app.home');
     });
   }
 

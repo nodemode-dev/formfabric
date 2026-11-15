@@ -212,9 +212,10 @@ export class ExportDialog extends Dialog {
     if (chosen) { this.path.set(chosen); remember(`path.${b.info.id}`, chosen); }
   }
 
-  async show(formatId?: string): Promise<void> {
+  async show(formatId?: string, thickness?: boolean): Promise<void> {
     await Promise.all([this.store.loadFormats(), this.store.loadRange(), this.store.loadUv()]);
     this.rebuild();
+    if (thickness !== undefined) for (const b of this.built.values()) (b.rows.get('thickness')?.row as unknown as Row<boolean> | undefined)?.set(thickness);
     this.syncPanels();
     const want = formatId && this.built.has(formatId) ? formatId : this.current && this.built.has(this.current) ? this.current : this.store.formats[0]?.id ?? '';
     if (this.current && this.current !== want) {

@@ -3,6 +3,9 @@ import { Dialog } from './dialogs';
 import { el, q, setText } from './dom';
 import { t } from './i18n';
 import { evalExpr } from './number-fields';
+import { loadPrefs } from './prefs';
+
+const UNIT_MM: Record<string, number> = { mm: 1, cm: 10, in: 25.4 };
 
 type Values = Record<string, unknown>;
 type Read = () => unknown;
@@ -29,6 +32,9 @@ export class ExactInputDialog extends Dialog {
   }
 
   ask(title: string, schema: JsonSchema, initial: Values = {}): Promise<Values | null> {
+    const pending = this.resolve;
+    this.resolve = null;
+    pending?.(null);
     this.setTitle(title);
     this.form.replaceChildren();
     this.readers = [];
@@ -47,7 +53,8 @@ export class ExactInputDialog extends Dialog {
   private row(name: string, s: JsonSchema, required: boolean, value: unknown): { node: HTMLElement; focus: HTMLElement } {
     const type = typeOf(s);
     const node = el('<label class="cv-field"><span></span></label>');
-    setText(q(node, 'span'), label(name));
+    const unit = loadPrefs().units;
+    setText(q(node, 'span'), s.unit === 'mm' ? `${t(label(name))} (${type === 'number' ? unit : 'mm'})` : label(name));
     if (s.description) node.title = s.description;
     let control: HTMLElement;
     let read: Read;
@@ -64,13 +71,14 @@ export class ExactInputDialog extends Dialog {
       read = () => box.checked;
     } else if (type === 'number' || type === 'integer') {
       const inp = el<HTMLInputElement>('<input class="cv-input" type="text" inputmode="decimal" data-numtext spellcheck="false">');
-      if (typeof value === 'number') inp.value = String(value);
+      const f = type === 'number' && s.unit === 'mm' ? UNIT_MM[unit] ?? 1 : 1;
+      if (typeof value === 'number') inp.value = String(Number((value / f).toFixed(4)));
       control = inp;
       read = () => {
         if (inp.value.trim() === '') return undefined;
         const v = evalExpr(inp.value);
         if (v === null) return Number.NaN;
-        const n = type === 'integer' ? Math.round(v) : v;
+        const n = type === 'integer' ? Math.round(v) : v * f;
         return Math.min(s.maximum ?? Infinity, Math.max(s.minimum ?? -Infinity, n));
       };
     } else if (type === 'array' || type === 'object') {

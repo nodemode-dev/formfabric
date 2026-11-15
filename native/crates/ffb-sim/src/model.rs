@@ -70,7 +70,7 @@ fn ekey(a: u32, b: u32) -> (u32, u32) {
 impl Model {
     pub fn build(cloth: &Cloth) -> Model {
         let n = cloth.positions.len();
-        let mut model = Model { n, triangles: cloth.triangles.clone(), ..Model::default() };
+        let mut model = Model { n, ..Model::default() };
         let mats: Vec<Material> = if cloth.materials.is_empty() { vec![Material::default().effective()] } else { cloth.materials.iter().map(|m| m.effective()).collect() };
         let pos: Vec<DVec3> = cloth.positions.iter().map(|p| DVec3::new(p[0] as f64, p[1] as f64, p[2] as f64)).collect();
         let rest2: Vec<DVec2> = (0..n).map(|i| cloth.rest.get(i).map_or(DVec2::ZERO, |r| DVec2::new(r[0] as f64, r[1] as f64))).collect();
@@ -86,6 +86,7 @@ impl Model {
             if t.iter().any(|&i| i as usize >= n) {
                 continue;
             }
+            model.triangles.push(*t);
             let m = mat_of(ti);
             let g = grain_of(ti);
             let r0 = rest2[t[0] as usize];
@@ -121,7 +122,7 @@ impl Model {
             tri_of_tri[ti] = Some(model.tris.len() as u32);
             model.tris.push(elem);
             if m.pressure != 0.0 {
-                model.tri_pressure.push((ti as u32, m.pressure as f64));
+                model.tri_pressure.push((model.triangles.len() as u32 - 1, m.pressure as f64));
             }
         }
         model.rest_edge = if edge_cnt > 0.0 { edge_sum / edge_cnt } else { 10.0 };

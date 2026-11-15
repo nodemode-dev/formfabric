@@ -54,6 +54,8 @@ async def mcp(request: Request) -> Response:
     req_id, method, params = msg.get("id"), msg.get("method"), msg.get("params") or {}
     if req_id is None:
         return Response(status_code=202)
+    if not isinstance(params, dict) or not isinstance(params.get("_meta") or {}, dict) or not isinstance(params.get("name") or "", str):
+        return Response(content=json.dumps(_err(req_id, -32602, "Invalid params")), media_type="application/json", status_code=400)
     meta = params.get("_meta") or {}
     version = meta.get("io.modelcontextprotocol/protocolVersion") or request.headers.get("mcp-protocol-version") or "2025-11-25"
     modern = version == "2026-07-28"
@@ -104,7 +106,7 @@ def window_poll(since: int = -1) -> dict:
 
 
 @router.post("/mcp/consent", dependencies=[Depends(window_guard.require_window)])
-def consent(body: Consent) -> dict:
+async def consent(body: Consent) -> dict:
     agents.answer(body.allow)
     return agents.status()
 

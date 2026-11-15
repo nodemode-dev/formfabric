@@ -20,6 +20,7 @@ export interface JsonSchema {
   minimum?: number;
   maximum?: number;
   default?: unknown;
+  unit?: string;
 }
 
 export interface CatalogueCommand {
@@ -90,6 +91,13 @@ export async function fetchRecent(): Promise<string[] | null> {
     const body = (await response.json()) as { files?: Array<{ path?: unknown }> };
     return Array.isArray(body.files) ? body.files.map((f) => f.path).filter((p): p is string => typeof p === 'string') : null;
   } catch { return null; }
+}
+
+export async function clearRecent(path?: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${base()}/api/recent${path ? `?path=${encodeURIComponent(path)}` : ''}`, { method: 'DELETE', cache: 'no-store' });
+    return response.ok;
+  } catch { return false; }
 }
 
 export async function fetchVersion(): Promise<Version | null> {

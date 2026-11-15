@@ -108,7 +108,7 @@ def main() -> int:
 
     port = int(os.environ.get("FFB_PORT", "0") or 0) or free_port()
     os.environ["FFB_PORT"] = str(port)
-    uvicorn.run(fastapi_app, host="127.0.0.1", port=port, log_level="info")
+    uvicorn.run(fastapi_app, host="127.0.0.1", port=port, log_level="info", timeout_graceful_shutdown=1)
     return 0
 
 

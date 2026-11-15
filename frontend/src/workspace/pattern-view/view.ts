@@ -135,7 +135,7 @@ export class PatternView implements ViewCtx {
     const step = Math.max(p.gridSize, gridStep(this.cam.s).minor);
     let out: SnapResult = { pt: w, kind: null };
     const wasm = this.doc.wasm;
-    if (wasm) {
+    if (wasm && !wasm.stopped) {
       const targets: string[] = [];
       if (p.snapPoints) targets.push('point', 'midpoint', 'inner');
       if (p.snapEdges) targets.push('segment');
@@ -210,6 +210,9 @@ export class PatternView implements ViewCtx {
   }
 
   private onDown(e: PointerEvent): void {
+    if (!e.isPrimary) return;
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && focused !== document.body) focused.blur();
     this.canvas.setPointerCapture(e.pointerId);
     if (e.button === 1 || (e.button === 0 && this.space)) {
       e.preventDefault();
@@ -222,6 +225,7 @@ export class PatternView implements ViewCtx {
   }
 
   private onMove(e: PointerEvent): void {
+    if (!e.isPrimary) return;
     if (this.panning) {
       this.cam.x -= (e.clientX - this.panning.x) / this.cam.s;
       this.cam.y += (e.clientY - this.panning.y) / this.cam.s;
@@ -235,6 +239,7 @@ export class PatternView implements ViewCtx {
   }
 
   private onUp(e: PointerEvent): void {
+    if (!e.isPrimary) return;
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
     if (this.panning) {
       this.panning = null;

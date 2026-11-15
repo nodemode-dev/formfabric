@@ -14,16 +14,25 @@ const decoder = new TextDecoder();
 export class WasmEngine {
   constructor(private readonly x: Exports) {}
 
+  stopped = false;
+
   private send(fn: (ptr: number, len: number) => number, text: string): unknown {
-    const bytes = encoder.encode(text);
-    const ptr = this.x.ffb_alloc(bytes.length);
-    new Uint8Array(this.x.memory.buffer, ptr, bytes.length).set(bytes);
-    const out = fn(ptr, bytes.length);
-    this.x.ffb_free(ptr, bytes.length);
-    const len = new DataView(this.x.memory.buffer).getUint32(out, true);
-    const json = decoder.decode(new Uint8Array(this.x.memory.buffer, out + 4, len));
-    this.x.ffb_free(out, 4 + len);
-    return JSON.parse(json);
+    const gone = { ok: false, error: { code: 'internal', message: 'the preview engine stopped' } };
+    if (this.stopped) return gone;
+    try {
+      const bytes = encoder.encode(text);
+      const ptr = this.x.ffb_alloc(bytes.length);
+      new Uint8Array(this.x.memory.buffer, ptr, bytes.length).set(bytes);
+      const out = fn(ptr, bytes.length);
+      this.x.ffb_free(ptr, bytes.length);
+      const len = new DataView(this.x.memory.buffer).getUint32(out, true);
+      const json = decoder.decode(new Uint8Array(this.x.memory.buffer, out + 4, len));
+      this.x.ffb_free(out, 4 + len);
+      return JSON.parse(json);
+    } catch {
+      this.stopped = true;
+      return gone;
+    }
   }
 
   load(document: unknown): WasmReply<{ panels: number }> {

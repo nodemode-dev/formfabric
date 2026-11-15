@@ -83,6 +83,7 @@ export class BodyPanel implements Ctx {
     doc.onChange(() => { if (this.isOpen) this.place.touch(); });
     deps.engine.onEngineChanged((e) => {
       if (e.name === 'view.units') return;
+      if (e.name === 'file.new' || e.name === 'file.open' || e.name === 'sample.load') this.store.originals.clear();
       if (this.isOpen) void this.store.refresh(); else this.store.stale = true;
     });
     const touch = (): void => {

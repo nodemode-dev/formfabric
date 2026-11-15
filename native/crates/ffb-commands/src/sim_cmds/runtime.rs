@@ -248,7 +248,11 @@ pub(crate) fn spawn(core: Arc<Mutex<Core>>, running: Arc<AtomicBool>, generation
                 running.store(false, Ordering::Release);
                 break;
             }
-            c.step_frames(1);
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.step_frames(1))).is_err() {
+                c.device_note = "the simulation stopped after an internal error; reset it to run again".into();
+                running.store(false, Ordering::Release);
+                break;
+            }
             (c.snapshot(), c.sink.clone(), c.params.time_step)
         };
         publish(&sink, &snapshot);

@@ -10,6 +10,7 @@ const listeners = new Set<Listener>();
 const linkListeners = new Set<LinkListener>();
 let source: Stream | null = null;
 let link: Link = 'connecting';
+let seen = false;
 
 function eventsUrl(): string {
   const injected = (window as unknown as { __FFB_ENGINE__?: string }).__FFB_ENGINE__;
@@ -25,8 +26,8 @@ function setLink(next: Link): void {
 function open(): void {
   if (source || !(listeners.size || linkListeners.size)) return;
   source = openStream(eventsUrl(), {
-    open: () => setLink('up'),
-    error: (refused) => setLink(refused ? 'down' : 'connecting'),
+    open: () => { seen = true; setLink('up'); },
+    error: (refused) => setLink(refused || seen ? 'down' : 'connecting'),
     message: (text) => {
       setLink('up');
       try {

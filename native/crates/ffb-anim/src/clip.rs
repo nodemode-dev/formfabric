@@ -153,6 +153,9 @@ impl Clip {
         if self.rot.len() != n * self.frames || self.pos.len() != n * self.frames {
             return Err("the motion data does not match its joint and frame counts".into());
         }
+        if self.joints.iter().enumerate().any(|(i, j)| j.parent.is_some_and(|p| p >= i)) {
+            return Err("the motion joints are not listed parents first".into());
+        }
         if !(self.fps.is_finite() && self.fps > 0.0 && self.fps <= 1000.0) {
             return Err("the motion frame rate must be between 0 and 1000".into());
         }

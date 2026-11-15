@@ -182,7 +182,7 @@ fn create_run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             let length_mm = side_length(g, &spans).unwrap_or(0.0);
             let groups: Vec<usize> = match item.get("groups") {
                 None | Some(Value::Null) => Vec::new(),
-                Some(v) => v.as_array().map(|l| l.iter().filter_map(|x| x.as_u64().map(|n| n as usize)).collect::<Vec<_>>()).filter(|l| l.iter().sum::<usize>() == spans.len() && !l.contains(&0)).ok_or_else(|| bad(format!("port {pname}: groups must be counts of spans that add up to the number of spans")))?,
+                Some(v) => v.as_array().map(|l| l.iter().filter_map(|x| x.as_u64().map(|n| n as usize)).collect::<Vec<_>>()).filter(|l| l.iter().try_fold(0usize, |a, n| a.checked_add(*n)) == Some(spans.len()) && !l.contains(&0)).ok_or_else(|| bad(format!("port {pname}: groups must be counts of spans that add up to the number of spans")))?,
             };
             ports.push(Port { name: pname, spans, groups, length_mm, tolerance_mm: tolerance(item)? });
         }

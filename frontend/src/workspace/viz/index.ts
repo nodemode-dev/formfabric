@@ -63,7 +63,10 @@ export class VizUi {
     setTitle(this.stageButton, t('Lights, environment and ground'));
     setTitle(this.captureButton, t('Snapshot, video and turntable'));
     onCommands(() => this.available());
-    onEngineChanged((e) => this.measure.changed(e.name));
+    onEngineChanged((e) => {
+      this.measure.changed(e.name);
+      if (e.name === 'file.new' || e.name === 'file.open') this.maps.sync('none');
+    });
     void refreshCommands();
     void this.measure.pull();
     this.docChanged();

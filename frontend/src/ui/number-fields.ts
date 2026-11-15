@@ -87,7 +87,7 @@ function leave(f: HTMLInputElement, keep: boolean): void {
   if (v === null) { f.value = before; return; }
   const { lo, hi } = limits(f);
   const text = tidy(clampTo(v, lo, hi));
-  if (text === before) { f.value = before; return; }
+  if (text === before || (before.trim() !== '' && Number(text) === Number(before))) { f.value = before; return; }
   f.value = text;
   fire(f, ['input', 'change']);
 }

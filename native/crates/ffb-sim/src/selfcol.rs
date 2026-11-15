@@ -23,7 +23,8 @@ impl SpatialHash {
             let lo = (a.min(b).min(c) - DVec3::splat(margin)) / cell;
             let hi = (a.max(b).max(c) + DVec3::splat(margin)) / cell;
             let (lo, hi) = ((lo.x.floor() as i64, lo.y.floor() as i64, lo.z.floor() as i64), (hi.x.floor() as i64, hi.y.floor() as i64, hi.z.floor() as i64));
-            if (hi.0 - lo.0 + 1) * (hi.1 - lo.1 + 1) * (hi.2 - lo.2 + 1) > 64 {
+            let span = |a: i64, b: i64| b.saturating_sub(a).saturating_add(1);
+            if span(lo.0, hi.0).saturating_mul(span(lo.1, hi.1)).saturating_mul(span(lo.2, hi.2)) > 64 {
                 continue;
             }
             for ix in lo.0..=hi.0 {

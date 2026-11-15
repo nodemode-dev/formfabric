@@ -51,3 +51,21 @@ def listing() -> list[dict]:
             modified = e.get("modified", "")
         out.append({"path": e["path"], "name": p.name, "modified": modified})
     return out
+
+
+def entries() -> list[dict]:
+    with _lock:
+        return [{"path": e["path"], "modified": e.get("modified", "") if isinstance(e.get("modified"), str) else ""} for e in _read()]
+
+
+def forget(path: str | None = None) -> int:
+    full = str(Path(path).expanduser().resolve()) if path else None
+    with _lock:
+        held = _read()
+        kept = [e for e in held if e["path"] != full] if full else []
+        if len(kept) == len(held):
+            return 0
+        tmp = _store().with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(kept), encoding="utf-8")
+        tmp.replace(_store())
+        return len(held) - len(kept)

@@ -1,0 +1,14 @@
+{
+  "name": "formfabric",
+  "description": "Draft, sew and drape garments in formfabric, the garment pattern and cloth simulation app, in plain language: the formfabric MCP server and the skill that drives it.",
+  "author": { "name": "nodemode-dev", "email": "mackin@nodemode.ai" },
+  "license": "Apache-2.0",
+  "keywords": ["garment", "sewing pattern", "cloth simulation", "drape", "mcp"],
+  "skills": ["./.claude/skills/formfabric-modeling"],
+  "mcpServers": {
+    "formfabric": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/formfabric",
+      "args": ["mcp"]
+    }
+  }
+}

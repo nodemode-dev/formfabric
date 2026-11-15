@@ -295,7 +295,7 @@ export class TopologyTool {
     this.down = null;
     const r = this.rect();
     if (!d || !r || e.button !== 0 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > CLICK_SLOP) return;
-    e.stopImmediatePropagation();
+    e.preventDefault();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
     const now = performance.now();

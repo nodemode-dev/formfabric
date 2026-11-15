@@ -194,6 +194,10 @@ def close() -> None:
             pass
 
 
+def active() -> bool:
+    return not _closed
+
+
 def pending_info() -> dict | None:
     info = _read_json(_pending_folder() / "info.json")
     if not info:

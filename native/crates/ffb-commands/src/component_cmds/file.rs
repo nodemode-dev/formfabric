@@ -80,6 +80,7 @@ fn check_numbers(panels: &[Panel], seams: &[Seam], ports: &[Port]) -> Result<(),
             && finite_in(p.particle_distance, 0.8, 700.0)
             && finite_in(p.pressure, -1000.0, 1000.0)
             && (-1000..=1000).contains(&p.layer)
+            && p.place3d.as_ref().and_then(|q| q.pose.as_ref()).is_none_or(|v| v.iter().flatten().all(|x| x.is_finite()))
             && p.grain_line.is_none_or(|g| g.iter().flatten().all(|v| finite_in(*v, -MAX_COORD, MAX_COORD)));
         if !ok {
             return Err(broken(format!("panel {} has a number out of range", p.id)));

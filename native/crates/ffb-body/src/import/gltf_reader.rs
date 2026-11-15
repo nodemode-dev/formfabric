@@ -148,6 +148,9 @@ pub fn read(bytes: &[u8], dir: Option<&Path>) -> Result<Raw, String> {
             parent[c.index()] = Some(n.index());
         }
     }
+    if (0..count).any(|i| std::iter::successors(Some(i), |x| parent[*x]).nth(count).is_some()) {
+        return Err("the glTF node tree has a loop".into());
+    }
     let local: Vec<M4> = doc.nodes().map(|n| n.transform().matrix()).collect();
     let mut global: Vec<Option<M4>> = vec![None; count];
     fn world(i: usize, parent: &[Option<usize>], local: &[M4], global: &mut [Option<M4>], depth: usize) -> M4 {
@@ -222,6 +225,9 @@ pub fn read(bytes: &[u8], dir: Option<&Path>) -> Result<Raw, String> {
             match reader.read_indices() {
                 Some(ix) => {
                     let ix: Vec<u32> = ix.into_u32().collect();
+                    if ix.iter().any(|i| *i as usize >= n) {
+                        return Err("a glTF primitive has an index past its vertices".into());
+                    }
                     for t in ix.as_chunks::<3>().0 {
                         raw.triangles.push([base + t[0], base + t[1], base + t[2]]);
                     }

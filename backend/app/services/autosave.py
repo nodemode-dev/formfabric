@@ -4,7 +4,7 @@ import os
 from starlette.concurrency import run_in_threadpool
 
 from app.core import config
-from app.services import engine
+from app.services import engine, recovery
 
 INTERVAL = float(os.environ.get("FFB_AUTOSAVE_SECONDS", "180"))
 _saved_epoch = 0
@@ -19,7 +19,7 @@ def path() -> str:
 def save_now(force: bool = False) -> bool:
     global _saved_epoch
     current = engine.epoch()
-    if current == _saved_epoch and not force:
+    if not recovery.active() or (current == _saved_epoch and not force):
         return False
     reply = engine.dispatch("file.save", {"path": path()}, notify=False)
     if not reply.get("ok"):

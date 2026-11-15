@@ -221,6 +221,27 @@ export class Scene {
     return any;
   }
 
+  forget(): void {
+    this.dead.length = 0;
+    for (const b of this.list) {
+      b.vao = null;
+      b.vaoWire = null;
+      b.bPos = null;
+      b.bNrm = null;
+      b.bUv = null;
+      b.bIdx = null;
+      b.bEdge = null;
+      b.bScal = null;
+      b.gpuV = -1;
+      b.gpuE = -1;
+      b.topoDirty = true;
+      b.posDirty = true;
+      b.uvDirty = true;
+      b.edgesDirty = true;
+      b.scalDirty = true;
+    }
+  }
+
   upload(gl: WebGL2RenderingContext, wire: boolean): void {
     while (this.dead.length) this.dispose(gl, this.dead.pop() as PanelBuf);
     for (const b of this.list) {

@@ -207,8 +207,8 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
     view.redraw();
   });
   const refreshed = async (name: string): Promise<void> => {
-    const fresh = name === 'file.new' || name === 'file.open' || name === 'exchange.import_dxf';
-    if (fresh) sel.clear();
+    const fresh = name === 'file.new' || name === 'file.open' || name === 'sample.load' || name === 'exchange.import_dxf';
+    if (fresh) { view.tool.cancel(); sel.clear(); }
     await doc.refresh();
     if (fresh) view.frame();
   };

@@ -60,11 +60,12 @@ async function nativeFs(): Promise<{ writeTextFile(p: string, t: string): Promis
 
 export async function exportSettings(commands: Commands): Promise<string | null> {
   const text = JSON.stringify(buildBundle(commands), null, 2);
-  if (nativeDialogs()) {
+  const fs = nativeDialogs() ? await nativeFs() : null;
+  if (fs) {
     const path = await pickPath('save', 'formfabric-settings.json', 'json');
     if (!path) return null;
-    const fs = await nativeFs();
-    if (fs) { await fs.writeTextFile(path, text); return path; }
+    await fs.writeTextFile(path, text);
+    return path;
   }
   download(text, 'formfabric-settings.json');
   return 'formfabric-settings.json';
@@ -87,11 +88,11 @@ function pickFile(): Promise<string | null> {
 
 export async function importSettings(commands: Commands): Promise<ImportResult | null> {
   let text: string | null = null;
-  if (nativeDialogs()) {
+  const fs = nativeDialogs() ? await nativeFs() : null;
+  if (fs) {
     const path = await pickPath('open', null, 'json');
     if (!path) return null;
-    const fs = await nativeFs();
-    if (fs) text = await fs.readTextFile(path);
+    text = await fs.readTextFile(path);
   }
   text ??= await pickFile();
   if (text === null) return null;

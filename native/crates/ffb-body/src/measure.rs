@@ -222,15 +222,21 @@ pub fn arm_chains(joints: &[Joint], pos: &[V3]) -> Vec<ArmChain> {
             let Some(p) = parent(elbow) else { continue };
             elbow = p;
         }
+        let mut steps = 0;
         while let Some(p) = parent(elbow).filter(|p| fore(*p)) {
             elbow = p;
+            steps += 1;
+            if steps > joints.len() {
+                break;
+            }
         }
         let Some(mut shoulder) = parent(elbow) else { continue };
         while let Some(p) = parent(shoulder).filter(|p| upper(*p)) {
-            if !upper(shoulder) {
+            if !upper(shoulder) || steps > joints.len() {
                 break;
             }
             shoulder = p;
+            steps += 1;
         }
         let side = side_of(&j.name, pos[i][0]);
         if out.iter().any(|c| c.side == side) {

@@ -1,5 +1,73 @@
 # Changelog
 
+## v0.24.0 · 2026-11-15
+
+formfabric joins the Form family standard for Home, the menu bar and the splash, with a full review of the engine, the window, the service and the desktop app behind it. Nothing in this release was run on macOS or Windows; the desktop shell was compile-checked on Linux only, and no signing ran.
+
+Home and the garment library:
+
+- Home replaces the old two-page launcher: a side panel with Start, Recent, Templates and Trash with counts, the open garment, Agents, Local only and Preferences, and a main column with your recent garments with previews and the templates, with filters and search. It shows at launch and when the garment is closed (two preferences, both on by default), Esc leaves it while a garment is open, and the brand mark, File, Home and Alt+Ctrl+H (Alt+Cmd+H on macOS) bring it back.
+- A Garments folder under the data folder is the library and the default place to save. From Home a garment in it can be opened, duplicated, moved to Trash, restored, deleted for good, and the Trash emptied, each with an undo toast or a confirm bar.
+- A file that lives outside the library is never moved or deleted; Home offers only Remove from recent for it.
+- The four sample garments are templates with their own previews, each making a new garment.
+- Close Garment is a new command in the File menu; the app had no way to close a document.
+- Clear Recent now lasts: the list is cleared in the service too.
+
+Menu bar, splash and desktop:
+
+- The family menu bar: one menu list feeds the bar in the window and the native macOS menu bar, File starts with Home, and the native menu follows Open Recent as it changes.
+- Pattern, Sew, Drape, Body, Fabric, View and Help list their engine commands again; Drape and Fabric showed only "Nothing here yet". The Topology Tool has its menu entry.
+- The family splash replaces the app's own orange one, with the app's icon and "Starting formfabric".
+- A double-clicked `.ffbrc` opens in the running window, and on Linux there is one running instance per data folder.
+- Quit, Cmd+Q and the window's close button ask about unsaved work.
+- Home's and the menu bar's strings in all 27 languages.
+
+Saving and unsaved work:
+
+- Save on a garment that already has a name saves to it without opening the path dialog again.
+- New, Open and Open Recent ask before discarding unsaved work.
+- Save can no longer replace a good project with one that will not open: what was written is read back first, and the last good file stays when the check fails.
+- After Open, New or Import DXF, a crash before the next autosave no longer replays later edits onto an empty garment. A second service or the stdio MCP on the same data folder no longer writes over the autosave.
+- A normal quit no longer looks like a crash at the next launch: the service stops within a second and closes its recovery journal first, also on Windows. The engine exits when the desktop shell goes away.
+
+Fixes, engine:
+
+- Damaged project, body, motion and component files are refused with a message instead of crashing the engine, hanging the import or asking for huge amounts of memory.
+- DXF-AAMA import: Import as New keeps seams off the wrong panels; decimal commas and a byte order mark are read correctly; a plain notch on the T-shirt samples is kept.
+- Commands that left a broken number in the pattern (splitting a zero-length segment, a huge pose angle) are refused, so the saved project opens again. Open Sample on a body it cannot use no longer leaves an empty project.
+- Mirroring a panel keeps the seams on its inner lines on their segment; a duplicated panel's prints can be edited and deleted.
+- After a command that changed the garment and then failed, the 3D view, the seam repair and the solver no longer stay one step behind. Broken seams in a file are pruned on open, outside the undo history.
+- Cloth solver: an extreme triangle can no longer make the self-contact search allocate until the process dies; a very large body no longer panics the GPU solver.
+
+Fixes, window:
+
+- Pattern: a value typed in the inspector is committed before a click on the canvas, so it no longer lands on the piece clicked next. A two-finger press no longer stops the window following the engine. Editing Position X no longer rewrites Y from its rounded value.
+- Exact Input shows and reads the unit chosen in Preferences; with inches chosen a typed 2 no longer means 2 mm. A number field left untouched no longer writes its rounded value back.
+- 3D View: the view comes back after a lost WebGL context; one click with the Topology tool no longer leaves the camera orbiting; the analysis map's legend and colours follow the engine; the mesh stream reconnects after a dropped connection.
+- The window reconnects after the engine link drops and shows "Engine offline" while it is down.
+- Export follows the project's Thickness setting; Bake is offered only when a bake can run; UV layout holds its limits; fabric presets load again after a failed first try.
+- Open Sample starts a new document: the old selection and a half-finished tool gesture no longer carry over.
+- Video capture stops its tracks and refuses up front where the window cannot record WebM.
+
+Fixes, service and scripts:
+
+- MCP over stdio reads UTF-8 names on Windows; malformed MCP requests answer with the reason instead of an error 500; a plugin that exits no longer produces a bare error.
+- The macOS build signs framework libraries so the engine starts inside the signed app (the fault formtools 0.8.1 and formtxt 0.32.1 fixed). No macOS build ran here.
+- Killing `./formfabric` from the terminal also stops Vite.
+
+Fixes from the final check:
+
+- A garment the engine already holds is taken up by the window as an unsaved, untitled garment: an agent's draft leaves Home and shows, and a reload of the window keeps unsaved work. After a reload in the browser a saved garment also reads as untitled, and Save offers the library folder.
+- A long menu opened from the menu bar stays under the bar and scrolls, instead of running off the window.
+- 3D View: only the primary pointer drives the view, as in the Pattern View. A fault in the in-page preview engine no longer throws on every pointer move; later calls are refused and snapping falls back to the grid.
+- Home matches formdeck in three details: the brand line, the count badges and the hero button.
+- A fault inside a simulation step stops the run and says so, instead of leaving it marked as running.
+
+Not run, and left open:
+
+- The native macOS menu bar, Alt+Cmd+H beside the system's Hide Others, the Windows quit path and the packaged app were not run.
+- Project files already saved with a broken number before this release stay unopenable.
+
 ## v0.23.5 · 2026-11-04
 
 - The README hero is now the owner's screenshot of the printed dress on the body; the old plain-white-dress screenshots are removed.

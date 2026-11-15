@@ -76,7 +76,7 @@ fn sc_count(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     let r = tri_lo_hi(t);
     let dim = r[1] - r[0] + vec3<i32>(1);
-    if (dim.x * dim.y * dim.z > 64) {
+    if (any(r[0] < vec3<i32>(-536870912)) || any(r[1] > vec3<i32>(536870912)) || any(dim > vec3<i32>(64)) || dim.x * dim.y * dim.z > 64) {
         return;
     }
     for (var ix = r[0].x; ix <= r[1].x; ix++) {
@@ -134,7 +134,7 @@ fn sc_fill(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     let r = tri_lo_hi(t);
     let dim = r[1] - r[0] + vec3<i32>(1);
-    if (dim.x * dim.y * dim.z > 64) {
+    if (any(r[0] < vec3<i32>(-536870912)) || any(r[1] > vec3<i32>(536870912)) || any(dim > vec3<i32>(64)) || dim.x * dim.y * dim.z > 64) {
         return;
     }
     for (var ix = r[0].x; ix <= r[1].x; ix++) {

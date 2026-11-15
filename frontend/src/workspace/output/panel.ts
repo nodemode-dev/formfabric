@@ -223,7 +223,8 @@ export class OutputPanel {
 
   private async showExport(id?: string): Promise<void> {
     this.exportDialog ??= new ExportDialog(this.store, (m, k) => this.deps.toast(m, k));
-    await this.exportDialog.show(id);
+    this.paintThickness();
+    await this.exportDialog.show(id, this.thick.enabled);
     if (id) remember('format', id);
   }
 

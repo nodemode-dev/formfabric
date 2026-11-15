@@ -284,6 +284,7 @@ export class TrimsPanel {
       const r = numRow(labelKey, mm ? u() : unitText, {}, (v) => put(mm ? fromUnit(v, u()) : v));
       r.input.disabled = false;
       r.input.placeholder = t('Style');
+      r.input.setAttribute('data-plain', '');
       r.input.addEventListener('change', () => { if (r.input.value.trim() === '') put(null); });
       body.appendChild(r.el);
       this.toolRows.push(() => {

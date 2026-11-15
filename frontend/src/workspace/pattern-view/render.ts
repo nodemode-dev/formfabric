@@ -113,7 +113,7 @@ function rulers(g: CanvasRenderingContext2D, sc: Scene): void {
   g.lineTo(w, T + 0.5);
   g.moveTo(T + 0.5, 0);
   g.lineTo(T + 0.5, h);
-  const dec = unit === 'mm' ? 0 : unit === 'cm' ? 1 : 2;
+  const dec = Math.max(unit === 'mm' ? 0 : unit === 'cm' ? 1 : 2, Math.ceil(-Math.log10(toUnit(major, unit)) - 1e-9));
   for (let x = Math.ceil((0 - ox) / cam.s / minor) * minor; ox + x * cam.s <= w; x += minor) {
     const px = Math.round(ox + x * cam.s) + 0.5;
     if (px < T) continue;
@@ -343,7 +343,7 @@ export function drawScene(g: CanvasRenderingContext2D, sc: Scene, tool: Tool): v
     const geo = geos.find((x) => x.panel.id === hov.panel);
     if (geo && (hov.kind === 'segment' || hov.kind === 'panel')) {
       g.beginPath();
-      if (hov.kind === 'segment') pathSegs(g, [geo.outline[hov.index]], map, false);
+      if (hov.kind === 'segment') pathSegs(g, geo.outline[hov.index] ? [geo.outline[hov.index]] : [], map, false);
       else pathSegs(g, geo.outline, map, true);
       g.lineWidth = hov.kind === 'segment' ? 3 : 2;
       g.globalAlpha = 0.7;

@@ -243,7 +243,6 @@ body.nm-home .nm-canvas-surface { display: none !important; }
 :root {
   --cv-titlebar-h: 40px;
   --cv-status-h: 28px;
-  --z-launcher: 199;
   --z-toast: 3000;
 }
 

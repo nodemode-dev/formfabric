@@ -121,6 +121,7 @@ fn instance_run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         return Err(bad("interval must not be zero"));
     }
     let want = count(a, "count").unwrap_or(1);
+    new_name(a, String::new())?;
     let mut edits = Vec::new();
     let (mut created, mut updated, mut removed) = (Vec::new(), Vec::new(), Vec::new());
     let mut next = s.garment.next_id();

@@ -196,5 +196,7 @@ def run_file(path: str | Path, ffb: Ffb, args: dict | None = None, timeout: floa
     if worker.is_alive():
         raise ScriptError(f"the plugin did not finish within {int(limit)} seconds; it can no longer call commands", "timeout")
     if "error" in box:
+        if not isinstance(box["error"], Exception):
+            raise ScriptError(f"the plugin stopped itself with {type(box['error']).__name__}: {box['error']}")
         raise box["error"]
     return {"result": box.get("result"), "output": out.getvalue()}

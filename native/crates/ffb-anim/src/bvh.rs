@@ -192,7 +192,7 @@ pub fn parse(bytes: &[u8], options: &Options) -> Result<Clip, String> {
     if frames == 0 {
         return Err("the BVH file has no frames".into());
     }
-    if per_frame.saturating_mul(frames) > MAX_VALUES {
+    if per_frame.saturating_mul(frames) > MAX_VALUES || real.len().saturating_mul(frames) > MAX_VALUES / 7 {
         return Err("the BVH motion is larger than the import limit".into());
     }
     let mut index = vec![usize::MAX; nodes.len()];

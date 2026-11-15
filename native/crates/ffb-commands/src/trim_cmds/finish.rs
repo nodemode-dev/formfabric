@@ -67,6 +67,9 @@ fn crease(s: &mut Session, a: &Value, ends: &[SeamEnd]) -> Result<Value, Command
     let id = s.garment.next_id();
     let angle = number_or(a, "angle", 120.0);
     let strength = number_or(a, "strength", 1.0);
+    if !(0.0..=360.0).contains(&angle) || !(0.0..=20.0).contains(&strength) {
+        return Err(bad("angle must be between 0 and 360 and strength between 0 and 20"));
+    }
     let before = s.garment.clone();
     let p = s.garment.panels.iter_mut().find(|p| p.id == panel).ok_or_else(|| missing(format!("no panel with id {panel}")))?;
     let points = line.iter().map(|q| Point { p: *q, ..Point::default() }).collect();
@@ -96,6 +99,9 @@ fn add(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     } else {
         number(a, "strength")
     };
+    if (strip_kind(name) == Some(StripKind::Elastic) && !(0.2..=2.0).contains(&ratio)) || (name != "skive" && strength.is_some_and(|x| !(0.0..=20.0).contains(&x))) {
+        return Err(bad("strength must be between 0 and 20 and ratio between 0.2 and 2"));
+    }
     let fabric = id(a, "fabric");
     if let Some(f) = fabric {
         if !s.garment.fabrics.iter().any(|x| x.id == f) {

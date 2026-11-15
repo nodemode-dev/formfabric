@@ -113,7 +113,8 @@ fn edit_volume(
     remove: bool,
 ) -> Result<u32, CommandError> {
     let joints = match a.get("joints").and_then(Value::as_array) {
-        Some(list) => Some([joint_index(body, &list[0])?, joint_index(body, &list[1])?]),
+        Some(list) if list.len() == 2 => Some([joint_index(body, &list[0])?, joint_index(body, &list[1])?]),
+        Some(_) => return Err(bad("joints must hold exactly two joints")),
         None => None,
     };
     let Some(selected) = selected else {

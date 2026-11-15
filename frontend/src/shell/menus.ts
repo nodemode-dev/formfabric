@@ -1,9 +1,11 @@
 import type { Commands } from '../ui/commands';
 import type { MenuDef, MenuItem } from '../ui/menu';
+import { DEMOS } from '../ui/demos';
 import { PREF_SECTIONS } from '../ui/settings';
 import { SAMPLES, SAMPLE_BODIES } from './window-commands';
 
 const NONE: MenuItem[] = ['app.none'];
+const EDIT_PATTERN: MenuItem[] = ['pattern.duplicate', 'pattern.delete', 'pattern.rename'];
 
 export function buildMenus(commands: Commands, recent: () => string[], layoutSlots: () => string[] = () => []): MenuDef[] {
   const has = (id: string): boolean => !!commands.get(id);
@@ -14,7 +16,7 @@ export function buildMenus(commands: Commands, recent: () => string[], layoutSlo
     for (const i of out) if (typeof i === 'string') used.add(i);
     return out;
   };
-  const group = (name: string): string[] => commands.all().filter((c) => c.group === name && !used.has(c.id)).map((c) => c.id);
+  const group = (name: string): string[] => commands.all().filter((c) => (c.group ?? '').toLowerCase() === name.toLowerCase() && !used.has(c.id)).map((c) => c.id);
   const tidy = (items: MenuItem[]): MenuItem[] => {
     const out: MenuItem[] = [];
     for (const i of items) {
@@ -39,18 +41,18 @@ export function buildMenus(commands: Commands, recent: () => string[], layoutSlo
       const others = group('Export');
       const sub: MenuItem[] = [...exports, ...(exports.length && others.length ? ['-' as const] : []), ...others];
       const samples: MenuItem[] = SAMPLES.map(([n, label]) => ({ label, items: fixed(SAMPLE_BODIES.map(([slot]) => `app.sample.${n}.${slot}`)) }));
-      return tidy([...fixed(['file.new', 'file.open']), { label: 'Open Recent', items: files.length ? [...files, '-', 'app.clear_recent'] : NONE }, { label: 'Open Sample', items: samples }, '-', ...fixed(['file.save', 'app.save_as', '-', 'app.home']), ...(sub.length ? ['-' as const, { label: 'Export', items: sub }] : []), '-', ...fixed(['app.exit'])]);
+      return tidy([...fixed(['app.home', '-', 'file.new', 'file.open']), { label: 'Open Recent', items: files.length ? [...files, '-', 'app.clear_recent'] : NONE }, { label: 'Open Sample', items: samples }, '-', ...fixed(['file.save', 'app.save_as']), ...(sub.length ? ['-' as const, { label: 'Export', items: sub }] : []), '-', ...fixed(['app.close', '-', 'app.exit'])]);
     } },
     { label: 'Edit', items: () => {
       used.clear();
-      return tidy([...fixed(['history.undo', 'history.redo', 'history.list', '-', 'app.cut', 'app.copy', 'app.paste', 'app.select_all', '-', 'pattern.duplicate', 'pattern.delete', 'pattern.rename', '-', 'app.palette', 'app.shortcuts', 'app.settings']), { label: 'Preferences', items: PREF_SECTIONS.map((s) => `app.prefs.${s}`) }]);
+      return tidy([...fixed(['history.undo', 'history.redo', 'history.list', '-', 'app.cut', 'app.copy', 'app.paste', 'app.select_all', '-', ...EDIT_PATTERN, '-', 'app.palette', 'app.shortcuts', 'app.settings']), { label: 'Preferences', items: PREF_SECTIONS.map((s) => `app.prefs.${s}`) }]);
     } },
-    { label: 'Pattern', items: () => withGroup(fixed(['pattern.draw_panel', 'pattern.rectangle', 'pattern.ellipse', '-', 'pattern.inner_shape', 'pattern.inner_line', '-', 'pattern.transform', 'pattern.curvature', 'pattern.split_line', 'pattern.add_point', 'pattern.delete_point', 'pattern.set_point_kind', 'pattern.smooth', '-', 'pattern.measure']), 'Pattern') },
+    { label: 'Pattern', items: () => { used.clear(); fixed(EDIT_PATTERN); return withGroup(fixed(['pattern.draw_panel', 'pattern.rectangle', 'pattern.ellipse', '-', 'pattern.inner_shape', 'pattern.inner_line', '-', 'pattern.transform', 'pattern.curvature', 'pattern.split_line', 'pattern.add_point', 'pattern.delete_point', 'pattern.set_point_kind', 'pattern.smooth', '-', 'pattern.measure']), 'Pattern'); } },
     { label: 'Sew', items: () => withGroup([], 'Sew') },
     { label: 'Drape', items: () => withGroup([], 'Sim') },
     { label: 'Body', items: () => withGroup([], 'Body') },
     { label: 'Fabric', items: () => withGroup([], 'Fabric') },
-    { label: 'Output', items: () => { used.clear(); return tidy(fixed(['app.output.panel', 'app.output.uv', '-', 'app.output.guides', 'app.output.bake', 'app.output.gameready'])); } },
+    { label: 'Output', items: () => { used.clear(); return tidy(fixed(['app.output.panel', 'app.output.uv', '-', 'app.output.guides', 'app.output.topology', 'app.output.bake', 'app.output.gameready'])); } },
     { label: 'View', items: () => {
       used.clear();
       return withGroup(fixed(['app.layout_2d', 'app.layout_split', 'app.layout_3d', '-', 'app.snap_grid', 'app.snap_points', 'app.snap_edges', '-', 'app.units_mm', 'app.units_cm', 'app.units_in', '-', 'app.theme_toggle', 'app.custom_title_bar', 'app.menus_in_window']), 'View');
@@ -60,8 +62,12 @@ export function buildMenus(commands: Commands, recent: () => string[], layoutSlo
       const slots = fixed(layoutSlots());
       const head = fixed(['app.ws_pattern', 'app.ws_sew', 'app.ws_drape', 'app.ws_animate', 'app.ws_render', 'app.ws_uv', 'app.ws_retopo', '-', 'app.library', 'app.library_snapshots', 'app.library_components', 'app.objects', '-', 'app.terminal', 'app.claude', '-']);
       const manage = fixed(['app.layout.save', 'app.layout.delete']);
-      return tidy([...head, { label: 'Layouts', items: tidy([...slots, ...(slots.length ? ['-' as const] : []), ...manage]) }, '-', ...fixed(['app.key_hints', 'app.settings_export', 'app.settings_import', '-', 'app.home'])]);
+      return tidy([...head, { label: 'Layouts', items: tidy([...slots, ...(slots.length ? ['-' as const] : []), ...manage]) }, '-', ...fixed(['app.key_hints', 'app.settings_export', 'app.settings_import'])]);
     } },
-    { label: 'Help', items: () => { used.clear(); return tidy([...fixed(['app.about', 'app.shortcuts', '-', 'app.source', 'app.report_issue']), ...group('System').length ? ['-' as const, ...group('System')] : []]); } },
+    { label: 'Help', items: () => {
+      used.clear();
+      const demos = fixed(DEMOS.map((d) => d.command));
+      return tidy([...fixed(['app.shortcuts']), ...(demos.length ? [{ label: 'Demos', items: demos }] : []), '-', ...fixed(['app.source', 'app.report_issue']), '-', ...group('System'), '-', ...fixed(['app.about'])]);
+    } },
   ];
 }

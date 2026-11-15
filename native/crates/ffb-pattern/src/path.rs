@@ -96,7 +96,8 @@ pub fn split_many(points: &mut Vec<Point>, i: usize, ts: &[f64]) -> Vec<usize> {
     sorted.sort_by(f64::total_cmp);
     let mut upper = 1.0;
     for t in sorted.iter().rev() {
-        split_at(points, i, t / upper);
+        let part = t / upper;
+        split_at(points, i, if part.is_finite() { part.clamp(0.0, 1.0) } else { 0.0 });
         upper = *t;
     }
     (1..=sorted.len()).map(|k| i + k).collect()
