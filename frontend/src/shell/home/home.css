@@ -22,7 +22,7 @@ body.nm-home #toast-root { z-index: var(--z-home-preview); }
 .cv-home.is-nav-hidden .cv-home-nav, .cv-home.is-nav-hidden .cv-home-resizer, .cv-home.is-nav-hidden .cv-home-nav-hide { display: none; }
 .cv-home.is-nav-hidden .cv-home-nav-show { display: inline-flex; }
 .cv-home-nav { display: flex; flex-direction: column; gap: 2px; min-height: 0; padding: 14px 10px 12px; background: var(--surface-0); border-inline-end: 1px solid var(--line-0); overflow-y: auto; }
-.cv-home-brand { display: flex; align-items: center; gap: 7px; flex: none; height: 36px; margin-bottom: 14px; padding: 0 2px 0 6px; overflow: hidden; color: var(--text-primary); font-size: 15px; font-weight: 600; letter-spacing: -0.005em; white-space: nowrap; }
+.cv-home-brand { display: flex; align-items: center; gap: 10px; flex: none; height: 36px; margin-bottom: 14px; padding: 0 8px; color: var(--text-primary); font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
 .cv-home-brand span { color: var(--text-muted); font-size: var(--fs-12); font-weight: 400; letter-spacing: 0; }
 .cv-home-nav-title { padding: 12px 10px 6px; color: var(--text-muted); font-size: var(--fs-11); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .cv-home-nav-item { display: flex; align-items: center; gap: 10px; flex: none; height: 34px; padding: 0 10px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); font: inherit; font-size: var(--fs-13); text-align: start; cursor: pointer; }
@@ -49,6 +49,7 @@ body.nm-home #toast-root { z-index: var(--z-home-preview); }
 .cv-home-format { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border: 1px solid var(--line-2); border-radius: var(--radius-sm); color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-10); letter-spacing: 0.04em; }
 .cv-home-hero-actions { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2); min-width: 188px; }
 .cv-home .cv-home-hero-actions .cv-btn { justify-content: flex-start; height: 36px; padding: 0 12px; border-radius: 9px; font-size: var(--fs-13); }
+.cv-home .cv-home-hero-actions .cv-btn-primary { box-shadow: 0 0 22px rgba(255, 255, 255, 0.09); }
 .cv-home-section { margin-top: 36px; }
 .cv-home-section-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; margin-bottom: 14px; }
 .cv-home-section-title { margin: 0; margin-inline-end: 6px; color: var(--text-primary); font-size: 15px; font-weight: 600; }
@@ -67,7 +68,7 @@ body.nm-home #toast-root { z-index: var(--z-home-preview); }
 .cv-home .cv-btn-sm { height: var(--ctl-sm); padding: 0 8px; border-radius: var(--radius); font-size: var(--fs-12); }
 
 .cv-badge { display: inline-flex; align-items: center; justify-content: center; flex: none; height: 18px; padding: 0 7px; border: 1px solid var(--line-2); border-radius: var(--radius-pill); background: var(--surface-raised); color: var(--text-secondary); font-size: var(--fs-11); font-weight: 500; font-variant-numeric: tabular-nums; }
-.cv-badge.is-count { min-width: 18px; font-family: var(--font-mono); font-weight: 400; }
+.cv-badge.is-count { min-width: 18px; padding: 0 5px; font-family: var(--font-mono); font-weight: 400; line-height: 1; }
 .cv-search { display: flex; align-items: center; gap: 6px; min-width: 0; height: 30px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: var(--radius-md); background: var(--surface-field); color: var(--text-muted); }
 .cv-search:focus-within { border-color: var(--accent-color); }
 .cv-search input { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: var(--fs-13); user-select: text; -webkit-user-select: text; }
