@@ -37,6 +37,6 @@ Version in the root `VERSION` file · Rust engine, vanilla TypeScript and Vite w
 
 ## Editing and publishing this wiki
 
-The source of truth is `.docs/wiki/` in the code repository, changed through a pull request like code. The GitHub wiki is only a publishing target. To publish, clone `https://github.com/nodemode-dev/formfabric.wiki.git`, copy the contents of `.docs/wiki/` into it, commit and push. Do not edit pages in the GitHub web UI; the next publish overwrites them. When a command, setting or screen changes, update its page in the same pull request.
+The source of truth is `.docs/wiki/` in the code repository, changed through a pull request like code. The GitHub wiki is only a publishing target. `.github/workflows/wiki.yml` publishes the folder when it changes on `main`. To publish by hand, clone `https://github.com/nodemode-dev/formfabric.wiki.git`, copy the contents of `.docs/wiki/` into it, commit and push. Do not edit pages in the GitHub web UI; the next publish overwrites them. When a command, setting or screen changes, update its page in the same pull request.
 
 Writing rules for these pages: full words, real paths and real command names (the names in the generated skill reference `.claude/skills/formfabric-modeling/SKILL.md`), no emoji, and no U+2014 em dash (use the interpunct).

@@ -17,6 +17,10 @@ Node 22, Python 3.12 or later, Rust (the version is pinned by `rust-toolchain.to
 
 `./formfabric engine build` rebuilds the Rust engine and the Python module after a native change. The first release build takes a long time on a small machine. `./formfabric engine wasm` builds the in-page preview engine used when no native engine is attached.
 
+## Home and the garment library
+
+The window opens on Home while no garment is open: recent garments with previews, the four sample garments as templates, and a Trash. Home shows again when the garment is closed with File, Close Garment (two preferences, both on by default), Esc leaves it while a garment is open, and the brand mark, File, Home and Alt+Ctrl+H (Alt+Cmd+H on macOS) bring it back. Garments are saved by default into the `Garments` folder of the data directory; from Home a garment in that folder can be opened, duplicated, moved to Trash, restored or deleted for good. A file that lives outside that folder is never moved or deleted: Home only offers to remove it from the recent list.
+
 ## First drape in the window
 
 1. File, Open Sample, then T-shirt, Skirt or Dress, then a body: Current body, MPFB2 Female or MPFB2 Male. The sample is drafted from the body's measurements, sewn and placed. If the open project has unsaved edits the window asks first (the command `sample_load` refuses without `force`).
@@ -38,7 +42,7 @@ The same steps as commands: `sample_load` (name `tshirt`, `force` true), `sim_re
 
 - All geometry is in millimetres, x to the right, y up on the pattern plane. `view_units` changes only the display unit.
 - Project files end in `.ffbrc` (a zip with `manifest.json`, `garment.json` and optional snapshot entries). Fabrics are `.ffab`, styles `.ffstyle`, poses `.ffpose`, motions `.ffmotion`, components `.ffcomp`.
-- The data directory holds `autosave/` (see [[Recovery]]), `library/` and `library_roots.json`.
+- The data directory holds `autosave/` (see [[Recovery]]), `library/` and `library_roots.json`, and `Garments/`, the garment library Home lists, with its `.trash` folder inside it.
 
 ## Where to go next
 

@@ -21,6 +21,8 @@ Versions are semantic, written with dots (`0.17.0`, `1.0.0`). The root `VERSION`
 
 ## Publishing the wiki
 
+`.github/workflows/wiki.yml` publishes `.docs/wiki/` to the GitHub wiki when the folder changes on `main`, or when the workflow is run by hand. The wiki must have one page created by hand once before the first publish. The same publish by hand:
+
 ```bash
 git clone https://github.com/nodemode-dev/formfabric.wiki.git /tmp/formfabric.wiki
 cp .docs/wiki/*.md /tmp/formfabric.wiki/
