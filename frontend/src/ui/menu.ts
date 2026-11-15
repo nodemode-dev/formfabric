@@ -122,15 +122,16 @@ export class PopupMenu {
     s?.close();
   }
 
-  openAt(x: number, y: number): void {
+  openAt(x: number, y: number, below = false): void {
     this.refresh();
     this.panel.style.visibility = 'hidden';
+    this.panel.style.maxHeight = below ? `${Math.max(160, window.innerHeight - y - 8)}px` : '';
     this.panel.hidden = false;
     this.panel.scrollTop = 0;
     const { width: w, height: h } = this.panel.getBoundingClientRect();
     const fitsRight = x + w <= window.innerWidth - 4, fitsBelow = y + h <= window.innerHeight - 4;
     const left = Math.max(4, Math.min(fitsRight ? x : x - w, window.innerWidth - w - 4));
-    const top = Math.max(4, Math.min(fitsBelow ? y : y - h, window.innerHeight - h - 4));
+    const top = below ? y : Math.max(4, Math.min(fitsBelow ? y : y - h, window.innerHeight - h - 4));
     this.panel.style.left = `${Math.round(left)}px`;
     this.panel.style.top = `${Math.round(top)}px`;
     this.panel.style.visibility = '';
@@ -314,7 +315,7 @@ export class MenuBar {
     this.openIndex = i;
     setClass(b.btn, 'is-open', true);
     const r = b.btn.getBoundingClientRect();
-    b.menu.openAt(r.left, r.bottom + 4);
+    b.menu.openAt(r.left, r.bottom + 4, true);
     if (keyboard) b.menu.items()[0]?.focus();
   }
 
