@@ -7,8 +7,10 @@ pub(crate) fn edit(s: &mut Session, label: &str, change: impl FnOnce(&mut Garmen
     let before = s.garment.clone();
     match change(&mut s.garment) {
         Ok(out) => {
-            let after = s.garment.clone();
-            s.record(Edit::Garment { label: label.into(), before: Box::new(before), after: Box::new(after) });
+            if s.garment != before {
+                let after = s.garment.clone();
+                s.record(Edit::Garment { label: label.into(), before: Box::new(before), after: Box::new(after) });
+            }
             Ok(out)
         }
         Err(e) => {

@@ -41,36 +41,48 @@ fn bad(message: impl Into<String>) -> CommandError {
     CommandError::new("bad_args", message)
 }
 
+fn no_skeleton() -> CommandError {
+    CommandError::new("invalid_geometry", "this body has no skeleton with arms and a neck, so a sample cannot be drafted on it")
+}
+
 fn pick_body(s: &mut Session, a: &Value) -> Result<usize, CommandError> {
-    let kept = |s: &mut Session| {
+    let kept = |s: &mut Session, i: usize| -> Result<usize, CommandError> {
+        if info::Info::new(&s.bodies[i]).is_none() {
+            return Err(no_skeleton());
+        }
         let bodies = std::mem::take(&mut s.bodies);
         s.reset(crate::fabric_cmds::new_garment());
         s.bodies = bodies;
+        Ok(i)
+    };
+    let fresh = |s: &mut Session, name: &str| -> Result<usize, CommandError> {
+        let had = s.bodies.len();
+        dispatch(s, "body.load_default", &json!({"name": name}))?;
+        if s.bodies.get(had).is_none_or(|b| info::Info::new(b).is_none()) {
+            return Err(no_skeleton());
+        }
+        let mut body = s.bodies.split_off(had);
+        dispatch(s, "file.new", &json!({}))?;
+        body.iter_mut().for_each(|b| b.id = 1);
+        s.bodies = body;
+        Ok(0)
     };
     match a.get("body").filter(|v| !v.is_null()) {
         Some(Value::Number(n)) => {
             let id = n.as_u64().ok_or_else(|| bad("body must be a whole body id"))?;
             let i = s.bodies.iter().position(|b| u64::from(b.id) == id).ok_or_else(|| CommandError::new("not_found", format!("no body with id {id}")))?;
-            kept(s);
-            Ok(i)
+            kept(s, i)
         }
-        Some(Value::String(name)) => {
-            if let Some(i) = s.bodies.iter().position(|b| &b.name == name) {
-                kept(s);
-                return Ok(i);
-            }
-            dispatch(s, "file.new", &json!({}))?;
-            dispatch(s, "body.load_default", &json!({"name": name}))?;
-            Ok(0)
-        }
+        Some(Value::String(name)) => match s.bodies.iter().position(|b| &b.name == name) {
+            Some(i) => kept(s, i),
+            None => fresh(s, name),
+        },
         _ => {
             if s.bodies.is_empty() {
-                dispatch(s, "file.new", &json!({}))?;
-                dispatch(s, "body.load_default", &json!({"name": "MPFB2 Female"}))?;
+                fresh(s, "MPFB2 Female")
             } else {
-                kept(s);
+                kept(s, 0)
             }
-            Ok(0)
         }
     }
 }

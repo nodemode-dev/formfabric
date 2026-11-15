@@ -223,7 +223,7 @@ fn deactivate(s: &mut Session) {
 const QUIET: [&str; 7] = ["light.", "stage.", "view.", "fur.", "measure3d.", "compare.", "map."];
 
 pub(crate) fn after_change(s: &mut Session, command: &str) {
-    if command.starts_with("file.") && !matches!(*lock(&s.viz.shared.job), Job::None) {
+    if (command.starts_with("file.") || command == "sample.load") && !matches!(*lock(&s.viz.shared.job), Job::None) {
         deactivate(s);
         s.viz.map_name = None;
         s.viz.compared = None;

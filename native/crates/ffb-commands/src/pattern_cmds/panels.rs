@@ -82,6 +82,7 @@ fn duplicate(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let copies = count(a, "count").unwrap_or(1);
     let sources = ids.iter().map(|&id| index_of(s, id).map(|i| s.garment.panels[i].clone())).collect::<Result<Vec<_>, _>>()?;
     let mut next = s.garment.next_id();
+    let mut next_print = ffb_pattern::trim::next_print_id(&s.garment);
     let mut edits = Vec::new();
     let mut created = Vec::new();
     for k in 1..=copies {
@@ -92,6 +93,10 @@ fn duplicate(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
             for inner in copy.inner.iter_mut() {
                 inner.id = next;
                 next += 1;
+            }
+            for print in copy.prints.iter_mut() {
+                print.id = next_print;
+                next_print = next_print.saturating_add(1);
             }
             copy.name = if copies > 1 { format!("{} copy {k}", src.name) } else { format!("{} copy", src.name) };
             copy.position = [src.position[0] + offset[0] * k as f64, src.position[1] + offset[1] * k as f64];

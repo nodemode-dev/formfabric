@@ -143,7 +143,7 @@ fn gather(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let mut seam = s.garment.seams[index].clone();
     let total_b: f64 = seam.b.iter().filter_map(|e| end_length(&s.garment, e)).sum();
     let target = total_b / ratio;
-    let last = seam.a.len() - 1;
+    let last = seam.a.len().checked_sub(1).ok_or_else(|| bad("side a of the seam has no spans; set them with sew.edit first"))?;
     let others: f64 = seam.a[..last].iter().filter_map(|e| end_length(&s.garment, e)).sum();
     let wanted = target - others;
     let end = seam.a[last].clone();

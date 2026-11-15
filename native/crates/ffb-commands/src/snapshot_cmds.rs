@@ -48,8 +48,14 @@ fn put(s: &mut Session, name: String, data: Vec<u8>) {
     s.unknown.push((name, data));
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn now() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn now() -> u64 {
+    0
 }
 
 fn snapshot_id(a: &Value) -> Result<u32, CommandError> {

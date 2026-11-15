@@ -154,6 +154,9 @@ fn split_line(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         let curve = path::seg(pts, segment);
         let total = curve.length();
         let ts: Vec<f64> = if let Some(n) = count(a, "count") {
+            if total < 1e-6 {
+                return Err(geometry(format!("segment {segment} has no length, so it cannot be split into equal pieces")));
+            }
             (1..n).map(|k| curve.t_at_length(total * k as f64 / n as f64)).collect()
         } else if let Some(l) = number(a, "length") {
             if l >= total {

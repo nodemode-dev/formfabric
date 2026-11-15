@@ -244,6 +244,7 @@ fn trace_run(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
         return Err(bad("give exactly one of inner, at and points"));
     }
     let remove = flag(a, "remove", false);
+    panel_name(a, String::new())?;
     let source = match a.get("panel") {
         Some(_) => Some(index_of(s, required_id(a, "panel")?)?),
         None if a.get("points").is_some() => None,

@@ -74,6 +74,7 @@ fn remesh(s: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let rows = run(s, &ids, density, pure);
     if rows.iter().all(|r| !r["error"].is_null()) {
         let first = rows.first().and_then(|r| r["error"].as_str()).unwrap_or("remesh failed").to_string();
+        s.garment = before;
         return Err(CommandError::new("invalid_geometry", first));
     }
     s.garment.output.mesh = MeshKind::Quad;

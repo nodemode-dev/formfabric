@@ -88,7 +88,7 @@ fn overlay(session: &mut Session) {
 }
 
 pub(crate) fn after_change(session: &mut Session, command: &str) {
-    if command.starts_with("file.") {
+    if command.starts_with("file.") || command == "sample.load" {
         session.sim.seen.clear();
     }
     overlay(session);
