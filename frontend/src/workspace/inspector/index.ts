@@ -307,7 +307,8 @@ export class Inspector {
       const x = val('px');
       const y = val('py');
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-      args.position = [fromUnit(x, u), fromUnit(y, u)];
+      const kept = this.doc.panel(ids[0])?.position;
+      args.position = [k === 'px' || !kept ? fromUnit(x, u) : kept[0], k === 'py' || !kept ? fromUnit(y, u) : kept[1]];
     } else {
       const v = val(k);
       if (!Number.isFinite(v)) return;

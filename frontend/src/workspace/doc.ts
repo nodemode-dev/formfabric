@@ -190,7 +190,13 @@ export class DocStore {
   }
 
   async cancelTrial(): Promise<void> {
+    const base = this.trialBase;
     this.endTrial();
+    if (base && this.garment !== base) {
+      this.garment = base;
+      this.wasm?.load(base);
+      this.emit();
+    }
     await this.settle();
   }
 
