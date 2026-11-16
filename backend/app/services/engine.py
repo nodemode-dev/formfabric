@@ -1,5 +1,6 @@
 import json
 import os
+import stat
 import threading
 
 from app.services import events, recent, recovery
@@ -17,6 +18,8 @@ _read_only: set[str] | None = None
 _info: dict = {}
 _RECENT_NAMES = {"file.save", "file.open", "file_save", "file_open"}
 _REBASE = {"file.new", "file.open", "exchange.import_dxf"}
+_MIB = 1024 * 1024
+_READ_LIMITS = {"file.open": 1024 * _MIB, "exchange.import_dxf": 256 * _MIB, "fabric.import": 256 * _MIB, "motion.import": 1024 * _MIB, "body.import": 1024 * _MIB, "trim.import": 1024 * _MIB}
 
 
 class EngineUnavailable(RuntimeError):
@@ -70,9 +73,30 @@ def read_only(name: str) -> bool:
     return name in _read_only
 
 
+def _unreadable(name: str, args: dict | None) -> dict | None:
+    limit = _READ_LIMITS.get(_meta().get(name, (name, None))[0])
+    path = (args or {}).get("path")
+    if limit is None or not isinstance(path, str) or not path:
+        return None
+    try:
+        found = os.stat(path)
+    except (OSError, ValueError):
+        return None
+    if not stat.S_ISREG(found.st_mode):
+        message = f"{path} is not a regular file (it is a folder, a device or a pipe), so it was not read"
+    elif found.st_size > limit:
+        message = f"{path} is {found.st_size // _MIB} MiB, larger than the {limit // _MIB} MiB this command reads"
+    else:
+        return None
+    return {"ok": False, "error": {"code": "bad_args", "message": message}}
+
+
 def dispatch(name: str, args: dict | None, notify: bool = True) -> dict:
     _require()
     mutating = not read_only(name)
+    refusal = _unreadable(name, args)
+    if refusal is not None:
+        return refusal
     with _lock:
         before = _engine.epoch()
         reply = json.loads(_engine.dispatch(name, json.dumps(args or {})))
