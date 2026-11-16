@@ -1,6 +1,17 @@
 .ff-ws { --ff-insp: 296px; --ff-ra: 1fr; --ff-rb: 1fr; display: grid; grid-template-rows: 32px minmax(0, 1fr); width: 100%; height: 100%; min-width: 0; min-height: 0; }
-.ff-bar { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3); background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); }
-.ff-bar-gap { flex: 1 1 auto; }
+.ff-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) repeat(8, var(--ctl-md)) 48px; align-items: center; column-gap: var(--space-2); padding: 0 var(--space-3); background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); }
+.ff-bar > * { grid-row: 1; }
+.ff-bar > .ff-seg { grid-column: 1; }
+.ff-bar-gap { grid-column: 2; }
+.ff-bar > .ff-fb-toggle { grid-column: 3; }
+.ff-bar > .ff-bd-toggle { grid-column: 4; }
+.ff-bar > .ff-tr-toggle { grid-column: 5; }
+.ff-bar > .ff-an-toggle { grid-column: 6; }
+.ff-bar > .ou-toggle-btn { grid-column: 7; }
+.ff-bar > .ou-toggle-btn + .ou-toggle-btn { grid-column: 8; }
+.ff-bar > .ff-lib-toggle { grid-column: 9; }
+.ff-bar > .ff-ob-toggle { grid-column: 10; }
+.ff-bar > .ff-zoom { grid-column: 11; }
 .ff-seg { display: inline-flex; border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden; }
 .ff-seg-btn { width: 30px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; }
 .ff-seg-btn + .ff-seg-btn { border-left: 1px solid var(--border-color); }
