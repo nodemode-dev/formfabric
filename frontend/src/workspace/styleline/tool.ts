@@ -124,6 +124,12 @@ export class StyleLineTool extends BaseTool {
 
   leave(): void { this.reset(); }
 
+  lines(g: CanvasRenderingContext2D, c: Colors): void {
+    g.save();
+    for (const l of styleLines.lines) this.stroke(g, c, l);
+    g.restore();
+  }
+
   draw(g: CanvasRenderingContext2D, c: Colors): void {
     g.save();
     for (const l of styleLines.lines) this.stroke(g, c, l);

@@ -36,6 +36,7 @@ export interface SewSnapshot {
   tacks: Tack[];
   info: Map<number, SeamInfo>;
   bad: Map<number, number>;
+  failed?: boolean;
 }
 
 export interface SpanArg { panel: number; inner?: number; segment: number; t0: number; t1: number }

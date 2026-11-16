@@ -365,7 +365,9 @@ export class PatternView implements ViewCtx {
     const g = this.g;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const colors = this.colors();
+    const style = this.active instanceof StyleLineTool ? undefined : this.tools.find((x): x is StyleLineTool => x instanceof StyleLineTool);
     drawScene(g, {
+      under: style ? (cg, c) => style.lines(cg, c) : undefined,
       w: this.w, h: this.h, cam: this.cam, geos: this.doc.geos(), sel: this.sel, hover: this.hover,
       showPoints: this.active.id === 'edit', rulers: this.rulersOn, unit: this.unit(), colors, sew: this.sew(), trims: this.trims(),
     }, this.active);
