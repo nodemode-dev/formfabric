@@ -215,6 +215,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
     trimState.prune(doc.garment);
     check.update();
     scheduleInspector();
+    view.fitIfPending();
     view.redraw();
   });
   const refreshed = async (name: string): Promise<void> => {
@@ -224,7 +225,7 @@ export function assemble(host: HTMLElement, deps: ShellDeps): void {
     if (fresh) view.frame();
   };
   deps.engine.onEngineChanged((e) => { if (e.name !== 'view.units') void refreshed(e.name); });
-  onEngineLink((state) => { if (state === 'up') void doc.refresh(); });
+  onEngineLink((state) => { if (state === 'up') void doc.refresh().then(() => view.fitUnlessMoved()); });
   document.addEventListener('ff:recovered', () => { sel.clear(); void doc.refresh().then(() => view.frame()); });
   void loadWasm().then((w) => { doc.setWasm(w); });
   void doc.refresh();

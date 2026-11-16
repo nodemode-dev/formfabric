@@ -44,6 +44,8 @@ export class PatternView implements ViewCtx {
   private colorSet: Colors | null = null;
   private readonly probe: HTMLElement;
   private panning: { x: number; y: number } | null = null;
+  private moved = false;
+  private fitLater = true;
   private space = false;
   private rulersOn: boolean;
   private rect: DOMRect | null = null;
@@ -201,6 +203,17 @@ export class PatternView implements ViewCtx {
     this.redraw();
   }
 
+  fitUnlessMoved(): void {
+    if (this.moved) return;
+    if (!this.doc.ready || this.w === 0 || this.h === 0) { this.fitLater = true; return; }
+    this.fitLater = false;
+    this.frame();
+  }
+
+  fitIfPending(): void {
+    if (this.fitLater) this.fitUnlessMoved();
+  }
+
   private ptr(e: PointerEvent | MouseEvent): Ptr {
     if (e.type === 'pointerdown' || !this.rect) this.rect = this.canvas.getBoundingClientRect();
     const r = this.rect;
@@ -227,6 +240,7 @@ export class PatternView implements ViewCtx {
   private onMove(e: PointerEvent): void {
     if (!e.isPrimary) return;
     if (this.panning) {
+      this.moved = true;
       this.cam.x -= (e.clientX - this.panning.x) / this.cam.s;
       this.cam.y += (e.clientY - this.panning.y) / this.cam.s;
       this.panning = { x: e.clientX, y: e.clientY };
@@ -257,6 +271,7 @@ export class PatternView implements ViewCtx {
     const before = this.toWorld(sx, sy);
     const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
     const s = Math.max(MIN_S, Math.min(MAX_S, this.cam.s * factor));
+    this.moved = true;
     this.cam.s = s;
     this.cam.x = before[0] - (sx - this.w / 2) / s;
     this.cam.y = before[1] + (sy - this.h / 2) / s;
@@ -349,6 +364,7 @@ export class PatternView implements ViewCtx {
     this.canvas.height = Math.round(h * dpr);
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
+    if (this.fitLater && w > 0 && h > 0) this.fitUnlessMoved();
     this.paint();
   }
 
