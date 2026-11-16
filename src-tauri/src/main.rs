@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_updater::UpdaterExt;
@@ -19,6 +19,7 @@ const PROJECT_EXT: &str = "ffbrc";
 const FALLBACK_SIZE: (f64, f64) = (1323.0, 860.0);
 const MIN_SIZE: (f64, f64) = (980.0, 640.0);
 const SCREEN_FRACTION: f64 = 0.9;
+const ENGINE_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
 
 struct Backend(Mutex<Option<CommandChild>>);
 
@@ -112,6 +113,7 @@ fn wait_exit(pid: u32, millis: u32) {
 }
 
 fn close_backend(handle: &tauri::AppHandle) {
+    open_exit_gate(handle);
     #[cfg(windows)]
     {
         let service = handle
@@ -150,6 +152,100 @@ fn close_splash(handle: &tauri::AppHandle) {
     if let Some(splash) = handle.get_webview_window("splash") {
         let _ = splash.close();
     }
+}
+
+enum EngineStart {
+    Port(u16),
+    Exited(Option<i32>),
+    Silent,
+}
+
+async fn read_port(rx: &mut tauri::async_runtime::Receiver<CommandEvent>) -> EngineStart {
+    let pattern = regex::Regex::new(r"http://127\.0\.0\.1:(\d+)").unwrap();
+    let (tick, mut timer) = tauri::async_runtime::channel::<()>(1);
+    std::thread::spawn(move || {
+        std::thread::sleep(ENGINE_WAIT);
+        let _ = tick.blocking_send(());
+    });
+    loop {
+        let event = std::future::poll_fn(|cx| match timer.poll_recv(cx) {
+            std::task::Poll::Ready(_) => std::task::Poll::Ready(Err(())),
+            std::task::Poll::Pending => rx.poll_recv(cx).map(Ok),
+        })
+        .await;
+        let line = match event {
+            Err(()) => return EngineStart::Silent,
+            Ok(None) => return EngineStart::Exited(None),
+            Ok(Some(CommandEvent::Terminated(end))) => return EngineStart::Exited(end.code),
+            Ok(Some(CommandEvent::Stdout(bytes) | CommandEvent::Stderr(bytes))) => {
+                String::from_utf8_lossy(&bytes).into_owned()
+            }
+            Ok(Some(_)) => continue,
+        };
+        if let Some(port) = pattern
+            .captures(&line)
+            .and_then(|found| found[1].parse::<u16>().ok())
+        {
+            return EngineStart::Port(port);
+        }
+    }
+}
+
+fn quit_launch(handle: &tauri::AppHandle, reason: Option<&str>) {
+    close_splash(handle);
+    if let Some(reason) = reason {
+        handle
+            .dialog()
+            .message(format!("The formfabric engine failed to start: {reason}\n\nPlease relaunch the app. If it keeps happening, install formfabric again."))
+            .title("FormFabric")
+            .kind(MessageDialogKind::Error)
+            .blocking_show();
+    }
+    kill_backend(handle);
+    handle.exit(1);
+}
+
+fn keep_waiting(handle: &tauri::AppHandle) -> bool {
+    handle
+        .dialog()
+        .message("The formfabric engine has not answered for a minute. A first start on a slow or busy computer can take longer.")
+        .title("FormFabric")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Keep Waiting".into(),
+            "Quit".into(),
+        ))
+        .blocking_show()
+}
+
+fn engine_stopped(handle: &tauri::AppHandle) {
+    if handle.state::<ExitGate>().0.load(Ordering::SeqCst) {
+        return;
+    }
+    let ours = handle
+        .state::<Backend>()
+        .0
+        .lock()
+        .map(|mut slot| slot.take().is_none())
+        .unwrap_or(true);
+    if ours {
+        return;
+    }
+    open_exit_gate(handle);
+    let restart = handle
+        .dialog()
+        .message("The formfabric engine has stopped, so this window can no longer work. After a restart formfabric offers to recover the last autosave and the changes made after it.")
+        .title("FormFabric")
+        .kind(MessageDialogKind::Error)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Restart".into(),
+            "Quit".into(),
+        ))
+        .blocking_show();
+    if restart {
+        handle.restart();
+    }
+    handle.exit(1);
 }
 
 fn updater_configured(handle: &tauri::AppHandle) -> bool {
@@ -476,47 +572,53 @@ fn main() {
             let launch_args: Vec<String> = std::env::args().collect();
             open_paths(&handle, paths_from_args(&launch_args, None));
             let engine = match packaged::engine_folder() {
-                Some(program) => app.shell().command(program),
-                None => app
-                    .shell()
-                    .sidecar("formfabric-engine")
-                    .expect("the formfabric engine sidecar is missing; bundle its binary"),
+                Some(program) => Ok(app.shell().command(program)),
+                None => app.shell().sidecar("formfabric-engine"),
             };
             let token = window_token();
-            let mut sidecar = engine
-                .env("FFB_PORT", "0")
-                .env("FFB_WINDOW_TOKEN", &token)
-                .env("FFB_PARENT_PID", std::process::id().to_string());
-            if let Some(path) = packaged::launcher() {
-                sidecar = sidecar.env("FORMFABRIC_LAUNCHER", path);
-            }
-            if let Some(dir) = user_data_dir_arg(&launch_args) {
-                sidecar = sidecar.env("FORMFABRIC_DATA_DIR", dir);
-            }
-            let (mut rx, child) = sidecar
-                .spawn()
-                .expect("the formfabric engine failed to spawn");
-            *app.state::<Backend>().0.lock().unwrap() = Some(child);
+            let spawned = engine.and_then(|engine| {
+                let mut sidecar = engine
+                    .env("FFB_PORT", "0")
+                    .env("FFB_WINDOW_TOKEN", &token)
+                    .env("FFB_PARENT_PID", std::process::id().to_string());
+                if let Some(path) = packaged::launcher() {
+                    sidecar = sidecar.env("FORMFABRIC_LAUNCHER", path);
+                }
+                if let Some(dir) = user_data_dir_arg(&launch_args) {
+                    sidecar = sidecar.env("FORMFABRIC_DATA_DIR", dir);
+                }
+                sidecar.spawn()
+            });
+            let spawned = match spawned {
+                Ok((rx, child)) => {
+                    *app.state::<Backend>().0.lock().unwrap() = Some(child);
+                    Ok(rx)
+                }
+                Err(err) => Err(err.to_string()),
+            };
 
             tauri::async_runtime::spawn(async move {
-                let pattern = regex::Regex::new(r"http://127\.0\.0\.1:(\d+)").unwrap();
-                let mut port: Option<u16> = None;
-                while let Some(event) = rx.recv().await {
-                    let text = match event {
-                        CommandEvent::Stdout(bytes) | CommandEvent::Stderr(bytes) => {
-                            String::from_utf8_lossy(&bytes).into_owned()
-                        }
-                        CommandEvent::Terminated(_) => break,
-                        _ => continue,
-                    };
-                    if let Some(found) = pattern
-                        .captures(&text)
-                        .and_then(|c| c[1].parse::<u16>().ok())
-                    {
-                        port = Some(found);
-                        break;
+                let mut rx = match spawned {
+                    Ok(rx) => rx,
+                    Err(err) => {
+                        let reason = format!("it could not be run ({err}). It may be missing from the installation or blocked by security software.");
+                        return quit_launch(&handle, Some(&reason));
                     }
-                }
+                };
+                let port = loop {
+                    match read_port(&mut rx).await {
+                        EngineStart::Port(found) => break Some(found),
+                        EngineStart::Silent if keep_waiting(&handle) => continue,
+                        EngineStart::Silent => break None,
+                        EngineStart::Exited(code) => {
+                            let reason = match code {
+                                Some(code) => format!("it ended before it was ready (exit code {code})."),
+                                None => "it ended before it was ready.".to_string(),
+                            };
+                            return quit_launch(&handle, Some(&reason));
+                        }
+                    }
+                };
                 match port {
                     Some(port) => {
                         #[cfg(windows)]
@@ -586,21 +688,17 @@ fn main() {
                             window_state::restore(&window, &place);
                             window_state::watch_renderer(&window);
                         } else {
-                            close_splash(&handle);
+                            return quit_launch(&handle, Some("its window could not be opened."));
                         }
                     }
-                    None => {
-                        close_splash(&handle);
-                        let _ = handle
-                            .dialog()
-                            .message(
-                                "The formfabric engine failed to start. Please relaunch the app.",
-                            )
-                            .blocking_show();
-                        kill_backend(&handle);
-                        handle.exit(1);
+                    None => return quit_launch(&handle, None),
+                }
+                while let Some(event) = rx.recv().await {
+                    if matches!(event, CommandEvent::Terminated(_)) {
+                        break;
                     }
                 }
+                engine_stopped(&handle);
             });
             Ok(())
         })
