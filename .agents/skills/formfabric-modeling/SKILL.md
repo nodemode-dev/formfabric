@@ -2394,10 +2394,10 @@ Write a flat technical drawing of the garment as SVG or PDF (vector, 1 unit = 1 
 
 ### capture_write
 
-Write bytes captured in the window (a png snapshot, a webm video or a gif) to a file. The path must be absolute with the extension of the kind, the bytes must carry that format's signature, and the size is capped at 512 MB. The file is replaced atomically.
+Write bytes captured in the window (a png snapshot, a webm or mp4 video, or a gif) to a file. The path must be absolute with the extension of the kind, the bytes must carry that format's signature, and the size is capped at 512 MB. The file is replaced atomically.
 
 - `data`: string; required; The file bytes, base64 encoded (a data: URL prefix is accepted).
-- `kind`: string (png | webm | gif); required
+- `kind`: string (png | webm | mp4 | gif); required
 - `path`: string; required; Absolute output path whose extension matches kind.
 
 ### link_start
