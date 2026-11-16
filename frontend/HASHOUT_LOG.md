@@ -38,6 +38,10 @@ Polish round: workspace bar, Preferences, outside agents, export units, shortcut
 - `app.ts` :: `refresh` · the status bar's units button shows the unit preference (`loadPrefs().units`), set once at start and on every refresh, as the Pattern View and the inspector do; it showed the document's `view.units` (mm for every sample) while the preference was cm or in.
 - Body, Fabric and Output drawer buttons and the bar's drawer toggles (Fabric, Body, Trims, Timeline, Output, UV Editor, Library, Objects) blur only after a pointer click (`e.detail > 0`), the rule the 3D toolbar already uses. The blur is not only there to hide the ring: a button left focused by a mouse click takes Space (`layout.ts` `locked`, so the global Space runs Simulate instead of the pattern pan) and Enter. A keyboard activation keeps focus and shows the `:focus-visible` ring. The two Enter-commits in text fields (`fabric/look.ts`, `fabric/physical.ts`) are unchanged.
 
+### Verification pass (polish check)
+
+- `app.ts` :: the window's shortcut `keydown` · Space on a button that has keyboard focus (`:focus-visible`) is left to the button. Before, the global Simulate shortcut (`sim.toggle`, key Space) took it and called `preventDefault`, so Space on a keyboard-focused drawer toggle or tool started the simulation and did not press the button; with focus now kept after a keyboard activation this happened on the second press. A button focused by a mouse click does not match `:focus-visible`, so Space there still runs Simulate as before. `layout.ts` `locked` and `View3D.onKey` already leave Space on a button alone.
+
 ## v0.24.0 · 2026-11-15
 
 Pre-release audit of the shell, the engine link and the Output, Drape, Fabric and Library panels.

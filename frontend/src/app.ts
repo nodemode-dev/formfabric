@@ -315,6 +315,7 @@ export function startApp(): void {
   document.addEventListener('keydown', (e) => {
     if (e.defaultPrevented || anyDialogOpen()) return;
     if (home.isOpen && !(e.ctrlKey || e.metaKey)) return;
+    if (e.key === ' ' && e.target instanceof HTMLButtonElement && e.target.matches(':focus-visible')) return;
     const cmd = commands.forEvent(e);
     if (!cmd) return;
     const field = textFieldFocused();
