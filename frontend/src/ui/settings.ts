@@ -1,5 +1,5 @@
 import { Dialog, confirmAction } from './dialogs';
-import { el, q, setClass, setHidden, setText, setValue } from './dom';
+import { el, q, setAttr, setClass, setHidden, setText, setValue } from './dom';
 import { icon } from './icons';
 import { language, languages, onLanguage, setLanguage, t, type Lang } from './i18n';
 import { DEFAULT_PREFS, FONT_SIZES, LAYOUTS, UNITS, loadPrefs, resetPrefs, updatePrefs, type Prefs } from './prefs';
@@ -284,7 +284,7 @@ export class SettingsDialog extends Dialog {
     if (this.current === name) return;
     this.current = name;
     for (const [n, page] of this.sections) setClass(page, 'is-current', n === name);
-    for (const tab of Array.from(this.nav.children) as HTMLElement[]) { const on = tab.dataset.section === name; setClass(tab, 'is-active', on); tab.setAttribute('aria-selected', String(on)); }
+    for (const tab of Array.from(this.nav.children) as HTMLElement[]) { const on = tab.dataset.section === name; setClass(tab, 'is-active', on); setAttr(tab, 'aria-selected', String(on)); }
     this.queueWire();
   }
 

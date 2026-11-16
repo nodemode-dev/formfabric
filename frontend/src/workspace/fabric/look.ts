@@ -1,4 +1,4 @@
-import { el, q, setClass, setHidden, setText, setValue } from '../../ui/dom';
+import { el, q, setAttr, setClass, setDisabled, setHidden, setText, setValue } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { t } from '../../ui/i18n';
 import type { Ctx } from './ctx';
@@ -125,7 +125,7 @@ export class LookSection {
   update(): void {
     const f = this.fabric();
     const list = this.ctx.store.list;
-    for (const [key, b] of this.tabs) { setClass(b, 'is-on', key === this.surf); b.setAttribute('aria-selected', String(key === this.surf)); }
+    for (const [key, b] of this.tabs) { setClass(b, 'is-on', key === this.surf); setAttr(b, 'aria-selected', String(key === this.surf)); }
     this.kind.set(f?.look.kind ?? 'matte');
     this.kind.disable(!f);
     const own = this.surf === 'front' || (f !== undefined && f.look[this.surf] !== null);
@@ -153,8 +153,8 @@ export class LookSection {
       const path = s?.maps[key] ?? '';
       if (document.activeElement !== row.input && !row.input.classList.contains('is-bad')) setValue(row.input, path);
       if (row.input.disabled !== off) row.input.disabled = off;
-      row.pick.disabled = off;
-      row.clear.disabled = off || path === '';
+      setDisabled(row.pick, off);
+      setDisabled(row.clear, off || path === '');
       if (row.shown !== path) {
         row.shown = path;
         row.img.hidden = true;

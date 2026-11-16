@@ -2,7 +2,7 @@ import { onEngineLink } from '../../engine/service';
 import type { ShellDeps } from '../../shell/deps';
 import { formatKeys } from '../../ui/commands';
 import { anyDialogOpen } from '../../ui/dialogs';
-import { el, q, setClass, setDisabled, setHidden, setStyleVar, setText, setTitle, setValue } from '../../ui/dom';
+import { el, q, setAttr, setClass, setDisabled, setHidden, setStyleVar, setText, setTitle, setValue } from '../../ui/dom';
 import { t } from '../../ui/i18n';
 import { icon } from '../../ui/icons';
 import { textFieldFocused } from '../../ui/native-menu';
@@ -225,7 +225,7 @@ export class AnimDock {
     const k = c?.keys?.[0] ? ` (${formatKeys(c.keys[0])})` : '';
     const text = t(x.key) + k;
     setTitle(x.node, text);
-    x.node.setAttribute('aria-label', text);
+    setAttr(x.node, 'aria-label', text);
   }
 
   private paintTips(): void {
@@ -348,7 +348,7 @@ export class AnimDock {
     const c = this.selCache();
     const run = s.job.running;
     setClass(this.b.autokey, 'is-on', a.autoKey);
-    this.b.autokey.setAttribute('aria-pressed', String(a.autoKey));
+    setAttr(this.b.autokey, 'aria-pressed', String(a.autoKey));
     const free = !!c && !c.locked && !run;
     const inside = !!c && s.current > c.start && s.current < c.start + c.frames;
     if (!this.missing(['cache.cut'])) setDisabled(this.b.cut, !free || !inside);
@@ -483,7 +483,9 @@ export class AnimDock {
 
   private paintAvail(): void {
     const s = this.store;
+    const layered: HTMLElement[] = [this.b.cut, this.b.merge, this.b.lock, this.b.earlier, this.b.later];
     for (const n of this.needs) {
+      if (n.node === this.b.cancel || (layered.includes(n.node) && !this.missing(n.any))) continue;
       const off = this.missing(n.any) || (s.job.running && n.node !== this.b.cancel && (n.node instanceof HTMLButtonElement || n.node === this.f.frame) && n.node !== this.b.fit);
       setDisabled(n.node, off);
     }

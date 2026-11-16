@@ -1,5 +1,5 @@
 import { Dialog } from '../../ui/dialogs';
-import { el, q, setClass, setDisabled, setHidden, setStyleVar, setText } from '../../ui/dom';
+import { el, q, setAttr, setClass, setDisabled, setHidden, setStyleVar, setText } from '../../ui/dom';
 import { enhanceSelect } from '../../ui/dropdown';
 import { icon } from '../../ui/icons';
 import { t } from '../../ui/i18n';
@@ -214,7 +214,7 @@ export class FabricsSection {
         if (n.title !== title) n.title = title;
         const on = x.id === f?.id;
         setClass(n, 'is-sel', on);
-        n.setAttribute('aria-selected', String(on));
+        setAttr(n, 'aria-selected', String(on));
       },
     });
     setHidden(this.empty, all.length > 0 || (!store.loaded && !engineDown()));

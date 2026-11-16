@@ -1,5 +1,5 @@
 import type { ShellDeps } from '../../shell/deps';
-import { el, q, setClass, setHidden, setText } from '../../ui/dom';
+import { el, q, setClass, setHidden, setText, setTitle } from '../../ui/dom';
 import { onLanguage, t } from '../../ui/i18n';
 import { icon } from '../../ui/icons';
 import { pointInPoly } from '../geom';
@@ -165,7 +165,7 @@ export class UvEditor {
     this.padding.disable(!canLay);
     this.tiles.disable(!canLay);
     for (const b of this.modeButtons.values()) if (b.disabled !== !canSet) b.disabled = !canSet;
-    this.layout.title = canLay ? '' : t('Not available in this engine build');
+    setTitle(this.layout, canLay ? '' : t('Not available in this engine build'));
     const n = this.store.uv.islands.length;
     let msg = '';
     if (!this.store.known) msg = t('Waiting for the engine...');
