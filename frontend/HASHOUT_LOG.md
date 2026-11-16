@@ -2,6 +2,19 @@
 
 Living context for the window. What would be comments in `frontend/` lives here, newest first. Read before editing.
 
+## v0.25.0 · 2026-11-16
+
+Polish round: workspace bar, Preferences, outside agents, export units, shortcuts.
+
+- `styles/pattern.css` :: `.ff-bar` · the bar is a grid with one fixed column per drawer button (Fabric, Body, Trims, Timeline, the two Output buttons, Library, Objects) and a 48 px zoom column, each button placed by its class. The buttons are mounted one at a time after `body.app-ready` by their own panels (`insertBefore(zoom)`); in the old flex row each one pushed the earlier ones 36 px left, six layout shifts on every load with a garment open. The columns hold their width while empty, so mount order no longer moves anything. A new drawer button needs its own column and a `grid-column` rule here.
+- `ui/settings.ts` :: `later`, `soon` · a preference that nothing reads is shown disabled with the translated note "Not available yet" under its group: Look for updates at start (no updater), Match system appearance, Light theme, Dark theme, Use the graphics processor, Frame pacing, Worker threads, History steps kept, History kept in projects, Renderer, Antialiasing, Shadows, Show the floor, Background, NodeMode address; Solver device was already disabled and now carries the note. The values stay stored, so wiring one later is a one-line change here.
+- `workspace/pattern-view/tools-garment.ts` :: `SeamTool` · a panel with no seam allowance yet starts the Seam Allowance dialog at Preferences, Pattern, Default seam allowance (was a fixed 10 mm).
+- `app.ts` :: `pushAgents` · "Allow outside agents" is sent to the service (`agents.prefs`, `agentsAllowed`) when the engine link comes up and on every change; the sends are chained so two quick flips cannot arrive out of order. The window's stored value wins over the service's file. The guard itself is in the service (`backend/HASHOUT_LOG.md`, v0.25.0).
+- `shell/window-commands.ts` :: `app.close` · Close Garment is Mod+W in the desktop app and Mod+Alt+W in a browser, where Mod+W closes the tab (formvis `close-tab`). Nothing else in the catalogue or the window binds W with a modifier.
+- `index.html` · links `/favicon.ico` (32x32) and `/favicon.png` as formvis does, instead of `/icon.png`.
+- Export dialog: glTF and GLB start at metres because `export.formats` now says so (`native/HASHOUT_LOG.md`, v0.25.0). A unit the person chose before is kept in localStorage (`export.gltf`, `export.glb`) and still wins.
+- Menus: the catalogue marks no command as internal (no flag, no naming rule, no group: `pattern.begin_drag` and `pattern.end_drag` are ordinary `pattern` commands), so File, Export (35 rows) and Pattern (61 rows) are left as they are.
+
 ## v0.24.0 · 2026-11-15
 
 Pre-release audit of the shell, the engine link and the Output, Drape, Fabric and Library panels.

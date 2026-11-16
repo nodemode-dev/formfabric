@@ -51,7 +51,7 @@ export function registerWindowCommands(ctx: WindowCtx): void {
     { id: 'app.palette', label: 'Search commands...', keys: ['Mod+K'], icon: 'search', run: () => ctx.openPalette() },
     { id: 'app.shortcuts', label: 'Keyboard Shortcuts...', keys: ['Mod+/'], run: () => ctx.openShortcuts() },
     { id: 'app.home', label: 'Home', keys: ['Mod+Alt+H'], icon: 'panel', run: () => ctx.showHome() },
-    { id: 'app.close', label: 'Close Garment', enabled: () => session.active, run: () => ctx.closeGarment() },
+    { id: 'app.close', label: 'Close Garment', keys: inTauri() ? ['Mod+W'] : ['Mod+Alt+W'], enabled: () => session.active, run: () => ctx.closeGarment() },
     { id: 'app.about', label: 'About FormFabric', run: () => ctx.openAbout() },
     { id: 'app.source', label: 'Source Code', run: () => { window.open(REPO, '_blank', 'noopener'); } },
     { id: 'app.report_issue', label: 'Report an Issue...', run: () => { window.open(`${REPO}/issues`, '_blank', 'noopener'); } },
