@@ -9,7 +9,8 @@ router = APIRouter()
 
 @router.get("/recovery", dependencies=[Depends(require_window_read)])
 def state() -> dict:
-    return recovery.pending_info() or {"pending": False, "autosave_time": None, "commands": 0}
+    pending = None if recovery.foreign() else recovery.pending_info()
+    return {**(pending or {"pending": False, "autosave_time": None, "commands": 0}), **recovery.protection()}
 
 
 def _restore() -> dict:
