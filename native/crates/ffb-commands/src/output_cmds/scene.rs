@@ -47,7 +47,7 @@ pub(super) fn collect(s: &mut Session, filter: Option<&[u32]>) -> Result<Vec<Pan
     let mut out = Vec::new();
     for id in ids {
         let index = s.garment.index_of(id).ok_or_else(|| CommandError::new("not_found", format!("no panel with id {id}")))?;
-        let built = s.mesh.ensure(&s.garment.panels[index], false).built.map_err(|e| CommandError::new("invalid_geometry", e))?;
+        let built = s.mesh.ensure(&s.garment.panels[index], false).built.map_err(|e| CommandError::new("invalid_geometry", format!("panel {id} \"{}\" cannot be meshed: {e}", s.garment.panels[index].name)))?;
         let pos3 = crate::sim_cmds::current_positions(s, id)?;
         let panel = &s.garment.panels[index];
         let flat: Vec<[f64; 2]> = built.mesh.positions.clone();

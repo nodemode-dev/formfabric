@@ -2,6 +2,10 @@
 
 Living context for the Rust engine. What would be comments in the crates lives here, newest first. Read before editing anything under `native/`.
 
+## v0.25.0 · 2026-11-16
+
+- `ffb-commands/src/output_cmds/scene.rs` :: `collect` · a panel that cannot be meshed fails UV layout, Export, Bake and Game-Ready with `panel <id> "<name>" cannot be meshed: <reason>`; the error used to give the reason only. The commands still stop on the first such panel (skipping it is a product choice).
+
 ## v0.24.0 · 2026-11-15
 
 ### Command audit (ffb-commands, first half)
