@@ -32,6 +32,12 @@ Polish round: outside agents, generated references.
 - `services/claude_code.py` :: `agent_prefs` · `agents.prefs` takes `agentsAllowed` (window rule, as before; it is a service command, not an MCP tool, so an agent cannot flip it). Turning it off also calls `agents.reset()`, so a session's earlier Allow does not carry over when it is turned on again. `GET /api/mcp/status` adds `enabled`.
 - `python/formfabric/catalogue.json`, `.claude/skills/formfabric-modeling/SKILL.md` (and its `.agents` mirror) · regenerated with `./formfabric py -m formfabric snapshot` and `./formfabric agents sync` against the 0.24.0 engine module: only the version field and line changed.
 
+### A restore keeps the document's path (polish after a restore)
+
+- `services/recovery.py` :: `note_document`, `_document` · the crash state `autosave/journal.json` carries `document`: the absolute path of the file the open garment belongs to, or `null`. Written only when it changes, under the journal lock; `checkpoint()` keeps it because `_state` merges. `start()` copies it into the pending `info.json`; `pending_info()` (and so `GET /api/recovery`) reports it.
+- `services/engine.py` :: `dispatch`, `_FORGET` · a successful `file.open` or `file.save` with a path outside the autosave folder notes that path (the autosave's own saves and the restore's open of the pending autosave are inside it, so they never count); `file.new`, `sample.load` and `exchange.import_dxf` with `mode: "as_new"` note `null`, as the window shows "Untitled" after each.
+- `services/recovery.py` :: `_restore`, `_writable` · the reply adds `path` and `name` when the recorded file still exists and both it and its folder are writable (the engine writes a temporary file beside the target, then renames), otherwise both are `null` and the window stays "Untitled" as before. The restored path is noted again, so a second crash before a save still knows it. As root `os.access` always says writable; only the missing-file case was checked here.
+
 ## v0.24.0 · 2026-11-15
 
 Pre-release audit of `backend/` and `python/`.

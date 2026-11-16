@@ -18,6 +18,7 @@ _read_only: set[str] | None = None
 _info: dict = {}
 _RECENT_NAMES = {"file.save", "file.open", "file_save", "file_open"}
 _REBASE = {"file.new", "file.open", "exchange.import_dxf"} | recovery.LIVE_IDS
+_FORGET = {"file.new", "sample.load"}
 _RESOLVED = {"pin.add": ("target", "pin", "target"), "body.tape": ("body_point", None, "body_point")}
 _MIB = 1024 * 1024
 _READ_LIMITS = {"file.open": 1024 * _MIB, "exchange.import_dxf": 256 * _MIB, "fabric.import": 256 * _MIB, "motion.import": 1024 * _MIB, "body.import": 1024 * _MIB, "trim.import": 1024 * _MIB}
@@ -104,6 +105,11 @@ def dispatch(name: str, args: dict | None, notify: bool = True) -> dict:
         changed = _engine.epoch() != before
         if reply.get("ok"):
             command, group = _meta().get(name, (name, None))
+            place = (args or {}).get("path")
+            if command in ("file.open", "file.save") and isinstance(place, str) and place and not _in_autosave_folder(place):
+                recovery.note_document(os.path.abspath(place))
+            elif command in _FORGET or (command == "exchange.import_dxf" and (args or {}).get("mode") == "as_new"):
+                recovery.note_document(None)
             if command == "file.save" and _is_autosave((args or {}).get("path")):
                 recovery.checkpoint()
             elif changed and mutating:

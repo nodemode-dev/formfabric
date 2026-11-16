@@ -53,6 +53,7 @@ _undone = 0
 _closed = True
 _truncated = False
 _off_reason = JOURNAL_ERROR
+_document: str | None = None
 
 
 def replayable(name: str) -> bool:
@@ -194,6 +195,7 @@ def start() -> dict | None:
                 "base": "autosave" if had_base else "empty",
                 "session_started": previous.get("started"),
                 "truncated": previous.get("truncated") is True,
+                "document": previous.get("document") if isinstance(previous.get("document"), str) else None,
                 "found": _now(),
             })
         try:
@@ -240,6 +242,7 @@ def pending_info() -> dict | None:
         "truncated": info.get("truncated") is True,
         "base": info.get("base", "empty"),
         "session_started": info.get("session_started"),
+        "document": info.get("document") if isinstance(info.get("document"), str) else None,
     }
 
 
@@ -314,6 +317,25 @@ def checkpoint() -> None:
         _count = 0
         _log_bytes = 0
         _truncated = False
+
+
+def note_document(path: str | None) -> None:
+    global _document
+    with _lock:
+        if _closed or path == _document:
+            return
+        try:
+            _state(document=path)
+        except OSError:
+            return
+        _document = path
+
+
+def _writable(path: str | None) -> str | None:
+    if not isinstance(path, str) or not os.path.isfile(path):
+        return None
+    folder = os.path.dirname(path) or "."
+    return path if os.access(path, os.W_OK) and os.access(folder, os.W_OK | os.X_OK) else None
 
 
 def discard() -> bool:
@@ -414,9 +436,12 @@ def _restore(dispatch: Callable[[str, dict], dict]) -> dict:
         else:
             failures.append({"id": name, "error": (reply.get("error") or {}).get("message", "failed")})
     discard()
+    document = _writable(info.get("document"))
+    note_document(document)
     summary = _summary(len(lines), replayed, skipped, failures, info["truncated"])
     print(f"[formfabric] recovery: {summary}", flush=True)
     return {
+        "path": document, "name": os.path.basename(document) if document else None,
         "restored": True, "base": info["base"], "autosave_time": info["autosave_time"], "logged": info["commands"], "replayed": replayed,
         "skipped": skipped[:REPORT_ROWS], "skipped_count": len(skipped), "failed": failures[:REPORT_ROWS], "failed_count": len(failures),
         "truncated": info["truncated"], "summary": summary,

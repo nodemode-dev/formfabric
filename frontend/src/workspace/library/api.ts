@@ -170,9 +170,9 @@ export async function recoveryInfo(): Promise<Recovery | null> {
   } catch { return null; }
 }
 
-export async function recoveryAct(action: 'restore' | 'discard'): Promise<boolean> {
+export async function recoveryAct(action: 'restore' | 'discard'): Promise<Record<string, unknown> | null> {
   try {
     const response = await fetch(serviceUrl(`/api/recovery/${action}`), { method: 'POST' });
-    return response.ok;
-  } catch { return false; }
+    return response.ok ? obj(await response.json().catch(() => ({}))) : null;
+  } catch { return null; }
 }

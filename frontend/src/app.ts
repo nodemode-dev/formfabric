@@ -160,7 +160,7 @@ export function startApp(): void {
       void session.pull();
       pushAgents();
       adopt();
-      void offerRecovery(() => { session.set(null, true); void refresh(); });
+      void offerRecovery((path) => { session.set(path, true); void refresh(); });
     } catch { loaded = false; }
   };
 
