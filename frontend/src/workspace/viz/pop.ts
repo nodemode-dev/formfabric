@@ -13,6 +13,7 @@ function wire(): void {
   }, true);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || open.size === 0) return;
+    e.preventDefault();
     for (const p of [...open]) p.close();
   }, true);
 }
@@ -39,9 +40,9 @@ export class Pop {
     this.panel.hidden = true;
     this.slot.append(this.button, this.panel);
     parent.appendChild(this.slot);
-    this.button.addEventListener('click', () => {
+    this.button.addEventListener('click', (e) => {
       if (this.panel.hidden) this.show(); else this.close();
-      this.button.blur();
+      if (e.detail > 0) this.button.blur();
     });
     this.relabel();
     onLanguage(() => this.relabel());
@@ -62,6 +63,7 @@ export class Pop {
 
   close(): void {
     if (this.panel.hidden) return;
+    if (this.panel.contains(document.activeElement)) this.button.focus();
     this.panel.hidden = true;
     open.delete(this);
     setClass(this.button, 'is-on', false);
@@ -88,7 +90,7 @@ export class Pop {
     b.className = 'ffz-item';
     b.innerHTML = `${iconName ? icon(iconName, 14) : ''}<span class="ffz-grow"></span>`;
     this.text(b.querySelector('.ffz-grow') as HTMLElement, english);
-    b.addEventListener('click', () => { run(); b.blur(); });
+    b.addEventListener('click', (e) => { run(); if (e.detail > 0) b.blur(); });
     this.panel.appendChild(b);
     return b;
   }

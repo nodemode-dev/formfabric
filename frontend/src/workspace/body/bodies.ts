@@ -2,6 +2,7 @@ import { nativeDialogs } from '../../shell/file-dialog';
 import { el, q, setClass, setHidden, setText } from '../../ui/dom';
 import { t } from '../../ui/i18n';
 import { icon } from '../../ui/icons';
+import { emptyLabel } from '../offline';
 import type { Ctx } from './ctx';
 import { IMPORT_EXT, type BodyInfo, type LibraryEntry } from './types';
 import { flagBad, label, patchKeyed, repaint, selectRow, titled } from './widgets';
@@ -28,7 +29,7 @@ export class BodiesSection {
     host.innerHTML = LIST_HTML;
     this.list = q(host, '[data-k="list"]');
     this.empty = q(host, '[data-k="empty"]');
-    label(this.empty, 'No bodies yet.');
+    emptyLabel(this.empty, 'No bodies yet.');
     repaint(() => { for (const v of this.list.querySelectorAll<HTMLElement>('.ff-bd-vis')) this.titleVis(v); });
   }
 

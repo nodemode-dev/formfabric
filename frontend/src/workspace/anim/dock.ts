@@ -6,6 +6,7 @@ import { el, q, setClass, setDisabled, setHidden, setStyleVar, setText, setTitle
 import { t } from '../../ui/i18n';
 import { icon } from '../../ui/icons';
 import { textFieldFocused } from '../../ui/native-menu';
+import { OFFLINE, engineDown, onEngineDown } from '../offline';
 import { MotionPanel } from './motion';
 import { AnimStore, type Change } from './store';
 import { ROW_H, Timeline } from './timeline';
@@ -165,7 +166,7 @@ export class AnimDock {
     this.root.appendChild(this.motion.root);
 
     this.line = new Timeline(q<HTMLCanvasElement>(this.root, '[data-k="canvas"]'), this.store, {
-      scrub: (frame) => this.store.setCurrent(frame, true),
+      scrub: (frame) => { if (!this.store.job.running) this.store.setCurrent(frame, true); },
       range: (start, end) => { void this.store.run('anim.set', { start, end }); },
       motion: (id, patch) => { void this.store.run('motion.set', { id, ...patch }); },
       moveKey: (track, from, to) => { void this.moveKey(track, from, to); },
@@ -180,6 +181,7 @@ export class AnimDock {
     repaint(() => { this.paintTips(); this.paintAria(); });
     this.paintAll();
     onEngineUp(() => { void this.store.init(); });
+    onEngineDown(() => this.paintAvail());
     void this.store.init();
     if (localStorage.getItem(OPEN_KEY) === '1') this.setOpen(true);
   }
@@ -195,6 +197,7 @@ export class AnimDock {
     setClass(this.toggle, 'is-active', on);
     this.toggle.setAttribute('aria-expanded', String(on));
     setHidden(this.root, !on);
+    setClass(this.pane, 'has-timeline', on);
     if (on) { void this.store.refresh(); this.paintAll(); this.line.invalidate(); }
     else { this.store.pause(); this.motion.setOpen(false); this.hideMenu(); }
   }
@@ -247,7 +250,7 @@ export class AnimDock {
     this.b.lock.addEventListener('click', () => { const c = this.selCache(); if (c) void this.store.run('cache.lock', { id: c.id, locked: !c.locked }); });
     this.b.earlier.addEventListener('click', () => { this.shiftBy(-1); });
     this.b.later.addEventListener('click', () => { this.shiftBy(1); });
-    for (const k of Object.keys(this.b)) this.b[k].addEventListener('click', () => this.b[k].blur());
+    for (const k of Object.keys(this.b)) this.b[k].addEventListener('click', (e) => { if (e.detail > 0) this.b[k].blur(); });
     setClass(this.b.loop, 'is-on', this.store.loop);
 
     const num = (k: string): number | null => { const v = Number(this.f[k].value); return this.f[k].value.trim() !== '' && Number.isFinite(v) ? Math.round(v) : null; };
@@ -308,6 +311,7 @@ export class AnimDock {
   }
 
   private togglePlay(): void {
+    if (this.store.job.running) return;
     if (this.store.playing) this.store.pause(); else this.store.play();
   }
 
@@ -480,11 +484,11 @@ export class AnimDock {
   private paintAvail(): void {
     const s = this.store;
     for (const n of this.needs) {
-      const off = this.missing(n.any) || (s.job.running && n.node !== this.b.cancel && n.node instanceof HTMLButtonElement && n.node !== this.b.fit);
+      const off = this.missing(n.any) || (s.job.running && n.node !== this.b.cancel && (n.node instanceof HTMLButtonElement || n.node === this.f.frame) && n.node !== this.b.fit);
       setDisabled(n.node, off);
     }
     setDisabled(this.b.cancel, !s.job.running || !s.has('anim.stop'));
-    setText(q(this.root, '[data-k="hint"]'), s.loaded && !s.has('anim.get') ? t('Unavailable in this engine build') : '');
+    setText(q(this.root, '[data-k="hint"]'), engineDown() && !s.has('anim.get') ? t(OFFLINE) : s.loaded && !s.has('anim.get') ? t('Unavailable in this engine build') : '');
   }
 
   private paintFields(): void {

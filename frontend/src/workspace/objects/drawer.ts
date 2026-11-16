@@ -5,6 +5,7 @@ import { icon } from '../../ui/icons';
 import { t } from '../../ui/i18n';
 import type { DocStore } from '../doc';
 import { label, patchKeyed, titled } from '../fabric/widgets';
+import { OFFLINE, engineDown, onEngineDown } from '../offline';
 import type { PatternView } from '../pattern-view/view';
 import type { Selection } from '../state';
 import { hasCommand, onCommands, run } from '../viz/api';
@@ -113,6 +114,7 @@ export class ObjectsDrawer {
     });
     doc.onChange(() => { if (this.isOpen && this.tab === 'graphic') this.schedule(); });
     onCommands(() => this.gate());
+    onEngineDown(() => this.paint());
     deps.commands.add({ id: 'app.objects', label: 'Object Browser', group: 'Window', icon: 'objects', run: () => this.setOpen(!this.isOpen), checked: () => this.isOpen });
 
     const saved = read(TAB_KEY);
@@ -200,7 +202,7 @@ export class ObjectsDrawer {
     this.sortBtn.dataset.dir = this.tab === 'scene' ? String(this.dir) : '0';
     const empty = this.shown.length === 0;
     setHidden(this.note, !empty);
-    setText(this.note, empty ? t(this.supported ? 'Nothing here yet' : 'The engine does not provide this list') : '');
+    setText(this.note, empty ? t(engineDown() ? OFFLINE : this.supported ? 'Nothing here yet' : 'The engine does not provide this list') : '');
     setText(this.foot, `${this.shown.length} ${t('items')}${this.picked.size ? `, ${this.picked.size} ${t('selected')}` : ''}`);
     this.gate();
   }

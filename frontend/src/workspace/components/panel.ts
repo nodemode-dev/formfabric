@@ -8,6 +8,7 @@ import { hasCommand, onCommands, run } from '../viz/api';
 import { components, list, toCheck, type CheckResult, type CompItem, type LibItem } from '../library/api';
 import { tr } from '../library/text';
 import { label, repaint } from '../fabric/widgets';
+import { OFFLINE, engineDown } from '../offline';
 import type { PatternView } from '../pattern-view/view';
 import type { DocStore } from '../doc';
 import type { Selection } from '../state';
@@ -136,7 +137,7 @@ export class ComponentsTab {
 
   async refresh(): Promise<void> {
     const got = await components();
-    if (got === undefined) return;
+    if (got === undefined) { if (!this.loaded) this.say(tr(engineDown() ? OFFLINE : 'The request failed'), true); return; }
     this.loaded = true;
     this.items = got;
     if (this.selected && !got.some((i) => i.id === this.selected)) this.selected = null;

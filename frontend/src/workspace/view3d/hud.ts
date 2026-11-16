@@ -88,7 +88,7 @@ export class Hud {
     b.type = 'button';
     b.className = 'ff3-btn';
     b.textContent = text;
-    b.addEventListener('click', () => { onClick(); b.blur(); });
+    b.addEventListener('click', (e) => { onClick(); if (e.detail > 0) b.blur(); });
     return b;
   }
 

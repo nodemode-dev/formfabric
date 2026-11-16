@@ -3,6 +3,7 @@ import { el, q, setClass, setDisabled, setHidden, setStyleVar, setText } from '.
 import { enhanceSelect } from '../../ui/dropdown';
 import { icon } from '../../ui/icons';
 import { t } from '../../ui/i18n';
+import { emptyLabel, engineDown } from '../offline';
 import type { Ctx } from './ctx';
 import { pickFabricFile } from './files';
 import { label, patchKeyed, repaint, titled } from './widgets';
@@ -11,7 +12,7 @@ import type { FabricInfo } from './types';
 const HTML =
   '<div class="ff-fb-tools"></div>' +
   '<p class="ff-fb-note" data-k="note"></p>' +
-  '<div class="ff-fb-list" data-k="list" role="listbox"></div>' +
+  '<div class="ff-fb-list" data-k="list" role="listbox"><p class="ff-fb-empty" data-k="empty" hidden></p></div>' +
   '<div class="ff-fb-uses"><span class="ff-fb-lbl" data-k="usedlbl"></span><div class="ff-fb-chips" data-k="chips"></div></div>' +
   '<div class="ff-fb-actions"></div>';
 
@@ -56,6 +57,7 @@ export class FabricsSection {
   private readonly list: HTMLElement;
   private readonly chips: HTMLElement;
   private readonly note: HTMLElement;
+  private readonly empty: HTMLElement;
   private readonly select: HTMLSelectElement;
   private readonly btn: Record<string, HTMLButtonElement> = {};
   private readonly count: HTMLElement;
@@ -67,6 +69,8 @@ export class FabricsSection {
     this.list = q(host, '[data-k="list"]');
     this.chips = q(host, '[data-k="chips"]');
     this.note = q(host, '[data-k="note"]');
+    this.empty = q(host, '[data-k="empty"]');
+    emptyLabel(this.empty, 'No fabrics yet. Add one with New from preset.');
     label(q(host, '[data-k="usedlbl"]'), 'Used by');
 
     const tools = q(host, '.ff-fb-tools');
@@ -213,6 +217,7 @@ export class FabricsSection {
         n.setAttribute('aria-selected', String(on));
       },
     });
+    setHidden(this.empty, all.length > 0 || (!store.loaded && !engineDown()));
     const used = f ? f.panels : [];
     patchKeyed(this.chips, used, {
       key: (id) => String(id),
