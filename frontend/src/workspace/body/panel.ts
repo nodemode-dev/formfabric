@@ -63,7 +63,7 @@ export class BodyPanel implements Ctx {
     close.innerHTML = icon('close', 16);
     titled(close, 'Close');
     close.addEventListener('click', () => { void this.setOpen(false); });
-    this.toggle.addEventListener('click', () => { void this.setOpen(!this.isOpen); this.toggle.blur(); });
+    this.toggle.addEventListener('click', (e) => { void this.setOpen(!this.isOpen); if (e.detail > 0) this.toggle.blur(); });
     root.addEventListener('click', (e) => {
       if (this.isOpen && !this.yielding && e.target instanceof Element && e.target.closest('.ff-fb-toggle')) void this.setOpen(false);
     }, true);

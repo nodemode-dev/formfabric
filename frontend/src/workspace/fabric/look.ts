@@ -42,7 +42,7 @@ export class LookSection {
     for (const [key, text] of SURFACES) {
       const b = el<HTMLButtonElement>('<button class="ff-fb-tab" type="button" role="tab"></button>');
       label(b, text);
-      b.addEventListener('click', () => { this.surf = key; this.update(); b.blur(); });
+      b.addEventListener('click', (e) => { this.surf = key; this.update(); if (e.detail > 0) b.blur(); });
       this.tabs.set(key, b);
       bar.appendChild(b);
     }
@@ -84,8 +84,8 @@ export class LookSection {
     const set = (path: string | null, field: HTMLInputElement | null): void => { void this.surfaceSend({ maps: { [key]: path } }, field); };
     input.addEventListener('change', () => { const v = input.value.trim(); set(v || null, input); });
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
-    pick.addEventListener('click', () => { void pickImage().then((p) => { if (p) set(p, null); }); pick.blur(); });
-    clear.addEventListener('click', () => { set(null, null); clear.blur(); });
+    pick.addEventListener('click', (e) => { void pickImage().then((p) => { if (p) set(p, null); }); if (e.detail > 0) pick.blur(); });
+    clear.addEventListener('click', (e) => { set(null, null); if (e.detail > 0) clear.blur(); });
     img.addEventListener('error', () => { img.hidden = true; });
     return { el: root, input, img, pick, clear, shown: '' };
   }

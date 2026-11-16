@@ -87,7 +87,7 @@ export class FabricsSection {
     const add = (id: string, ico: string, key: string, run: () => void, parent: HTMLElement = tools): void => {
       const b = el<HTMLButtonElement>(`<button class="cv-icon-btn" type="button">${icon(ico, 16)}</button>`);
       titled(b, key);
-      b.addEventListener('click', () => { run(); b.blur(); });
+      b.addEventListener('click', (e) => { run(); if (e.detail > 0) b.blur(); });
       parent.appendChild(b);
       this.btn[id] = b;
     };
@@ -102,7 +102,7 @@ export class FabricsSection {
     const assign = el<HTMLButtonElement>(`<button class="ff-btn ff-fb-assign" type="button">${icon('assignPanels', 14)}<span></span><span class="ff-fb-n"></span></button>`);
     label(assign.children[1] as HTMLElement, 'Assign to selected panels');
     this.count = q(assign, '.ff-fb-n');
-    assign.addEventListener('click', () => { void this.assign(false); assign.blur(); });
+    assign.addEventListener('click', (e) => { void this.assign(false); if (e.detail > 0) assign.blur(); });
     actions.appendChild(assign);
     this.btn.assign = assign;
     add('free', 'unassign', 'Follow default fabric', () => void this.assign(true), actions);

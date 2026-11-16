@@ -37,8 +37,8 @@ export class EditorSection {
     label(this.apply.children[1] as HTMLElement, 'Apply');
     this.reset = el<HTMLButtonElement>(`<button class="ff-btn" type="button">${icon('undo', 14)}<span></span></button>`);
     label(this.reset.children[1] as HTMLElement, 'Reset to original');
-    this.apply.addEventListener('click', () => { void this.send(this.targets()); this.apply.blur(); });
-    this.reset.addEventListener('click', () => { void this.restore(); this.reset.blur(); });
+    this.apply.addEventListener('click', (e) => { void this.send(this.targets()); if (e.detail > 0) this.apply.blur(); });
+    this.reset.addEventListener('click', (e) => { void this.restore(); if (e.detail > 0) this.reset.blur(); });
     actions.append(this.apply, this.reset);
   }
 

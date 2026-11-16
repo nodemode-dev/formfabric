@@ -70,12 +70,12 @@ export class BodiesSection {
       e.stopPropagation();
       const b = this.ctx.store.body(id());
       if (b) void this.ctx.store.run('body.show', { id: b.id, visible: !b.visible });
-      vis.blur();
+      if (e.detail > 0) vis.blur();
     });
     del.addEventListener('click', (e) => {
       e.stopPropagation();
       void this.ctx.store.run('body.remove', { id: id() });
-      del.blur();
+      if (e.detail > 0) del.blur();
     });
     return node;
   }
@@ -120,7 +120,7 @@ export class LibrarySection {
         const node = el('<div class="ff-bd-item"><span class="ff-bd-name"></span><span class="ff-bd-tag"></span></div>');
         const add = iconButton('add', 'Add Body', 'ff-bd-add');
         node.appendChild(add);
-        add.addEventListener('click', () => { void this.add(e.name); add.blur(); });
+        add.addEventListener('click', (ev) => { void this.add(e.name); if (ev.detail > 0) add.blur(); });
         return node;
       },
       update: (n, e) => {
@@ -153,7 +153,7 @@ export class ImportSection {
     const row = q(host, '.ff-bd-pathrow');
     if (nativeDialogs()) {
       const browse = iconButton('folderOpen', 'Browse', 'ff-bd-browse');
-      browse.addEventListener('click', () => { void this.browse(); browse.blur(); });
+      browse.addEventListener('click', (e) => { void this.browse(); if (e.detail > 0) browse.blur(); });
       row.appendChild(browse);
     }
     const units = selectRow('Units', UNITS, true, (v) => { this.units = v; });
@@ -162,7 +162,7 @@ export class ImportSection {
     host.insertBefore(up.el, q(host, '.ff-bd-actions'));
     this.go.innerHTML = `${icon('fileIn', 14)}<span></span>`;
     label(this.go.children[1] as HTMLElement, 'Import Body');
-    this.go.addEventListener('click', () => { void this.run(); this.go.blur(); });
+    this.go.addEventListener('click', (e) => { void this.run(); if (e.detail > 0) this.go.blur(); });
     this.path.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.go.click(); } });
   }
 

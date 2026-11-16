@@ -77,7 +77,7 @@ export class ObjectsDrawer {
     close.innerHTML = icon('close', 16);
     titled(close, 'Close');
     close.addEventListener('click', () => this.setOpen(false));
-    this.toggle.addEventListener('click', () => { this.setOpen(!this.isOpen); this.toggle.blur(); });
+    this.toggle.addEventListener('click', (e) => { this.setOpen(!this.isOpen); if (e.detail > 0) this.toggle.blur(); });
 
     const k = <T extends HTMLElement>(n: string): T => q<T>(this.drawer, `[data-k="${n}"]`);
     this.list = k('list');

@@ -233,7 +233,7 @@ export class AnimDock {
   }
 
   private wire(): void {
-    this.toggle.addEventListener('click', () => { this.setOpen(!this.isOpen); this.toggle.blur(); });
+    this.toggle.addEventListener('click', (e) => { this.setOpen(!this.isOpen); if (e.detail > 0) this.toggle.blur(); });
     this.b.motion.addEventListener('click', () => { this.motion.setOpen(!this.motion.open); this.motion.sync(); });
     this.b.record.addEventListener('click', () => { this.record(); });
     this.b.cancel.addEventListener('click', () => { void this.store.cancel(); });
