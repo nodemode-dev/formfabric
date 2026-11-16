@@ -17,7 +17,8 @@ _epoch = 0
 _read_only: set[str] | None = None
 _info: dict = {}
 _RECENT_NAMES = {"file.save", "file.open", "file_save", "file_open"}
-_REBASE = {"file.new", "file.open", "exchange.import_dxf"}
+_REBASE = {"file.new", "file.open", "exchange.import_dxf"} | recovery.LIVE_IDS
+_RESOLVED = {"pin.add": ("target", "pin", "target"), "body.tape": ("body_point", None, "body_point")}
 _MIB = 1024 * 1024
 _READ_LIMITS = {"file.open": 1024 * _MIB, "exchange.import_dxf": 256 * _MIB, "fabric.import": 256 * _MIB, "motion.import": 1024 * _MIB, "body.import": 1024 * _MIB, "trim.import": 1024 * _MIB}
 
@@ -106,8 +107,8 @@ def dispatch(name: str, args: dict | None, notify: bool = True) -> dict:
             if command == "file.save" and _is_autosave((args or {}).get("path")):
                 recovery.checkpoint()
             elif changed and mutating:
-                recovery.record(command, args, group)
-                if command in _REBASE and recovery.active():
+                behind = recovery.record(command, _resolved(command, args, reply.get("result")), group)
+                if (behind or command in _REBASE) and recovery.active():
                     saved = json.loads(_engine.dispatch("file.save", json.dumps({"path": str(recovery.autosave_file())})))
                     if saved.get("ok"):
                         recovery.checkpoint()
@@ -118,6 +119,16 @@ def dispatch(name: str, args: dict | None, notify: bool = True) -> dict:
         if notify:
             events.publish("engine.changed", epoch=_epoch, name=name)
     return reply
+
+
+def _resolved(command: str, args: dict | None, result) -> dict | None:
+    if command not in _RESOLVED or not isinstance(result, dict):
+        return args
+    key, inner, field = _RESOLVED[command]
+    source = result.get(inner) if inner else result
+    if not isinstance(source, dict) or field not in source:
+        return args
+    return {**(args or {}), key: source[field]}
 
 
 def _is_autosave(path) -> bool:

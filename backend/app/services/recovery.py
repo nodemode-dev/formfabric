@@ -10,7 +10,6 @@ from app.core import config
 
 MAX_STRING = 8192
 MAX_LOG_BYTES = 64 * 1024 * 1024
-SKIP_GROUPS = {"sim", "export"}
 SKIP_IDS = {
     "file.save", "fabric.export", "library.add", "library.remove", "library.set_roots", "component.save",
     "anim.record", "anim.stop", "anim.play", "anim.pause", "job.state", "job.harvest", "cache.frame",
@@ -20,12 +19,15 @@ REPLAY_PREFIXES = {
     "pattern", "panel", "styleline", "style", "print", "component", "sew", "tack", "button", "buttonhole",
     "hardware", "zipper", "stitch", "fray", "finish", "quilt", "trim", "fabric", "colorway", "body", "history",
     "view", "motion", "key", "morph", "measure3d", "stage", "light", "fur",
+    "arrange", "pin", "place", "wind", "fold", "fitshell", "uv", "thickness", "quad", "retopo", "topology",
 }
 REPLAY_IDS = {
     "sample.load", "library.insert", "snapshot.save", "snapshot.restore", "snapshot.remove",
     "place.volume_set", "place.point_set", "place.defaults", "anim.set", "anim.auto_key",
 }
-REPLAY_DENY = {"fabric.export", "component.save"}
+LIVE_IDS = {"pin.box", "pin.lasso", "sim.apply", "refit"}
+LIVE_REASON = "it took the positions of the running simulation, which the crash journal does not keep"
+REPLAY_DENY = {"fabric.export", "component.save"} | LIVE_IDS
 NOT_REPEATED = {
     "cache": "changes to recorded simulation caches are not repeated, because the recordings themselves are not kept in the crash journal",
     "map": "a fit map is a display choice of the 3D View, not part of the garment",
@@ -46,6 +48,8 @@ _restoring = threading.Lock()
 _owner = None
 _log_bytes = 0
 _count = 0
+_done = 0
+_undone = 0
 _closed = True
 _truncated = False
 _off_reason = JOURNAL_ERROR
@@ -58,6 +62,8 @@ def replayable(name: str) -> bool:
 
 
 def not_repeated_reason(name: str) -> str:
+    if name in LIVE_IDS:
+        return LIVE_REASON
     return NOT_REPEATED.get(str(name).split(".", 1)[0], NOT_REPEATED_DEFAULT)
 
 
@@ -249,19 +255,32 @@ def _clean_args(args: dict | None) -> tuple[dict, list[str]]:
 
 
 def skipped(name: str, group: str | None) -> bool:
-    return name in SKIP_IDS or name.startswith(SKIP_PREFIXES) or group in SKIP_GROUPS
+    return name in SKIP_IDS or name.startswith(SKIP_PREFIXES)
 
 
-def record(name: str, args: dict | None, group: str | None) -> None:
+def _behind(name: str) -> bool:
+    global _done, _undone
+    if name in HISTORY_IDS:
+        if (_done if name == "history.undo" else _undone) == 0:
+            return True
+        _done, _undone = (_done - 1, _undone + 1) if name == "history.undo" else (_done + 1, _undone - 1)
+    elif replayable(name) or not (name in NO_UNDO_STEP or name.split(".", 1)[0] in NO_UNDO_STEP):
+        _done, _undone = _done + 1, 0
+    return False
+
+
+def record(name: str, args: dict | None, group: str | None) -> bool:
     global _count, _log_bytes, _truncated
     if _closed or skipped(name, group):
-        return
+        return False
     kept, dropped = _clean_args(args)
     entry = {"n": _count + 1, "t": _now(), "id": name, "args": kept}
     if dropped:
         entry["dropped"] = dropped
     line = json.dumps(entry, separators=(",", ":")) + "\n"
     with _lock:
+        if _behind(name):
+            return True
         if _log_bytes + len(line) > MAX_LOG_BYTES:
             if not _truncated:
                 _truncated = True
@@ -270,18 +289,19 @@ def record(name: str, args: dict | None, group: str | None) -> None:
                     _state(truncated=True)
                 except OSError:
                     pass
-            return
+            return False
         try:
             with _log_file().open("a", encoding="utf-8") as handle:
                 handle.write(line)
         except OSError:
-            return
+            return False
         _count += 1
         _log_bytes += len(line)
+    return False
 
 
 def checkpoint() -> None:
-    global _count, _log_bytes, _truncated
+    global _count, _log_bytes, _truncated, _done, _undone
     with _lock:
         if _closed:
             return
@@ -290,6 +310,7 @@ def checkpoint() -> None:
             _state(autosave_at=_now(), clean=False, truncated=False)
         except OSError:
             return
+        _done = _undone = 0
         _count = 0
         _log_bytes = 0
         _truncated = False
