@@ -531,10 +531,12 @@ pub fn formats() -> Value {
         }
         Value::Object(m)
     };
+    let mut metres = common["units"].clone();
+    metres["default"] = json!("m");
     json!([
         {"id": "obj", "extension": "obj", "files": ["obj", "mtl"], "animation": "frame sequence: stem_0001.obj, stem_0002.obj and so on, one shared mtl", "options": with(json!({}))},
-        {"id": "gltf", "extension": "gltf", "files": ["gltf", "bin"], "animation": "morph targets with a weights animation (one target per frame)", "options": with(json!({}))},
-        {"id": "glb", "extension": "glb", "files": ["glb"], "animation": "morph targets with a weights animation (one target per frame)", "options": with(json!({}))},
+        {"id": "gltf", "extension": "gltf", "files": ["gltf", "bin"], "animation": "morph targets with a weights animation (one target per frame)", "options": with(json!({"units": metres.clone()}))},
+        {"id": "glb", "extension": "glb", "files": ["glb"], "animation": "morph targets with a weights animation (one target per frame)", "options": with(json!({"units": metres}))},
         {"id": "fbx", "extension": "fbx", "files": ["fbx"], "animation": "blend shapes (one shape per frame) with a DeformPercent curve; own FBX 7.4 writer", "options": with(json!({"binary": {"type": "boolean", "default": false, "description": "Write binary FBX 7.4 instead of ASCII. Blender's importer reads binary only."}}))},
         {"id": "usd", "extension": "usda", "files": ["usda"], "animation": "time sampled points on each Mesh", "options": with(json!({}))},
         {"id": "mdd", "extension": "mdd", "files": ["mdd"], "animation": "point cache (needs a cache)", "options": with(json!({}))},

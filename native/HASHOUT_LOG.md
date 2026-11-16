@@ -5,6 +5,7 @@ Living context for the Rust engine. What would be comments in the crates lives h
 ## v0.25.0 · 2026-11-16
 
 - `ffb-commands/src/output_cmds/scene.rs` :: `collect` · a panel that cannot be meshed fails UV layout, Export, Bake and Game-Ready with `panel <id> "<name>" cannot be meshed: <reason>`; the error used to give the reason only. The commands still stop on the first such panel (skipping it is a product choice).
+- `ffb-io/src/export/mod.rs` :: `formats` · the gltf and glb entries of `export.formats` carry their own `units` option with default `m` (glTF 2.0's unit); every other format keeps `mm`. `export.run` already fell back to metres for gltf, glb and abc when `units` was absent (`output_cmds/export.rs` `common`), but the window's Export dialog sends every option at its advertised default, so it wrote millimetres and Import Body with automatic units refused the dress ("860598 mm tall"). `format_options` (the `export.run` and `gameready.run` schemas) is unchanged, so Game-Ready, scene export and the link are not affected. Alembic's advertised default stays `mm` although its fallback is metres (left as is).
 
 ## v0.24.0 · 2026-11-15
 
