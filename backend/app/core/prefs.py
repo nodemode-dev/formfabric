@@ -8,6 +8,7 @@ DEFAULTS: dict = {
     "claudeFolder": "",
     "claudeBin": "",
     "claudeFirstMessage": "",
+    "agentsAllowed": True,
 }
 _lock = threading.Lock()
 

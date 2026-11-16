@@ -130,10 +130,12 @@ def open_(prompt: str | None = None, cols: int | None = None, rows: int | None =
     return session.describe()
 
 
-@command("agents.prefs", "Agent Settings", {"claudeFolder": {"type": "string"}, "claudeBin": {"type": "string"}, "claudeFirstMessage": {"type": "string"}},
-         description="Reads, or changes when values are given, the folder Claude Code starts in, the Claude Code program to run and a first message for new sessions. The window only.")
-def agent_prefs(claudeFolder: str | None = None, claudeBin: str | None = None, claudeFirstMessage: str | None = None) -> dict:
-    changes = {k: v for k, v in {"claudeFolder": claudeFolder, "claudeBin": claudeBin, "claudeFirstMessage": claudeFirstMessage}.items() if v is not None}
+@command("agents.prefs", "Agent Settings", {"claudeFolder": {"type": "string"}, "claudeBin": {"type": "string"}, "claudeFirstMessage": {"type": "string"}, "agentsAllowed": {"type": "boolean"}},
+         description="Reads, or changes when values are given, the folder Claude Code starts in, the Claude Code program to run, a first message for new sessions and whether outside agents may run commands. The window only.")
+def agent_prefs(claudeFolder: str | None = None, claudeBin: str | None = None, claudeFirstMessage: str | None = None, agentsAllowed: bool | None = None) -> dict:
+    changes = {k: v for k, v in {"claudeFolder": claudeFolder, "claudeBin": claudeBin, "claudeFirstMessage": claudeFirstMessage, "agentsAllowed": agentsAllowed}.items() if v is not None}
     current = prefs.update(changes) if changes else prefs.load()
+    if agentsAllowed is False:
+        agents.reset()
     _cache["value"] = None
     return {k: current[k] for k in prefs.DEFAULTS}

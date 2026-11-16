@@ -159,6 +159,7 @@ export function startApp(): void {
       home.refresh();
       void refresh();
       void session.pull();
+      pushAgents();
       adopt();
       void offerRecovery(() => { session.set(null, true); void refresh(); });
     } catch { loaded = false; }
@@ -178,6 +179,11 @@ export function startApp(): void {
   const captions = new CaptionButtons(q(app, '.cv-titlebar'), () => localStorage.getItem('formfabric.customTitleBar') === '1');
   document.addEventListener('ff:title-bar', () => captions.sync());
   document.addEventListener(PREFS_EVENT, () => captions.sync());
+  let agentsSent: Promise<unknown> = Promise.resolve();
+  const pushAgents = (): void => {
+    agentsSent = agentsSent.then(() => fetch(serviceUrl('/api/commands/agents.prefs'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agentsAllowed: loadPrefs().agentsAllowed }) })).catch(() => undefined);
+  };
+  document.addEventListener(PREFS_EVENT, (e) => { if ((e as CustomEvent<{ keys?: string[] }>).detail?.keys?.includes('agentsAllowed')) pushAgents(); });
 
   const menus = () => buildMenus(commands, () => session.recent(), () => (wsLayouts ? layoutSlotIds(wsLayouts) : []));
   const palette = new CommandPalette(commands, menus);
