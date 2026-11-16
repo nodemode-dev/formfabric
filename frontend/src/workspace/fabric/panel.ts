@@ -116,6 +116,9 @@ export class FabricPanel implements Ctx {
     setClass(this.toggle, 'is-active', on);
     this.toggle.setAttribute('aria-expanded', String(on));
     if (on) {
+      for (const other of document.querySelectorAll<HTMLElement>('.ff-body > aside[data-k]:not([hidden])')) {
+        if (other !== this.drawer) other.querySelector<HTMLButtonElement>('[data-k="close"]')?.click();
+      }
       void this.store.loadPresets();
       if (this.store.stale || !this.store.loaded) await this.store.refresh();
       if (!this.isOpen) return;

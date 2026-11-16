@@ -28,7 +28,7 @@ const CSS = `
 .ffd-meter i{position:absolute;left:0;top:0;bottom:0;width:calc(var(--p,0) * 100%);background:var(--accent-color)}
 .ffd-meter.is-indet i{width:30%;animation:ffd-slide 1.1s linear infinite}
 @keyframes ffd-slide{from{transform:translateX(-100%)}to{transform:translateX(340%)}}
-.ffd-strip{position:absolute;right:8px;bottom:8px;z-index:var(--z-raised);display:flex;flex-wrap:wrap;align-items:center;gap:6px;max-width:calc(100% - 16px);box-sizing:border-box;padding:4px 6px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:color-mix(in srgb,var(--bg-secondary) 92%,transparent);color:var(--text-secondary);font:500 var(--fs-11)/1 var(--font-ui)}
+.ffd-strip{position:absolute;right:8px;bottom:calc(34px + var(--ff-an-lift, 0px));z-index:var(--z-raised);display:flex;flex-wrap:wrap;align-items:center;gap:6px;max-width:calc(100% - 200px);box-sizing:border-box;padding:4px 6px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:color-mix(in srgb,var(--bg-secondary) 92%,transparent);color:var(--text-secondary);font:500 var(--fs-11)/1 var(--font-ui)}
 .ffd-strip .ffd-f input[type=range]{width:84px}
 .ffd-strip .ffd-val{min-width:34px}
 `;
@@ -51,7 +51,7 @@ export function button(english: string, onClick: () => void, cls = 'ffd-act'): H
   b.type = 'button';
   b.className = cls;
   labelled(b, english);
-  b.addEventListener('click', () => { onClick(); b.blur(); });
+  b.addEventListener('click', (e) => { onClick(); if (e.detail > 0) b.blur(); });
   return b;
 }
 

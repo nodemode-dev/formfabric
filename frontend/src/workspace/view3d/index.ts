@@ -202,6 +202,7 @@ export class View3D {
     this.probe = document.createElement('span');
     this.probe.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none';
     pane.appendChild(this.probe);
+    new MutationObserver(() => this.redraw()).observe(pane, { attributes: true, attributeFilter: ['class'] });
     const sw = document.createElement('canvas');
     sw.width = 1;
     sw.height = 1;
@@ -1088,11 +1089,13 @@ export class View3D {
       this.statShown = this.statText;
       this.statW = ctx.measureText(this.statText).width;
     }
+    const dock = this.pane.classList.contains('has-timeline') ? this.pane.querySelector<HTMLElement>(':scope > .ff-an') : null;
+    const base = H - (dock?.offsetHeight ?? 0) * this.dpr;
     ctx.globalAlpha = 0.78;
     ctx.fillStyle = this.colors?.bgCss ?? text;
-    ctx.fillRect(4 * this.dpr, H - 26 * this.dpr, this.statW + 12 * this.dpr, 20 * this.dpr);
+    ctx.fillRect(4 * this.dpr, base - 26 * this.dpr, this.statW + 12 * this.dpr, 20 * this.dpr);
     ctx.globalAlpha = 1;
     ctx.fillStyle = text;
-    ctx.fillText(this.statText, 10 * this.dpr, H - 10 * this.dpr);
+    ctx.fillText(this.statText, 10 * this.dpr, base - 10 * this.dpr);
   }
 }

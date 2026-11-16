@@ -234,6 +234,11 @@ export class OutputPanel {
     localStorage.setItem(OPEN_KEY, on ? '1' : '0');
     setClass(this.toggle, 'is-active', on);
     this.toggle.setAttribute('aria-expanded', String(on));
+    if (on) {
+      for (const other of document.querySelectorAll<HTMLElement>('.ff-body > aside[data-k]:not([hidden])')) {
+        if (other !== this.drawer) other.querySelector<HTMLButtonElement>('[data-k="close"]')?.click();
+      }
+    }
     setHidden(this.drawer, !on);
     if (on) { void this.store.loadRetopo(); this.paintThickness(); this.paint(); }
   }

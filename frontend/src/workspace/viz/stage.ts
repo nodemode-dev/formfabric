@@ -105,7 +105,7 @@ export class StageDrawer {
     close.innerHTML = icon('close', 16);
     titled(close, 'Close');
     close.addEventListener('click', () => this.setOpen(false));
-    toggle.addEventListener('click', () => { this.setOpen(!this.isOpen); toggle.blur(); });
+    toggle.addEventListener('click', (e) => { this.setOpen(!this.isOpen); if (e.detail > 0) toggle.blur(); });
 
     const lights = q(this.drawer, '[data-k="lights"]');
     const props = q(this.drawer, '[data-k="props"]');
@@ -182,6 +182,11 @@ export class StageDrawer {
     this.isOpen = on;
     localStorage.setItem(OPEN_KEY, on ? '1' : '0');
     setClass(this.toggle, 'is-on', on);
+    if (on) {
+      for (const other of document.querySelectorAll<HTMLElement>('.ff-body > aside[data-k]:not([hidden])')) {
+        if (other !== this.drawer) other.querySelector<HTMLButtonElement>('[data-k="close"]')?.click();
+      }
+    }
     setHidden(this.drawer, !on);
     if (on) this.refresh();
   }
