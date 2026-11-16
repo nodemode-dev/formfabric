@@ -1,5 +1,70 @@
 # Changelog
 
+## v0.25.0 · 2026-11-16
+
+A polish round before the public release: crash recovery keeps far more of your work and brings back the garment's file, the service refuses unsafe files and, when you switch them off, outside agents, glTF exports at the right size, and the window no longer shifts at load or loses keyboard focus. Nothing in this release was run on macOS or Windows; the desktop shell was compile-checked on Linux only, and no signing ran.
+
+Crash recovery:
+
+- After a crash, pins, panel arrangement and placement, folds, body tape, wind, fit shell, UV layout, export thickness, quad remesh, retopology guides and drawn topology are restored too; before, they were lost until the next autosave. View, animation, motion, key, morph, measurement, stage, light, fur and placement edits are repeated as well.
+- Box and lasso pins, Apply Drape and Refit save the autosave right away, so their result is kept exactly after a crash.
+- An undo or redo of work from before the last autosave is kept after a crash; it used to bring the undone step back. Undo after a restore no longer lands on the wrong step.
+- A restored garment keeps its file: the window shows its real name with the unsaved mark, and Save writes to the original file. If that file is gone or cannot be written, the garment comes back untitled as before.
+- The restore says in plain words what came back, and which kinds of command were left out or could not be repeated and why, in all 27 languages.
+- A recovery that was restored or dismissed is never offered again at a later launch.
+- A second formfabric on the same data folder keeps no autosave and no crash journal. The service now says so, and Home and the workspace show a notice that stays until you dismiss it.
+
+Agents, safety and the desktop app:
+
+- "Allow outside agents" in Preferences now does what it says: switched off, agents connecting over MCP (HTTP or stdio) and the other outside-agent paths are refused with a clear message, while the window and its own Claude Code dock keep working. It stays on by default.
+- Open, Import DXF, Import fabric, Import body, Import trim and Import motion refuse folders, devices, pipes and oversized files with a clear message instead of hanging.
+- The packaged app no longer accepts the development origins.
+- The desktop app looks for updates at the family download store, https://dl.formai.studio/formfabric/updates/latest.json, instead of a GitHub releases feed the public cannot read.
+- The desktop app shows a message and quits when its engine is missing, offers Keep Waiting or Quit when the engine stays silent at start, and offers Restart or Quit when the engine stops.
+- The unused outbound network module is removed from the service.
+
+Export and capture:
+
+- glTF and GLB export in metres by default, the unit glTF defines, so a garment opens at the right size in other tools and Import Body accepts the app's own file. Other formats keep millimetres, and the unit can still be chosen.
+- Video and Turntable capture record MP4 where WebM is not available, as in the macOS WebView, and the recording is saved to the chosen path.
+- UV, Export, Bake and Game-Ready name the panel that cannot be meshed.
+- The Game-Ready dialog no longer offers a Quads option the engine ignored (the export is always triangulated).
+
+Pattern View and 3D View:
+
+- Delete in Edit Points with no point selected no longer deletes the whole panel; it asks you to select a point first. A point selection no longer moves to another point after undo or an inserted point.
+- Seam mismatch and the units button in the status bar follow the unit chosen in Preferences instead of always showing millimetres.
+- Style lines show in the Pattern View with every tool, as in the 3D View.
+- Seam Check says the request failed instead of "All seams match" when the check could not run.
+- The statistics line, the map legend and the panel state strip are no longer hidden behind the open timeline. Opening a drawer closes the one that was open, the Maps menu closes after a choice, and the timeline cannot be scrubbed while a recording runs.
+- After a reload with an open garment, the Pattern View fits the garment, unless you have already panned or zoomed.
+
+Window and keyboard:
+
+- The workspace bar no longer shifts its buttons while the drawers load, and Home's template grid shows placeholder cards while the templates load instead of pushing the page down.
+- Space on a button reached with the keyboard presses that button; it no longer starts the drape.
+- Buttons in the Body, Fabric, Output, Library, Objects, Trims and Animation drawers keep keyboard focus after Enter or Space and show the focus ring.
+- Esc closes the topmost thing first: menu, then popover, then drawer, then tool. Panel controls are reached by Tab in reading order.
+- Panels that are empty or cannot load say what is going on and what to do, also while the engine is not running; the Pattern View says how to start when the garment has no panels.
+- The window notices within a few seconds when the service stops, shows it offline and reconnects when it comes back. On a slow connection the status bar no longer flips back to online while the engine is offline.
+- Close Garment has a shortcut: Ctrl+W (Cmd+W on macOS) in the desktop app, Ctrl+Alt+W in a browser, where Ctrl+W would close the tab.
+- The window shows the app's favicon.
+
+Preferences:
+
+- The default seam allowance sets the starting width of the Seam Allowance tool.
+- Sixteen preferences that nothing reads yet are shown disabled with "Not available yet" instead of looking live.
+
+For developers:
+
+- CI checks the version sites, the language tables, the agent tool reference and the build contract, and its actions use the family's pinned versions.
+- The agent tool reference and the Python catalogue are regenerated at this version.
+- The Timeline, Preferences, Fabric and UV panels write an attribute only when its value changes.
+
+Not run, and left open:
+
+- The desktop shell's engine dialogs, MP4 capture in WebKit, the desktop Close Garment key and the packaged app on macOS and Windows were not run.
+
 ## v0.24.0 · 2026-11-15
 
 formfabric joins the Form family standard for Home, the menu bar and the splash, with a full review of the engine, the window, the service and the desktop app behind it. Nothing in this release was run on macOS or Windows; the desktop shell was compile-checked on Linux only, and no signing ran.
