@@ -1009,4 +1009,7 @@ export const tr: Record<string, string> = {
   "Dresses": "Elbiseler",
   "Skirts": "Etekler",
   "Tops": "Üstler",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "Başka bir FormFabric penceresi aynı veri klasörünü kullanıyor. Bu pencerede otomatik kaydetme ve çökme sonrası kurtarma yok: çalışmanızı elle kaydedin.",
+  "No fabrics yet. Add one with New from preset.": "Henüz kumaş yok. Ön ayardan yeni ile bir tane ekleyin.",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "Henüz parça yok. Dikdörtgen (R) veya Kalıp parçası çiz (P) ile bir tane çizin ya da bir giysi açın.",
 };

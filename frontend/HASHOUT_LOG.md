@@ -15,6 +15,22 @@ Polish round: workspace bar, Preferences, outside agents, export units, shortcut
 - Export dialog: glTF and GLB start at metres because `export.formats` now says so (`native/HASHOUT_LOG.md`, v0.25.0). A unit the person chose before is kept in localStorage (`export.gltf`, `export.glb`) and still wins.
 - Menus: the catalogue marks no command as internal (no flag, no naming rule, no group: `pattern.begin_drag` and `pattern.end_drag` are ordinary `pattern` commands), so File, Export (35 rows) and Pattern (61 rows) are left as they are.
 
+### Pattern and 3D view, workspace panels (polish)
+
+- `pattern-view/tools-edit.ts` :: `EditTool.keydown` · Delete or Backspace with no point selected says "Select a point first" and stops there. It used to fall through to `view.ts` `keydown`, which deletes the selected panel; deleting a panel belongs to Select.
+- `state.ts` :: `Selection.prune` · takes the outline length per panel (`layout.ts` passes it on every document change) and drops `pts` and `seg` when their panel's point count changed, because they are indices and would land on another point after undo, redo or an inserted point.
+- `pattern-view/render-sew.ts` :: `mmText(v, unit)` · seam mismatch follows the unit preference in the canvas tags, the Seam Check list (`loadPrefs().units`, repainted from `syncPrefs`) and the inspector, as the lengths beside it do.
+- `pattern-view/render.ts` :: `Scene.under` · style lines are drawn with every tool, as the 3D View always shows them; `view.ts` passes `StyleLineTool.lines` while another tool is active.
+- `doc.ts` :: `pullSew` · a failed `sew.list` or `sew.check` sets `SewSnapshot.failed`; Seam Check then says the request failed instead of "All seams match". A canvas pick repaints the Seam Check rows (`selected` hook).
+- `anim/dock.ts` :: `setOpen` · the open timeline puts `has-timeline` on the 3D pane. `anim.css` sets `--ff-an-lift: 274px` there; the map legend, the measure hint and the panel state strip (`drape/ui.ts`, now 34 px up and clear of the legend) add it to their `bottom`, and `View3D.paintOverlay` lifts the statistics line by the dock's height. A class `MutationObserver` on the pane repaints the overlay.
+- `anim/dock.ts` · while a recording runs, the ruler does not scrub (`scrub` hook), the Frame field is disabled (`paintAvail`) and the play shortcut does nothing; `cache.frame` would only show cached frames and the view jumped.
+- Drawers: Fabric, Body, Trims, Output and Stage close every other open `.ff-body > aside[data-k]` through its close button when they open, as Library and Objects already did; Body and Fabric only closed each other, and Stage covered Body. Esc closes the open drawer (`layout.ts` keydown, after menus and popovers); `viz/pop.ts` marks its Esc handled so it does not also reach the drawer or the tool.
+- `viz/maps.ts` · a map choice closes the Maps menu. `viz/pop.ts` returns focus to its button when it closes with focus inside, and buttons in the 3D toolbar, the drape bar, the tool rail and the timeline blur only after a pointer click (`e.detail > 0`), so a keyboard user keeps their place.
+- `viz/capture.ts` :: `videoType` · Video and Turntable record WebM when `MediaRecorder` supports it and MP4 otherwise; the Type labels, the path extension and the file follow. `capture.write` accepts png, webm and gif only, so an MP4 is written through the engine only when its schema lists `mp4` (`writesKind`), and is downloaded otherwise. Not run on WebKit.
+- `output/bake.ts` :: `GameReadyDialog` · the Quads toggle is gone: `gameready.run` documents `quads` as reserved and always triangulates.
+- `offline.ts` · `engineDown`, `onEngineDown`, `emptyLabel`: empty notes in the Body, Fabric and Trims lists, the Objects list, the Library, Snapshots and Components tabs, the timeline hint and the new Pattern View note ("No panels yet ...") say the engine is not running while the link is down, instead of "nothing here" or "not provided by this engine".
+- `shell/home/second.ts` · when `/api/recovery` reports `autosave_active: false` with `autosave_off_reason: "second_service"` (contract in the service's v0.25.0 entry), a toast that does not time out says this window keeps no autosave and no crash recovery. Checked at start and on every link-up; the toast root sits above Home.
+
 ## v0.24.0 · 2026-11-15
 
 Pre-release audit of the shell, the engine link and the Output, Drape, Fabric and Library panels.

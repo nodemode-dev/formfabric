@@ -1009,4 +1009,7 @@ export const nl: Record<string, string> = {
   "Dresses": "Jurken",
   "Skirts": "Rokken",
   "Tops": "Tops",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "Een ander FormFabric-venster gebruikt dezelfde gegevensmap. Dit venster heeft geen automatische opslag en geen herstel na een crash: sla je werk zelf op.",
+  "No fabrics yet. Add one with New from preset.": "Nog geen stoffen. Voeg er een toe met Nieuw uit voorinstelling.",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "Nog geen panelen. Teken er een met Rechthoek (R) of Patroondeel tekenen (P), of open een kledingstuk.",
 };

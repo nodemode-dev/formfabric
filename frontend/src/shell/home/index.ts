@@ -7,6 +7,7 @@ import { icon } from '../../ui/icons';
 import { language, onLanguage, t as say } from '../../ui/i18n';
 import { toast } from '../../ui/toast';
 import { api, garmentThumb, picture, templateThumb, type GarmentSummary, type TemplateSummary, type TrashedGarment } from './api';
+import { watchSecondService } from './second';
 
 export interface HomeHooks {
   openGarment(garment: GarmentSummary): void;
@@ -688,6 +689,7 @@ ${demos}
 let home: Home | null = null;
 
 export function mountHome(host: HTMLElement, hooks: HomeHooks): Home {
+  if (!home) watchSecondService();
   home ??= new Home(host, hooks);
   return home;
 }

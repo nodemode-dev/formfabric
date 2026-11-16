@@ -1009,4 +1009,7 @@ export const hi: Record<string, string> = {
   "Dresses": "ड्रेस",
   "Skirts": "स्कर्ट",
   "Tops": "टॉप",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "एक और FormFabric विंडो उसी डेटा फ़ोल्डर का उपयोग कर रही है। इस विंडो में न ऑटोसेव है न क्रैश के बाद रिकवरी: अपना काम खुद सहेजें।",
+  "No fabrics yet. Add one with New from preset.": "अभी कोई कपड़ा नहीं। प्रीसेट से नया के साथ एक जोड़ें।",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "अभी कोई पैनल नहीं। आयत (R) या पैनल बनाएँ (P) से एक बनाएँ, या कोई परिधान खोलें।",
 };

@@ -1009,4 +1009,7 @@ export const ar: Record<string, string> = {
   "Dresses": "فساتين",
   "Skirts": "تنانير",
   "Tops": "ملابس علوية",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "نافذة FormFabric أخرى تستخدم مجلد البيانات نفسه. هذه النافذة لا تحفظ تلقائيًا ولا تستعيد العمل بعد التعطل: احفظ عملك يدويًا.",
+  "No fabrics yet. Add one with New from preset.": "لا توجد أقمشة بعد. أضف قماشًا عبر «جديد من إعداد مسبق».",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "لا توجد قطع بعد. ارسم قطعة باستخدام «مستطيل» (R) أو «رسم قطعة» (P)، أو افتح قطعة ملابس.",
 };

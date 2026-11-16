@@ -1009,4 +1009,7 @@ export const fi: Record<string, string> = {
   "Dresses": "Mekot",
   "Skirts": "Hameet",
   "Tops": "Yläosat",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "Toinen FormFabric-ikkuna käyttää samaa datakansiota. Tässä ikkunassa ei ole automaattista tallennusta eikä palautusta kaatumisen jälkeen: tallenna työsi itse.",
+  "No fabrics yet. Add one with New from preset.": "Ei vielä kankaita. Lisää kangas kohdasta Uusi esiasetuksesta.",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "Ei vielä kappaleita. Piirrä kappale työkalulla Suorakulmio (R) tai Piirrä kaavaosa (P), tai avaa vaate.",
 };

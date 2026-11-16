@@ -1009,4 +1009,7 @@ export const cs: Record<string, string> = {
   "Dresses": "Šaty",
   "Skirts": "Sukně",
   "Tops": "Topy",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "Jiné okno FormFabric používá stejnou složku dat. Toto okno nemá automatické ukládání ani obnovu po pádu: ukládejte práci ručně.",
+  "No fabrics yet. Add one with New from preset.": "Zatím žádné látky. Přidejte jednu přes Nová z předvolby.",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "Zatím žádné díly. Nakreslete jeden nástrojem Obdélník (R) nebo Kreslit střihový díl (P), nebo otevřete oděv.",
 };

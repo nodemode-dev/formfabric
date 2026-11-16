@@ -1009,4 +1009,7 @@ export const th: Record<string, string> = {
   "Dresses": "เดรส",
   "Skirts": "กระโปรง",
   "Tops": "เสื้อ",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "หน้าต่าง FormFabric อีกหน้าต่างหนึ่งใช้โฟลเดอร์ข้อมูลเดียวกัน หน้าต่างนี้ไม่มีการบันทึกอัตโนมัติและไม่มีการกู้คืนหลังโปรแกรมขัดข้อง: โปรดบันทึกงานด้วยตนเอง",
+  "No fabrics yet. Add one with New from preset.": "ยังไม่มีผ้า เพิ่มผ้าได้ด้วย สร้างใหม่จากค่าที่ตั้งไว้",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "ยังไม่มีชิ้นส่วน วาดด้วย สี่เหลี่ยมผืนผ้า (R) หรือ วาดชิ้นส่วน (P) หรือเปิดเสื้อผ้า",
 };

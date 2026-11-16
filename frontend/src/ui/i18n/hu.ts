@@ -1009,4 +1009,7 @@ export const hu: Record<string, string> = {
   "Dresses": "Ruhák",
   "Skirts": "Szoknyák",
   "Tops": "Felsők",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "Egy másik FormFabric-ablak ugyanazt az adatmappát használja. Ebben az ablakban nincs automatikus mentés és összeomlás utáni helyreállítás: mentse a munkáját kézzel.",
+  "No fabrics yet. Add one with New from preset.": "Még nincs anyag. Adjon hozzá egyet az Új előbeállításból paranccsal.",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "Még nincs elem. Rajzoljon egyet a Téglalap (R) vagy a Szabásmintarész rajzolása (P) eszközzel, vagy nyisson meg egy ruhadarabot.",
 };

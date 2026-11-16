@@ -1009,4 +1009,7 @@ export const zhCN: Record<string, string> = {
   "Dresses": "连衣裙",
   "Skirts": "半身裙",
   "Tops": "上衣",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "另一个 FormFabric 窗口正在使用同一个数据文件夹。此窗口没有自动保存，也没有崩溃后恢复：请手动保存你的工作。",
+  "No fabrics yet. Add one with New from preset.": "还没有面料。请用“从预设新建”添加。",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "还没有裁片。用矩形 (R) 或绘制裁片 (P) 画一个，或打开一件服装。",
 };

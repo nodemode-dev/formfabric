@@ -1009,4 +1009,7 @@ export const nb: Record<string, string> = {
   "Dresses": "Kjoler",
   "Skirts": "Skjørt",
   "Tops": "Overdeler",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "Et annet FormFabric-vindu bruker samme datamappe. Dette vinduet har ingen automatisk lagring og ingen gjenoppretting etter krasj: lagre arbeidet ditt manuelt.",
+  "No fabrics yet. Add one with New from preset.": "Ingen stoffer ennå. Legg til et med Ny fra forhåndsinnstilling.",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "Ingen paneler ennå. Tegn et med Rektangel (R) eller Tegn mønsterdel (P), eller åpne et plagg.",
 };

@@ -1009,4 +1009,7 @@ export const el: Record<string, string> = {
   "Dresses": "Φορέματα",
   "Skirts": "Φούστες",
   "Tops": "Μπλούζες",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "Ένα άλλο παράθυρο FormFabric χρησιμοποιεί τον ίδιο φάκελο δεδομένων. Αυτό το παράθυρο δεν έχει αυτόματη αποθήκευση ούτε ανάκτηση μετά από κατάρρευση: αποθηκεύετε την εργασία σας χειροκίνητα.",
+  "No fabrics yet. Add one with New from preset.": "Δεν υπάρχουν ακόμη υφάσματα. Προσθέστε ένα με Νέο από προρύθμιση.",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "Δεν υπάρχουν ακόμη τεμάχια. Σχεδιάστε ένα με Ορθογώνιο (R) ή Σχεδίαση τμήματος (P), ή ανοίξτε ένα ρούχο.",
 };

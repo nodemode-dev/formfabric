@@ -1009,4 +1009,7 @@ export const srLatn: Record<string, string> = {
   "Dresses": "Haljine",
   "Skirts": "Suknje",
   "Tops": "Gornji delovi",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "Drugi FormFabric prozor koristi istu fasciklu sa podacima. Ovaj prozor nema automatsko čuvanje ni oporavak posle pada: sačuvajte rad ručno.",
+  "No fabrics yet. Add one with New from preset.": "Još nema tkanina. Dodajte jednu preko Nova iz postavke.",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "Još nema delova. Nacrtajte jedan alatkom Pravougaonik (R) ili Nacrtaj deo kroja (P), ili otvorite odevni predmet.",
 };

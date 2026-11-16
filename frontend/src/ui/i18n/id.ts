@@ -1009,4 +1009,7 @@ export const id: Record<string, string> = {
   "Dresses": "Gaun",
   "Skirts": "Rok",
   "Tops": "Atasan",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "Jendela FormFabric lain memakai folder data yang sama. Jendela ini tidak punya simpan otomatis maupun pemulihan setelah crash: simpan pekerjaan Anda secara manual.",
+  "No fabrics yet. Add one with New from preset.": "Belum ada kain. Tambahkan dengan Baru dari preset.",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "Belum ada panel. Gambar satu dengan Persegi panjang (R) atau Gambar panel (P), atau buka pakaian.",
 };

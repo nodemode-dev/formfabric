@@ -1009,4 +1009,7 @@ export const ko: Record<string, string> = {
   "Dresses": "드레스",
   "Skirts": "스커트",
   "Tops": "상의",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "다른 FormFabric 창이 같은 데이터 폴더를 사용하고 있습니다. 이 창에는 자동 저장과 충돌 후 복구가 없습니다. 작업을 직접 저장하세요.",
+  "No fabrics yet. Add one with New from preset.": "아직 원단이 없습니다. 프리셋에서 새로 만들기로 추가하세요.",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "아직 패널이 없습니다. 사각형 (R) 또는 패널 그리기 (P)로 그리거나 의류를 여세요.",
 };

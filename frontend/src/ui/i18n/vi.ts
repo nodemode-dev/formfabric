@@ -1009,4 +1009,7 @@ export const vi: Record<string, string> = {
   "Dresses": "Váy liền",
   "Skirts": "Chân váy",
   "Tops": "Áo",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "Một cửa sổ FormFabric khác đang dùng cùng thư mục dữ liệu. Cửa sổ này không tự động lưu và không khôi phục sau sự cố: hãy tự lưu công việc của bạn.",
+  "No fabrics yet. Add one with New from preset.": "Chưa có vải nào. Thêm vải bằng Mới từ cài đặt sẵn.",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "Chưa có mảnh rập nào. Vẽ một mảnh bằng Hình chữ nhật (R) hoặc Vẽ mảnh rập (P), hoặc mở một trang phục.",
 };

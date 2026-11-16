@@ -1009,4 +1009,7 @@ export const ja: Record<string, string> = {
   "Dresses": "ドレス",
   "Skirts": "スカート",
   "Tops": "トップス",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "別の FormFabric ウィンドウが同じデータフォルダーを使っています。このウィンドウには自動保存もクラッシュ後の復元もありません。作業は手動で保存してください。",
+  "No fabrics yet. Add one with New from preset.": "生地はまだありません。「プリセットから新規作成」で追加してください。",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "パネルはまだありません。長方形 (R) かパーツを描く (P) で描くか、衣服を開いてください。",
 };

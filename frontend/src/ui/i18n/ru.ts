@@ -1009,4 +1009,7 @@ export const ru: Record<string, string> = {
   "Dresses": "Платья",
   "Skirts": "Юбки",
   "Tops": "Верх",
+  "Another FormFabric window is using the same data folder. This one keeps no autosave and no crash recovery: save your work by hand.": "Другое окно FormFabric использует ту же папку данных. В этом окне нет автосохранения и восстановления после сбоя: сохраняйте работу вручную.",
+  "No fabrics yet. Add one with New from preset.": "Тканей пока нет. Добавьте ткань командой «Создать из пресета».",
+  "No panels yet. Draw one with Rectangle (R) or Draw Panel (P), or open a garment.": "Деталей пока нет. Нарисуйте деталь инструментом «Прямоугольник» (R) или «Рисовать деталь» (P) либо откройте изделие.",
 };
