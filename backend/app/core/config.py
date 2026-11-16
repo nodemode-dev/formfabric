@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from app import __version__
@@ -40,17 +41,24 @@ def is_desktop() -> bool:
     return os.environ.get("FFB_DESKTOP") == "1"
 
 
+def is_frozen() -> bool:
+    return bool(getattr(sys, "frozen", False))
+
+
 def cors_origins() -> list[str]:
     configured = os.environ.get("FFB_CORS_ORIGINS")
     if configured:
         return [o.strip() for o in configured.split(",") if o.strip()]
+    if is_frozen():
+        return []
     return [f"http://localhost:{FRONTEND_PORT}", f"http://127.0.0.1:{FRONTEND_PORT}"]
 
 
 def window_origins() -> list[str]:
     preview = FRONTEND_PORT + 2
     own = engine_port()
-    return [*cors_origins(), f"http://localhost:{preview}", f"http://127.0.0.1:{preview}", f"http://127.0.0.1:{own}", f"http://localhost:{own}", "tauri://localhost", "http://tauri.localhost"]
+    dev = [] if is_frozen() else [f"http://localhost:{preview}", f"http://127.0.0.1:{preview}"]
+    return [*cors_origins(), *dev, f"http://127.0.0.1:{own}", f"http://localhost:{own}", "tauri://localhost", "http://tauri.localhost"]
 
 
 TOKEN_MIN = 32
