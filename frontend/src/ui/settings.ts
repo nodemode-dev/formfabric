@@ -1,5 +1,5 @@
 import { Dialog, confirmAction } from './dialogs';
-import { el, q, setClass, setHidden, setText, setValue } from './dom';
+import { el, q, setAttr, setClass, setHidden, setText, setValue } from './dom';
 import { icon } from './icons';
 import { language, languages, onLanguage, setLanguage, t, type Lang } from './i18n';
 import { DEFAULT_PREFS, FONT_SIZES, LAYOUTS, UNITS, loadPrefs, resetPrefs, updatePrefs, type Prefs } from './prefs';
@@ -81,6 +81,8 @@ export class SettingsDialog extends Dialog {
     const slider = (key: keyof Prefs, label: string, min: number, max: number, step: number): Row<number> => this.keep(key, sliderRow(label, min, max, step, (v) => this.change({ [key]: v } as Partial<Prefs>), DEFAULT_PREFS[key] as number));
     const num = (key: keyof Prefs, label: string, min: number, max: number, step: number): Row<number> => this.keep(key, numberRow(label, min, max, step, (v) => this.change({ [key]: v } as Partial<Prefs>)));
     const pickRow = (key: keyof Prefs, label: string, options: ReadonlyArray<readonly [string, string]>, map: (v: string) => unknown = (v) => v): Row<string> => this.keep(key, selectRow(label, options, (v) => this.change({ [key]: map(v) } as Partial<Prefs>)));
+    const later = <T>(row: Row<T>): HTMLElement => { row.disable(true); return row.el; };
+    const soon = (): HTMLElement => note('Not available yet');
 
     const reset = el<HTMLButtonElement>('<button class="cv-btn cv-btn-danger" type="button">Reset All Preferences...</button>');
     reset.addEventListener('click', () => {
@@ -97,7 +99,7 @@ export class SettingsDialog extends Dialog {
     menusIn.disable(!('__TAURI_INTERNALS__' in window) || !isMac);
 
     add('General',
-      grp('Startup', toggle('autoShowHome', 'Show Home screen at launch').el, toggle('homeOnLastClose', 'Show Home screen when the last document closes').el, toggle('updateAtStart', 'Look for updates at start').el),
+      grp('Startup', toggle('autoShowHome', 'Show Home screen at launch').el, toggle('homeOnLastClose', 'Show Home screen when the last document closes').el, later(toggle('updateAtStart', 'Look for updates at start')), soon()),
       grp('Recent Files', slider('recentFileCount', 'Recent files listed', 0, 40, 1).el),
       grp('Reset', reset));
 
@@ -119,7 +121,7 @@ export class SettingsDialog extends Dialog {
     const darks = Object.entries(THEMES).filter(([, th]) => !th.light).map(([k, th]) => [k, th.label] as const);
     this.intensity = intensity;
     add('Interface',
-      grp('Theme', this.grid, accentRow, intensity.el, toggle('themeAuto', 'Match system appearance').el, cols(pickRow('themeLight', 'Light theme', lights).el, pickRow('themeDark', 'Dark theme', darks).el),
+      grp('Theme', this.grid, accentRow, intensity.el, later(toggle('themeAuto', 'Match system appearance')), cols(later(pickRow('themeLight', 'Light theme', lights)), later(pickRow('themeDark', 'Dark theme', darks))), soon(),
         note('Right-click a theme to favorite it. Theme and accent are shared with the other NodeMode apps on this device.')),
       grp('Language and Text', pickRow('language', 'Language', languages() as ReadonlyArray<readonly [string, string]>, (v) => { void setLanguage(v as Lang); return v; }).el,
         pickRow('uiFontSize', 'Interface text size', FONT_SIZES.map((s) => [s, s[0].toUpperCase() + s.slice(1)] as const)).el),
@@ -135,12 +137,12 @@ export class SettingsDialog extends Dialog {
       }), note('Preferences, shortcuts and saved layouts, as one JSON file.')));
 
     add('Performance',
-      grp('Graphics', toggle('useGpu', 'Use the graphics processor').el,
-        pickRow('framePacingMs', 'Frame pacing', [['0', 'Display rate'], ['16', '60 frames a second'], ['33', '30 frames a second']], Number).el),
-      grp('Threads', slider('workerThreads', 'Worker threads (0 is automatic)', 0, 16, 1).el));
+      grp('Graphics', later(toggle('useGpu', 'Use the graphics processor')),
+        later(pickRow('framePacingMs', 'Frame pacing', [['0', 'Display rate'], ['16', '60 frames a second'], ['33', '30 frames a second']], Number)), soon()),
+      grp('Threads', later(slider('workerThreads', 'Worker threads (0 is automatic)', 0, 16, 1)), soon()));
 
     add('History & Cache',
-      grp('Undo', slider('historyStates', 'History steps kept', 10, 1000, 10).el, slider('historyCapMb', 'History kept in projects (MB, 0 is none)', 0, 512, 16).el));
+      grp('Undo', later(slider('historyStates', 'History steps kept', 10, 1000, 10)), later(slider('historyCapMb', 'History kept in projects (MB, 0 is none)', 0, 512, 16)), soon()));
 
     add('Pattern',
       grp('Units', pickRow('units', 'Units', UNITS.map((u) => [u, u] as const)).el, note('Lengths are stored in millimetres; this only changes how they are shown and typed.')),
@@ -154,13 +156,13 @@ export class SettingsDialog extends Dialog {
       pickRow('simDevice', 'Solver device', [['auto', 'Automatic'], ['cpu', 'Processor'], ['gpu', 'Graphics processor']]),
     ];
     drape[3].disable(true);
-    add('Drape', grp('Simulation', ...drape.map((r) => r.el), note('Changes apply to the simulation as you make them.')));
+    add('Drape', grp('Simulation', ...drape.map((r) => r.el), soon(), note('Changes apply to the simulation as you make them.')));
 
     add('Viewport',
-      grp('Renderer', pickRow('renderer', 'Renderer', [['auto', 'Automatic'], ['webgpu', 'WebGPU'], ['webgl', 'WebGL']]).el,
-        pickRow('vpAntialias', 'Antialiasing', [['0', 'Off'], ['2', '2x'], ['4', '4x']], Number).el),
-      grp('Scene', toggle('vpShadows', 'Shadows').el, toggle('vpFloor', 'Show the floor').el,
-        pickRow('vpBackground', 'Background', [['theme', 'Theme'], ['dark', 'Dark'], ['light', 'Light']]).el));
+      grp('Renderer', later(pickRow('renderer', 'Renderer', [['auto', 'Automatic'], ['webgpu', 'WebGPU'], ['webgl', 'WebGL']])),
+        later(pickRow('vpAntialias', 'Antialiasing', [['0', 'Off'], ['2', '2x'], ['4', '4x']], Number)), soon()),
+      grp('Scene', later(toggle('vpShadows', 'Shadows')), later(toggle('vpFloor', 'Show the floor')),
+        later(pickRow('vpBackground', 'Background', [['theme', 'Theme'], ['dark', 'Dark'], ['light', 'Light']])), soon()));
 
     const mcp = el<HTMLInputElement>('<input class="cv-input" type="text" readonly aria-label="Agent address" spellcheck="false">');
     mcp.value = `${location.origin}/api/mcp`;
@@ -171,9 +173,11 @@ export class SettingsDialog extends Dialog {
     this.nodemode = nodemode;
     const nodemodeRow = el('<label class="cv-field"><span>NodeMode address</span></label>');
     nodemodeRow.appendChild(nodemode);
+    nodemode.disabled = true;
+    nodemodeRow.classList.add('is-off');
     add('Plugins',
-      grp('Connected Apps', toggle('agentsAllowed', 'Allow outside agents').el, mcpRow, nodemodeRow,
-        note('Agents connect to the address above; every command in the menus is also a tool for them.')),
+      grp('Connected Apps', toggle('agentsAllowed', 'Allow outside agents').el, mcpRow,
+        note('Agents connect to the address above; every command in the menus is also a tool for them.'), nodemodeRow, soon()),
       grp('Plugins', note('No plugins are installed.')));
 
     this.pagesEl = pages;
@@ -280,7 +284,7 @@ export class SettingsDialog extends Dialog {
     if (this.current === name) return;
     this.current = name;
     for (const [n, page] of this.sections) setClass(page, 'is-current', n === name);
-    for (const tab of Array.from(this.nav.children) as HTMLElement[]) { const on = tab.dataset.section === name; setClass(tab, 'is-active', on); tab.setAttribute('aria-selected', String(on)); }
+    for (const tab of Array.from(this.nav.children) as HTMLElement[]) { const on = tab.dataset.section === name; setClass(tab, 'is-active', on); setAttr(tab, 'aria-selected', String(on)); }
     this.queueWire();
   }
 

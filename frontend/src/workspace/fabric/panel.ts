@@ -58,7 +58,7 @@ export class FabricPanel implements Ctx {
     close.innerHTML = icon('close', 16);
     titled(close, 'Close');
     close.addEventListener('click', () => this.setOpen(false));
-    this.toggle.addEventListener('click', () => { this.setOpen(!this.isOpen); this.toggle.blur(); });
+    this.toggle.addEventListener('click', (e) => { this.setOpen(!this.isOpen); if (e.detail > 0) this.toggle.blur(); });
 
     const part = (k: string): HTMLElement => q(this.drawer, `[data-k="${k}"].ff-fb-body`);
     this.fabrics = new FabricsSection(part('fabrics'), this);
@@ -116,6 +116,9 @@ export class FabricPanel implements Ctx {
     setClass(this.toggle, 'is-active', on);
     this.toggle.setAttribute('aria-expanded', String(on));
     if (on) {
+      for (const other of document.querySelectorAll<HTMLElement>('.ff-body > aside[data-k]:not([hidden])')) {
+        if (other !== this.drawer) other.querySelector<HTMLButtonElement>('[data-k="close"]')?.click();
+      }
       void this.store.loadPresets();
       if (this.store.stale || !this.store.loaded) await this.store.refresh();
       if (!this.isOpen) return;

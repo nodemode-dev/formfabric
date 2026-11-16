@@ -1,8 +1,9 @@
 import { Dialog } from '../../ui/dialogs';
-import { el, q, setClass, setDisabled, setHidden, setStyleVar, setText } from '../../ui/dom';
+import { el, q, setAttr, setClass, setDisabled, setHidden, setStyleVar, setText } from '../../ui/dom';
 import { enhanceSelect } from '../../ui/dropdown';
 import { icon } from '../../ui/icons';
 import { t } from '../../ui/i18n';
+import { emptyLabel, engineDown } from '../offline';
 import type { Ctx } from './ctx';
 import { pickFabricFile } from './files';
 import { label, patchKeyed, repaint, titled } from './widgets';
@@ -11,7 +12,7 @@ import type { FabricInfo } from './types';
 const HTML =
   '<div class="ff-fb-tools"></div>' +
   '<p class="ff-fb-note" data-k="note"></p>' +
-  '<div class="ff-fb-list" data-k="list" role="listbox"></div>' +
+  '<div class="ff-fb-list" data-k="list" role="listbox"><p class="ff-fb-empty" data-k="empty" hidden></p></div>' +
   '<div class="ff-fb-uses"><span class="ff-fb-lbl" data-k="usedlbl"></span><div class="ff-fb-chips" data-k="chips"></div></div>' +
   '<div class="ff-fb-actions"></div>';
 
@@ -56,6 +57,7 @@ export class FabricsSection {
   private readonly list: HTMLElement;
   private readonly chips: HTMLElement;
   private readonly note: HTMLElement;
+  private readonly empty: HTMLElement;
   private readonly select: HTMLSelectElement;
   private readonly btn: Record<string, HTMLButtonElement> = {};
   private readonly count: HTMLElement;
@@ -67,6 +69,8 @@ export class FabricsSection {
     this.list = q(host, '[data-k="list"]');
     this.chips = q(host, '[data-k="chips"]');
     this.note = q(host, '[data-k="note"]');
+    this.empty = q(host, '[data-k="empty"]');
+    emptyLabel(this.empty, 'No fabrics yet. Add one with New from preset.');
     label(q(host, '[data-k="usedlbl"]'), 'Used by');
 
     const tools = q(host, '.ff-fb-tools');
@@ -83,7 +87,7 @@ export class FabricsSection {
     const add = (id: string, ico: string, key: string, run: () => void, parent: HTMLElement = tools): void => {
       const b = el<HTMLButtonElement>(`<button class="cv-icon-btn" type="button">${icon(ico, 16)}</button>`);
       titled(b, key);
-      b.addEventListener('click', () => { run(); b.blur(); });
+      b.addEventListener('click', (e) => { run(); if (e.detail > 0) b.blur(); });
       parent.appendChild(b);
       this.btn[id] = b;
     };
@@ -98,7 +102,7 @@ export class FabricsSection {
     const assign = el<HTMLButtonElement>(`<button class="ff-btn ff-fb-assign" type="button">${icon('assignPanels', 14)}<span></span><span class="ff-fb-n"></span></button>`);
     label(assign.children[1] as HTMLElement, 'Assign to selected panels');
     this.count = q(assign, '.ff-fb-n');
-    assign.addEventListener('click', () => { void this.assign(false); assign.blur(); });
+    assign.addEventListener('click', (e) => { void this.assign(false); if (e.detail > 0) assign.blur(); });
     actions.appendChild(assign);
     this.btn.assign = assign;
     add('free', 'unassign', 'Follow default fabric', () => void this.assign(true), actions);
@@ -210,9 +214,10 @@ export class FabricsSection {
         if (n.title !== title) n.title = title;
         const on = x.id === f?.id;
         setClass(n, 'is-sel', on);
-        n.setAttribute('aria-selected', String(on));
+        setAttr(n, 'aria-selected', String(on));
       },
     });
+    setHidden(this.empty, all.length > 0 || (!store.loaded && !engineDown()));
     const used = f ? f.panels : [];
     patchKeyed(this.chips, used, {
       key: (id) => String(id),

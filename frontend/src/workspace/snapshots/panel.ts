@@ -6,6 +6,7 @@ import { hasCommand, onCommands, quiet, run } from '../viz/api';
 import { snapshots, thumbFromView, type SnapItem } from '../library/api';
 import { tr } from '../library/text';
 import { label, repaint, titled } from '../fabric/widgets';
+import { OFFLINE, engineDown } from '../offline';
 
 const HTML =
   '<div class="ff-lib-row"><input class="cv-input" type="text" data-k="name" spellcheck="false"><button class="cv-btn" type="button" data-k="save"></button></div>' +
@@ -63,7 +64,7 @@ export class SnapshotsTab {
 
   async refresh(): Promise<void> {
     const got = await snapshots();
-    if (got === undefined) return;
+    if (got === undefined) { if (!this.loaded) setText(this.note, tr(engineDown() ? OFFLINE : 'The request failed')); return; }
     this.loaded = true;
     this.items = got.sort((a, b) => b.at - a.at);
     if (this.selected && !this.items.some((i) => i.id === this.selected)) this.selected = null;

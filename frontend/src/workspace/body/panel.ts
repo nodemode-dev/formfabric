@@ -63,7 +63,7 @@ export class BodyPanel implements Ctx {
     close.innerHTML = icon('close', 16);
     titled(close, 'Close');
     close.addEventListener('click', () => { void this.setOpen(false); });
-    this.toggle.addEventListener('click', () => { void this.setOpen(!this.isOpen); this.toggle.blur(); });
+    this.toggle.addEventListener('click', (e) => { void this.setOpen(!this.isOpen); if (e.detail > 0) this.toggle.blur(); });
     root.addEventListener('click', (e) => {
       if (this.isOpen && !this.yielding && e.target instanceof Element && e.target.closest('.ff-fb-toggle')) void this.setOpen(false);
     }, true);
@@ -121,12 +121,11 @@ export class BodyPanel implements Ctx {
     setClass(this.toggle, 'is-active', on);
     this.toggle.setAttribute('aria-expanded', String(on));
     if (on) {
-      const other = document.querySelector<HTMLElement>('.ff-fb-toggle.is-active');
-      if (other) {
-        this.yielding = true;
-        other.click();
-        this.yielding = false;
+      this.yielding = true;
+      for (const other of document.querySelectorAll<HTMLElement>('.ff-body > aside[data-k]:not([hidden])')) {
+        if (other !== this.drawer) other.querySelector<HTMLButtonElement>('[data-k="close"]')?.click();
       }
+      this.yielding = false;
       if (this.store.stale || !this.store.loaded) await this.store.refresh();
       if (!this.isOpen) return;
       this.render();

@@ -168,7 +168,7 @@ export class Inspector {
     out('sm_sb', cur ? t('Derived from placement') : '-');
     out('sm_la', inf ? fmtLen(inf.length_a, u) : '-');
     out('sm_lb', inf ? fmtLen(inf.length_b, u) : '-');
-    out('sm_mis', inf ? mmText(inf.mismatch) : '-');
+    out('sm_mis', inf ? mmText(inf.mismatch, u) : '-');
     for (const k of ['sm_flip', 'sm_gather', 'sm_del']) setDisabled(q(this.root, `[data-k="${k}"]`), !cur);
     const tack = tacks.find((k) => k.id === this.sel.tack);
     this.fill('tk_sel', [['', '-'], ...tacks.map((k): [string, string] => [String(k.id), `#${k.id} ${nm(k.a.panel ?? undefined)} / ${nm(k.b.panel ?? undefined)}`])], tack ? String(tack.id) : '');

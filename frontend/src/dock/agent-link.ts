@@ -1,5 +1,6 @@
 import { fromHtml as el, q, setText } from './dom';
 import type { DockDeps, Link } from './link';
+import { recheckStreams } from './sse';
 
 interface WindowState {
   epoch: number;
@@ -56,7 +57,8 @@ export class AgentLink {
         if (!first) this.onChange?.();
       }
       this.show(state.consent);
-    } catch {
+    } catch (err) {
+      if (err instanceof TypeError) recheckStreams();
       return;
     } finally {
       this.busy = false;

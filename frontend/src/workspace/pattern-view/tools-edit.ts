@@ -496,6 +496,7 @@ export class EditTool extends BaseTool {
       void this.ctx.doc.commit(steps, 'Delete Points');
       return true;
     }
+    if (e.key === 'Delete' || e.key === 'Backspace') { this.ctx.say('Select a point first'); return true; }
     const arrows: Record<string, Vec> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
     const a = arrows[e.key];
     if (a && sel.pts) {

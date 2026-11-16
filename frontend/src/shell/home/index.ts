@@ -7,6 +7,7 @@ import { icon } from '../../ui/icons';
 import { language, onLanguage, t as say } from '../../ui/i18n';
 import { toast } from '../../ui/toast';
 import { api, garmentThumb, picture, templateThumb, type GarmentSummary, type TemplateSummary, type TrashedGarment } from './api';
+import { watchSecondService } from './second';
 
 export interface HomeHooks {
   openGarment(garment: GarmentSummary): void;
@@ -38,6 +39,7 @@ const t = (english: string): string => { const shown = say(english); spoken.set(
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 const failed = (e: unknown): void => { toast(t('That did not work: {error}').replace('{error}', message(e)), 'error'); };
 const folderOf = (path: string): string => path.replace(/[\\/][^\\/]*$/, '');
+const TPL_SKELETON = [0, 1, 2, 3].map((i) => `<button class="cv-card is-skeleton" type="button" tabindex="-1" data-key="__skeleton${i}" aria-hidden="true"><span class="cv-card-preview"></span><span class="cv-card-body"><span class="cv-card-name">&nbsp;</span><span class="cv-card-meta">&nbsp;</span></span></button>`).join('');
 
 function ago(iso: string): string {
   const at = Date.parse(iso);
@@ -81,6 +83,7 @@ export class Home {
   readonly root: HTMLElement;
   private view: HomePage = 'start';
   private templates: TemplateSummary[] = [];
+  private tplReady = false;
   private categories: string[] = [ALL];
   private category = ALL;
   private query = '';
@@ -142,12 +145,12 @@ export class Home {
 </div>
 <section class="cv-home-section"><div class="cv-home-section-head"><h2 class="cv-home-section-title">${t('Recent garments')}</h2><button class="cv-btn cv-btn-ghost cv-btn-sm" type="button" data-v="recent">${t('See all')}</button></div><div class="cv-card-grid cv-recent-grid"><button class="cv-card is-skeleton" type="button" tabindex="-1" data-key="__skeleton" aria-hidden="true"><span class="cv-card-preview"></span><span class="cv-card-body"><span class="cv-card-name">&nbsp;</span><span class="cv-card-meta">&nbsp;</span></span></button><button class="cv-card is-empty" type="button" tabindex="-1" hidden><span class="cv-card-preview is-blank">${icon('panel', 28)}</span><span class="cv-card-body"><span class="cv-card-name">${t('No garments yet')}</span><span class="cv-card-meta">${t('Start from your pattern or a template')}</span></span></button></div></section>
 ${demos}
-<section class="cv-home-section"><div class="cv-home-section-head"><h2 class="cv-home-section-title">${t('Templates')}</h2><div class="cv-home-filters cv-cats"></div><label class="cv-search">${icon('search', 14)}<input type="search" placeholder="${t('Search templates')}" class="cv-tpl-search"></label></div><div class="cv-card-grid cv-tpl-grid"></div></section>
+<section class="cv-home-section"><div class="cv-home-section-head"><h2 class="cv-home-section-title">${t('Templates')}</h2><div class="cv-home-filters cv-cats"></div><label class="cv-search">${icon('search', 14)}<input type="search" placeholder="${t('Search templates')}" class="cv-tpl-search"></label></div><div class="cv-card-grid cv-tpl-grid">${TPL_SKELETON}</div></section>
 </div>
 <div data-page="recent" hidden><div class="cv-home-head"><div><h1 class="cv-home-title">${t('Recent garments')}</h1><p class="cv-home-sub">${t('Everything in your library and the files you opened, newest first.')}</p></div></div><div class="cv-card-grid cv-recent-full"></div><p class="cv-note cv-recent-none" hidden><span>${t('No garments yet')}</span>. <span>${t('Start from your pattern or a template')}</span>.</p></div>
 <div data-page="trash" hidden><div class="cv-home-head"><div><h1 class="cv-home-title">${t('Trash')}</h1><p class="cv-home-sub">${t('Deleted garments wait here until you restore them or delete them permanently.')}</p></div><div class="cv-home-head-actions"><button class="cv-btn cv-btn-empty-trash" type="button" data-a="empty-trash" disabled>${icon('delete', 14)}${t('Empty Trash')}</button></div></div><div class="cv-trash-list"></div><p class="cv-note cv-trash-none" hidden>${t('Trash is empty.')}</p></div>
 <div data-page="templates" hidden><div class="cv-home-head"><div><h1 class="cv-home-title">${t('Templates')}</h1><p class="cv-home-sub">${t('The garments that ship with FormFabric. Each one opens as a new garment in your library.')}</p></div></div>
-<div class="cv-home-section-head"><div class="cv-home-filters cv-cats"></div><label class="cv-search">${icon('search', 14)}<input type="search" placeholder="${t('Search templates')}" class="cv-tpl-search"></label></div><div class="cv-card-grid cv-tpl-full"></div></div>
+<div class="cv-home-section-head"><div class="cv-home-filters cv-cats"></div><label class="cv-search">${icon('search', 14)}<input type="search" placeholder="${t('Search templates')}" class="cv-tpl-search"></label></div><div class="cv-card-grid cv-tpl-full">${TPL_SKELETON}</div></div>
 </div></section>`);
     this.tplGrid = this.root.querySelector('.cv-tpl-grid') as HTMLElement;
     this.tplGridFull = this.root.querySelector('.cv-tpl-full') as HTMLElement;
@@ -358,7 +361,8 @@ ${demos}
       for (const id of [...this.selected]) if (!this.garments.some((g) => g.id === id)) this.selected.delete(id);
     }
     this.greet();
-    if (tp) this.renderTemplates();
+    this.tplReady = true;
+    this.renderTemplates();
     if (lib) this.renderGarments();
     if (tr) this.renderTrash();
   }
@@ -626,7 +630,7 @@ ${demos}
       probe.src = url;
       return probe.decode().catch(() => undefined).then(() => {
         if (prev.dataset.pic !== key || !probe.naturalWidth) { if (!probe.naturalWidth) toBlank(); return; }
-        prev.classList.remove('is-blank');
+        setClass(prev, 'is-blank', false);
         prev.replaceChildren(probe);
       });
     }).catch(() => { if (!prev.querySelector('img')) toBlank(); });
@@ -654,6 +658,7 @@ ${demos}
       setText(n.querySelector('.cv-card-meta'), `${say(x.category)}${x.panels === null ? '' : ` · ${t('Panels')}: ${x.panels}`}`);
       this.fill(n.querySelector('.cv-card-preview') as HTMLElement, x.thumb ? templateThumb(x) : '', 'template');
     };
+    if (!this.tplReady) return;
     patchList(this.tplGrid, list.slice(0, 15), { key: (x) => x.id, create, update });
     patchList(this.tplGridFull, list, { key: (x) => x.id, create, update });
   }
@@ -688,6 +693,7 @@ ${demos}
 let home: Home | null = null;
 
 export function mountHome(host: HTMLElement, hooks: HomeHooks): Home {
+  if (!home) watchSecondService();
   home ??= new Home(host, hooks);
   return home;
 }

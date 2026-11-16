@@ -125,21 +125,17 @@ export class BakeDialog extends JobDialog {
 
 export class GameReadyDialog extends JobDialog {
   private readonly tris = numRow('Target triangles', '', '100', 100, 5000000);
-  private readonly quads = toggleRow('Quads');
 
   constructor(store: OutputStore, notify: Notify) {
     super('Game-Ready', 'gameready.run', store, notify, 'game', 'GameReady.glb', 'glb', 'Mesh', 'Create');
-    const saved = recall<{ tris: number; quads: boolean }>('game.opts', { tris: 10000, quads: false });
+    const saved = recall<{ tris: number }>('game.opts', { tris: 10000 });
     this.tris.set(saved.tris);
-    this.quads.set(saved.quads);
-    const keep = (): void => remember('game.opts', { tris: this.tris.get(), quads: this.quads.get() });
-    this.tris.onInput(keep);
-    this.quads.onInput(keep);
-    this.body.append(this.tris.el, this.quads.el, this.pathLine());
+    this.tris.onInput(() => remember('game.opts', { tris: this.tris.get() }));
+    this.body.append(this.tris.el, this.pathLine());
     this.tail();
   }
 
   protected args(): Record<string, unknown> {
-    return { path: this.pathRow.get().trim(), target_tris: Math.max(100, Math.round(this.tris.get())), quads: this.quads.get() };
+    return { path: this.pathRow.get().trim(), target_tris: Math.max(100, Math.round(this.tris.get())) };
   }
 }

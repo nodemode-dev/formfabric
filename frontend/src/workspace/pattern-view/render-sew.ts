@@ -1,3 +1,4 @@
+import { fmtLen } from '../state';
 import type { Vec } from '../types';
 import type { Colors } from './ctx';
 import { pointAt, type Chain, type SeamGeo, type SewScene } from './sew-geom';
@@ -77,11 +78,11 @@ function ends(g: CanvasRenderingContext2D, ch: Chain, map: Map2, color: string, 
   g.stroke();
 }
 
-export function mmText(v: number): string {
-  return `${v > 0 ? '+' : ''}${v.toFixed(1)} mm`;
+export function mmText(v: number, unit = 'mm'): string {
+  return `${v > 0 ? '+' : ''}${fmtLen(v, unit)}`;
 }
 
-export function drawSew(g: CanvasRenderingContext2D, scene: SewScene, map: Map2, zoom: number, seam: number | null, tack: number | null, c: Colors): void {
+export function drawSew(g: CanvasRenderingContext2D, scene: SewScene, map: Map2, zoom: number, seam: number | null, tack: number | null, c: Colors, unit = 'mm'): void {
   g.save();
   g.lineJoin = 'round';
   g.lineCap = 'round';
@@ -116,7 +117,7 @@ export function drawSew(g: CanvasRenderingContext2D, scene: SewScene, map: Map2,
     ends(g, sg.b, map, color, on, c);
     if (bad && sg.mismatch !== null && sg.b.pts.length > 1) {
       const m = map(...pointAt(sg.b, 0.5));
-      tag(g, mmText(sg.mismatch), m[0] + 10, m[1] - 8, c, color);
+      tag(g, mmText(sg.mismatch, unit), m[0] + 10, m[1] - 8, c, color);
     }
   }
   g.lineWidth = 1.6;

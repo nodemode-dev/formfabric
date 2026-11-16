@@ -379,7 +379,7 @@ export class Timeline {
     const d = this.drag;
     if (!d) {
       const h = this.hit(px, py);
-      this.setCursor(h.t === 'start' || h.t === 'end' || h.t === 'lead' ? 'ew-resize' : h.t === 'motion' || h.t === 'key' ? 'grab' : h.t === 'ruler' ? 'col-resize' : '');
+      this.setCursor(h.t === 'start' || h.t === 'end' || h.t === 'lead' ? 'ew-resize' : h.t === 'motion' || h.t === 'key' ? 'grab' : h.t === 'ruler' && !this.store.job.running ? 'col-resize' : '');
       return;
     }
     if (Math.abs(px - d.x0) > 2) d.moved = true;

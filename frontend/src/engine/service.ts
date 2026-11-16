@@ -1,3 +1,4 @@
+import { recheckStreams } from '../dock/sse';
 import { onEngineChanged, onEngineLink, type EngineChanged, type Link } from './events';
 
 export { onEngineChanged, onEngineLink };
@@ -61,6 +62,7 @@ export async function call<T>(name: string, args: object = {}): Promise<T> {
   try {
     response = await fetch(`${base()}/api/engine/dispatch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, args }) });
   } catch (err) {
+    recheckStreams();
     throw new EngineError('unreachable', err instanceof Error ? err.message : String(err));
   }
   if (!response.ok) throw await failure(response);
@@ -75,7 +77,7 @@ export function catalogue(fresh = false): Promise<Catalogue> {
   if (catalogueCache && !fresh) return catalogueCache;
   const pending = (async (): Promise<Catalogue> => {
     let response: Response;
-    try { response = await fetch(`${base()}/api/engine/catalogue`, { cache: 'no-store' }); } catch (err) { throw new EngineError('unreachable', err instanceof Error ? err.message : String(err)); }
+    try { response = await fetch(`${base()}/api/engine/catalogue`, { cache: 'no-store' }); } catch (err) { recheckStreams(); throw new EngineError('unreachable', err instanceof Error ? err.message : String(err)); }
     if (!response.ok) throw await failure(response);
     return (await response.json()) as Catalogue;
   })();

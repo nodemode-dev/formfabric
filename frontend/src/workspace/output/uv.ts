@@ -1,5 +1,5 @@
 import type { ShellDeps } from '../../shell/deps';
-import { el, q, setClass, setHidden, setText } from '../../ui/dom';
+import { el, q, setClass, setHidden, setText, setTitle } from '../../ui/dom';
 import { onLanguage, t } from '../../ui/i18n';
 import { icon } from '../../ui/icons';
 import { pointInPoly } from '../geom';
@@ -84,7 +84,7 @@ export class UvEditor {
     const modes = q(this.root, '[data-k="modes"]');
     for (const [id, ico, key, text] of MODES) {
       const b = el<HTMLButtonElement>(`<button class="ff-seg-btn" type="button">${icon(ico, 16)}</button>`);
-      b.addEventListener('click', () => { this.setMode(id); b.blur(); });
+      b.addEventListener('click', (e) => { this.setMode(id); if (e.detail > 0) b.blur(); });
       b.dataset.label = text;
       b.dataset.key = key;
       modes.appendChild(b);
@@ -98,7 +98,7 @@ export class UvEditor {
     const frame = q<HTMLButtonElement>(this.root, '[data-k="frame"]');
     frame.innerHTML = icon('frameAll', 16);
     titled(frame, 'Frame');
-    frame.addEventListener('click', () => { this.frame(); frame.blur(); });
+    frame.addEventListener('click', (e) => { this.frame(); if (e.detail > 0) frame.blur(); });
     const close = q<HTMLButtonElement>(this.root, '[data-k="close"]');
     close.innerHTML = icon('close', 16);
     titled(close, 'Close');
@@ -126,7 +126,7 @@ export class UvEditor {
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('keydown', (e) => this.onKey(e), true);
     window.addEventListener('keyup', (e) => { if (e.code === 'Space') this.space = false; });
-    this.toggle.addEventListener('click', () => { this.setOpen(!this.open); this.toggle.blur(); });
+    this.toggle.addEventListener('click', (e) => { this.setOpen(!this.open); if (e.detail > 0) this.toggle.blur(); });
 
     store.onChange(() => this.refresh());
     deps.engine.onEngineChanged((e) => { if (this.open && e.name !== 'view.units') void store.loadUv(); });
@@ -165,7 +165,7 @@ export class UvEditor {
     this.padding.disable(!canLay);
     this.tiles.disable(!canLay);
     for (const b of this.modeButtons.values()) if (b.disabled !== !canSet) b.disabled = !canSet;
-    this.layout.title = canLay ? '' : t('Not available in this engine build');
+    setTitle(this.layout, canLay ? '' : t('Not available in this engine build'));
     const n = this.store.uv.islands.length;
     let msg = '';
     if (!this.store.known) msg = t('Waiting for the engine...');

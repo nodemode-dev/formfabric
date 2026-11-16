@@ -61,7 +61,7 @@ The tool reference below is generated from the engine's command registry by `./f
 ## Tool reference
 
 [ffb-tools:begin]
-Generated from the engine's command registry (formfabric 0.23.5) by `./formfabric agents sync`; do not edit between the markers by hand.
+Generated from the engine's command registry (formfabric 0.25.0) by `./formfabric agents sync`; do not edit between the markers by hand.
 
 - Engine: `system_info`, `system_capabilities`
 - Files: `file_new`, `file_save`, `file_open`, `sample_list`, `sample_load`, `exchange_import_dxf`, `exchange_export_dxf`, `snapshot_save`, `snapshot_list`, `snapshot_restore`, `snapshot_remove`, `library_list`, `library_add`, `library_insert`, `library_remove`, `library_roots`, `library_set_roots`, `component_save`
@@ -2394,10 +2394,10 @@ Write a flat technical drawing of the garment as SVG or PDF (vector, 1 unit = 1 
 
 ### capture_write
 
-Write bytes captured in the window (a png snapshot, a webm video or a gif) to a file. The path must be absolute with the extension of the kind, the bytes must carry that format's signature, and the size is capped at 512 MB. The file is replaced atomically.
+Write bytes captured in the window (a png snapshot, a webm or mp4 video, or a gif) to a file. The path must be absolute with the extension of the kind, the bytes must carry that format's signature, and the size is capped at 512 MB. The file is replaced atomically.
 
 - `data`: string; required; The file bytes, base64 encoded (a data: URL prefix is accepted).
-- `kind`: string (png | webm | gif); required
+- `kind`: string (png | webm | mp4 | gif); required
 - `path`: string; required; Absolute output path whose extension matches kind.
 
 ### link_start

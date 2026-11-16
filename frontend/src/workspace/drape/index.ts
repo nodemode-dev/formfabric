@@ -125,7 +125,7 @@ export class Drape {
       b.className = 'ff3-btn';
       b.innerHTML = html;
       b.disabled = true;
-      b.addEventListener('click', () => { onClick(); b.blur(); });
+      b.addEventListener('click', (e) => { onClick(); if (e.detail > 0) b.blur(); });
       return b;
     };
     const run = group();

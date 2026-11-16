@@ -58,8 +58,8 @@ export class VizUi {
     this.schematic = button(group, 'download', 'Schematic');
     this.stage = new StageDrawer(host, this.stageButton);
     this.capture = new Capture(host);
-    this.captureButton.addEventListener('click', () => { this.capture.open(); this.captureButton.blur(); });
-    this.schematic.addEventListener('click', () => { void this.exportSchematic(); this.schematic.blur(); });
+    this.captureButton.addEventListener('click', (e) => { this.capture.open(); if (e.detail > 0) this.captureButton.blur(); });
+    this.schematic.addEventListener('click', (e) => { void this.exportSchematic(); if (e.detail > 0) this.schematic.blur(); });
     setTitle(this.stageButton, t('Lights, environment and ground'));
     setTitle(this.captureButton, t('Snapshot, video and turntable'));
     onCommands(() => this.available());

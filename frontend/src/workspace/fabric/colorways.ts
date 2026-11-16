@@ -30,7 +30,7 @@ export class ColorwaySection {
     const add = (id: string, ico: string, key: string, run: () => void): void => {
       const b = el<HTMLButtonElement>(`<button class="cv-icon-btn" type="button">${icon(ico, 16)}</button>`);
       titled(b, key);
-      b.addEventListener('click', () => { run(); b.blur(); });
+      b.addEventListener('click', (e) => { run(); if (e.detail > 0) b.blur(); });
       tools.appendChild(b);
       this.btn[id] = b;
     };
@@ -118,7 +118,7 @@ export class ColorwaySection {
         reset.addEventListener('click', (e) => {
           e.preventDefault();
           if (this.cw !== null) void this.ctx.store.run('colorway.update', { id: this.cw, fabric_colors: { [String(f.id)]: null } });
-          reset.blur();
+          if (e.detail > 0) reset.blur();
         });
         return n;
       },

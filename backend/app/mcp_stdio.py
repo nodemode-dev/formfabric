@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import __version__  # noqa: E402
-from app.services import engine, mcp_tools  # noqa: E402
+from app.services import agents, engine, mcp_tools  # noqa: E402
 
 VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
 
@@ -40,6 +40,9 @@ def handle(msg: dict) -> str | None:
         name, args = params.get("name"), params.get("arguments") or {}
         if name not in {t["name"] for t in mcp_tools.tools()} or not isinstance(args, dict):
             return reply(req_id, error={"code": -32602, "message": f"No tool named {name}"})
+        refusal = agents.switched_off()
+        if refusal:
+            return reply(req_id, {"content": [{"type": "text", "text": refusal}], "isError": True})
         return reply(req_id, mcp_tools.result_of(engine.dispatch(name, args)))
     return reply(req_id, error={"code": -32601, "message": f"Method not found: {method}"})
 

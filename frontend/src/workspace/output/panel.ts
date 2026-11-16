@@ -113,7 +113,7 @@ export class OutputPanel {
     close.innerHTML = icon('close', 16);
     titled(close, 'Close');
     close.addEventListener('click', () => this.setOpen(false));
-    this.toggle.addEventListener('click', () => { this.setOpen(!this.isOpen); this.toggle.blur(); });
+    this.toggle.addEventListener('click', (e) => { this.setOpen(!this.isOpen); if (e.detail > 0) this.toggle.blur(); });
 
     const part = (k: string): HTMLElement => q(this.drawer, `[data-k="${k}"].ff-fb-body`);
     part('export').append(this.format.el, this.exportBtn, this.exportHint);
@@ -147,7 +147,7 @@ export class OutputPanel {
     });
     this.topoCount.set(2);
     this.topoDist.set(1);
-    this.topoDraw.addEventListener('click', () => { this.topo.set(!this.topo.active); this.topoDraw.blur(); });
+    this.topoDraw.addEventListener('click', (e) => { this.topo.set(!this.topo.active); if (e.detail > 0) this.topoDraw.blur(); });
     this.topoClose.addEventListener('click', () => { void this.topo.act('topology.close'); });
     this.topoFinish.addEventListener('click', () => { void this.topo.act('topology.finish'); });
     this.topoCancel.addEventListener('click', () => { void this.topo.act('topology.cancel'); });
@@ -160,9 +160,9 @@ export class OutputPanel {
     this.exportBtn.addEventListener('click', () => { void this.showExport(this.format.get()); });
     this.remesh.addEventListener('click', () => { void this.runRemesh(); });
     this.clear.addEventListener('click', () => { void this.runClear(); });
-    this.draw.addEventListener('click', () => { this.guides.set(!this.guides.active); this.draw.blur(); });
+    this.draw.addEventListener('click', (e) => { this.guides.set(!this.guides.active); if (e.detail > 0) this.draw.blur(); });
     this.clearGuides.addEventListener('click', () => { void this.guides.submit([]); });
-    this.uvBtn.addEventListener('click', () => { this.uv.setOpen(!this.uv.isOpen); this.uvBtn.blur(); });
+    this.uvBtn.addEventListener('click', (e) => { this.uv.setOpen(!this.uv.isOpen); if (e.detail > 0) this.uvBtn.blur(); });
     this.bakeBtn.addEventListener('click', () => { this.bakeDialog ??= new BakeDialog(this.store, (m, k) => deps.toast(m, k)); void this.bakeDialog.present(); });
     this.gameBtn.addEventListener('click', () => { this.gameDialog ??= new GameReadyDialog(this.store, (m, k) => deps.toast(m, k)); void this.gameDialog.present(); });
     this.thickOn.onInput(() => this.commitThickness());
@@ -234,6 +234,11 @@ export class OutputPanel {
     localStorage.setItem(OPEN_KEY, on ? '1' : '0');
     setClass(this.toggle, 'is-active', on);
     this.toggle.setAttribute('aria-expanded', String(on));
+    if (on) {
+      for (const other of document.querySelectorAll<HTMLElement>('.ff-body > aside[data-k]:not([hidden])')) {
+        if (other !== this.drawer) other.querySelector<HTMLButtonElement>('[data-k="close"]')?.click();
+      }
+    }
     setHidden(this.drawer, !on);
     if (on) { void this.store.loadRetopo(); this.paintThickness(); this.paint(); }
   }

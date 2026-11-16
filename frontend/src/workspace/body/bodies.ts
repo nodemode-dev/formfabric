@@ -2,6 +2,7 @@ import { nativeDialogs } from '../../shell/file-dialog';
 import { el, q, setClass, setHidden, setText } from '../../ui/dom';
 import { t } from '../../ui/i18n';
 import { icon } from '../../ui/icons';
+import { emptyLabel } from '../offline';
 import type { Ctx } from './ctx';
 import { IMPORT_EXT, type BodyInfo, type LibraryEntry } from './types';
 import { flagBad, label, patchKeyed, repaint, selectRow, titled } from './widgets';
@@ -28,7 +29,7 @@ export class BodiesSection {
     host.innerHTML = LIST_HTML;
     this.list = q(host, '[data-k="list"]');
     this.empty = q(host, '[data-k="empty"]');
-    label(this.empty, 'No bodies yet.');
+    emptyLabel(this.empty, 'No bodies yet.');
     repaint(() => { for (const v of this.list.querySelectorAll<HTMLElement>('.ff-bd-vis')) this.titleVis(v); });
   }
 
@@ -69,12 +70,12 @@ export class BodiesSection {
       e.stopPropagation();
       const b = this.ctx.store.body(id());
       if (b) void this.ctx.store.run('body.show', { id: b.id, visible: !b.visible });
-      vis.blur();
+      if (e.detail > 0) vis.blur();
     });
     del.addEventListener('click', (e) => {
       e.stopPropagation();
       void this.ctx.store.run('body.remove', { id: id() });
-      del.blur();
+      if (e.detail > 0) del.blur();
     });
     return node;
   }
@@ -119,7 +120,7 @@ export class LibrarySection {
         const node = el('<div class="ff-bd-item"><span class="ff-bd-name"></span><span class="ff-bd-tag"></span></div>');
         const add = iconButton('add', 'Add Body', 'ff-bd-add');
         node.appendChild(add);
-        add.addEventListener('click', () => { void this.add(e.name); add.blur(); });
+        add.addEventListener('click', (ev) => { void this.add(e.name); if (ev.detail > 0) add.blur(); });
         return node;
       },
       update: (n, e) => {
@@ -152,7 +153,7 @@ export class ImportSection {
     const row = q(host, '.ff-bd-pathrow');
     if (nativeDialogs()) {
       const browse = iconButton('folderOpen', 'Browse', 'ff-bd-browse');
-      browse.addEventListener('click', () => { void this.browse(); browse.blur(); });
+      browse.addEventListener('click', (e) => { void this.browse(); if (e.detail > 0) browse.blur(); });
       row.appendChild(browse);
     }
     const units = selectRow('Units', UNITS, true, (v) => { this.units = v; });
@@ -161,7 +162,7 @@ export class ImportSection {
     host.insertBefore(up.el, q(host, '.ff-bd-actions'));
     this.go.innerHTML = `${icon('fileIn', 14)}<span></span>`;
     label(this.go.children[1] as HTMLElement, 'Import Body');
-    this.go.addEventListener('click', () => { void this.run(); this.go.blur(); });
+    this.go.addEventListener('click', (e) => { void this.run(); if (e.detail > 0) this.go.blur(); });
     this.path.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.go.click(); } });
   }
 

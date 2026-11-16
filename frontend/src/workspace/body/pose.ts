@@ -39,7 +39,7 @@ export class PoseSection {
     for (const [name, text] of POSES) {
       const b = el<HTMLButtonElement>('<button class="ff-bd-tab" type="button" disabled></button>');
       label(b, text);
-      b.addEventListener('click', () => { void this.ctx.store.run('body.pose', { id: this.ctx.selected()?.id, name }); b.blur(); });
+      b.addEventListener('click', (e) => { void this.ctx.store.run('body.pose', { id: this.ctx.selected()?.id, name }); if (e.detail > 0) b.blur(); });
       tabs.appendChild(b);
       this.buttons.set(name, b);
     }
@@ -54,7 +54,7 @@ export class PoseSection {
     const actions = el('<div class="ff-bd-actions"></div>');
     this.reset = el<HTMLButtonElement>(`<button class="ff-btn" type="button" disabled>${icon('undo', 14)}<span></span></button>`);
     label(this.reset.children[1] as HTMLElement, 'Reset');
-    this.reset.addEventListener('click', () => { this.zero(); this.reset.blur(); });
+    this.reset.addEventListener('click', (e) => { this.zero(); if (e.detail > 0) this.reset.blur(); });
     actions.appendChild(this.reset);
     host.appendChild(actions);
   }

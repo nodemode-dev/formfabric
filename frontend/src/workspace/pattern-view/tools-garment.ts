@@ -1,4 +1,5 @@
 import { bezAt, dist, nearestOnSeg, pointInPoly } from '../geom';
+import { loadPrefs } from '../../ui/prefs';
 import { fmtLen } from '../state';
 import type { CornerStyle, NotchKind, Vec } from '../types';
 import type { Colors, Ptr } from './ctx';
@@ -114,8 +115,9 @@ export class SeamTool extends BaseTool {
     if (!panel) { this.ctx.say('Select a panel first'); return; }
     const sa = panel.seam_allowance;
     const seg = this.target?.seg ?? null;
-    const init: Record<string, unknown> = { panels: [panel.id], width: sa?.width ?? 10, corners: (sa?.corners ?? 'miter') as CornerStyle };
-    if (seg !== null) init.per_segment = panel.outline.map((_, i) => (i === seg ? (sa?.per_segment[i] ?? sa?.width ?? 10) : (sa?.per_segment[i] ?? null)));
+    const base = loadPrefs().seamAllowance;
+    const init: Record<string, unknown> = { panels: [panel.id], width: sa?.width ?? base, corners: (sa?.corners ?? 'miter') as CornerStyle };
+    if (seg !== null) init.per_segment = panel.outline.map((_, i) => (i === seg ? (sa?.per_segment[i] ?? sa?.width ?? base) : (sa?.per_segment[i] ?? null)));
     void this.ask('pattern.seam_allowance', init);
   }
 

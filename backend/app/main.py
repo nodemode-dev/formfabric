@@ -1,5 +1,6 @@
 import asyncio
 import mimetypes
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -31,6 +32,8 @@ async def lifespan(_: FastAPI):
         recovery.start()
     except OSError as exc:
         print(f"[formfabric] the crash journal could not start, so this session has no autosave or crash recovery: {exc}", flush=True)
+    if recovery.protection()["autosave_off_reason"] == recovery.SECOND_SERVICE:
+        print(f"[formfabric] another formfabric service already uses the data folder {config.data_dir()}, so this one keeps no autosave and no crash recovery; save your work by hand, or close the other one and start again", file=sys.stderr, flush=True)
     task = asyncio.create_task(autosave.loop())
     yield
     task.cancel()

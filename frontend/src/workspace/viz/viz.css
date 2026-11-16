@@ -18,12 +18,12 @@
 .ffz-row { display: flex; align-items: center; width: 100%; height: 26px; }
 .ffz-row > .ffz-item { flex: 1 1 auto; min-width: 0; }
 .ffz-row > .cv-icon-btn { flex: none; width: 24px; height: 24px; margin-right: var(--space-1); }
-.ffz-legend { position: absolute; left: 8px; bottom: 34px; z-index: var(--z-raised); width: 176px; padding: 6px 8px 5px; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--bg-secondary) 88%, transparent); color: var(--text-secondary); font-size: var(--fs-11); pointer-events: none; }
+.ffz-legend { position: absolute; left: 8px; bottom: calc(34px + var(--ff-an-lift, 0px)); z-index: var(--z-raised); width: 176px; padding: 6px 8px 5px; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--bg-secondary) 88%, transparent); color: var(--text-secondary); font-size: var(--fs-11); pointer-events: none; }
 .ffz-legend[hidden] { display: none; }
 .ffz-lg-title { display: flex; justify-content: space-between; height: 16px; line-height: 16px; color: var(--text-primary); font-weight: 600; }
 .ffz-lg-bar { height: 10px; margin: 3px 0; border-radius: 2px; border: 1px solid var(--border-light); }
 .ffz-lg-ends { display: flex; justify-content: space-between; height: 15px; line-height: 15px; font-variant-numeric: tabular-nums; }
-.ffz-hint { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); z-index: var(--z-raised); max-width: calc(100% - 24px); padding: 3px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg-secondary) 90%, transparent); color: var(--text-secondary); font-size: var(--fs-11); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ffz-hint { position: absolute; left: 50%; bottom: calc(36px + var(--ff-an-lift, 0px)); transform: translateX(-50%); z-index: var(--z-raised); max-width: calc(100% - 24px); padding: 3px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg-secondary) 90%, transparent); color: var(--text-secondary); font-size: var(--fs-11); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ffz-hint[hidden] { display: none; }
 
 .ff-stage { position: absolute; top: 0; bottom: 0; right: var(--ff-insp); width: 344px; z-index: var(--z-chrome); display: flex; flex-direction: column; min-height: 0; background: var(--bg-secondary); border-left: 1px solid var(--border-color); box-shadow: var(--shadow-panel); color: var(--text-primary); font-size: var(--fs-12); }

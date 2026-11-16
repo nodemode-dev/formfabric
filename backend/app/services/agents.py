@@ -2,11 +2,14 @@ import asyncio
 import secrets
 import time
 
+from app.core import prefs
+
 INAPP_HEADER = "x-formfabric-inapp"
 INAPP_TOKEN = secrets.token_urlsafe(24)
 LIVE_SECONDS = 4.0
 DECLINE_SECONDS = 600.0
 ASK_SECONDS = 90.0
+SWITCHED_OFF = "Outside agents are switched off in formfabric (Preferences, Plugins, Allow outside agents). Ask the person to switch that on, then retry."
 
 _last_poll = 0.0
 _allowed: bool | None = None
@@ -28,8 +31,12 @@ def pending() -> dict | None:
     return _pending
 
 
+def switched_off() -> str | None:
+    return SWITCHED_OFF if prefs.load().get("agentsAllowed") is False else None
+
+
 def status() -> dict:
-    return {"window": window_live(), "allowed": _allowed, "asking": _pending is not None, "declined": time.monotonic() < _declined_until}
+    return {"window": window_live(), "enabled": switched_off() is None, "allowed": _allowed, "asking": _pending is not None, "declined": time.monotonic() < _declined_until}
 
 
 def answer(allow: bool) -> None:

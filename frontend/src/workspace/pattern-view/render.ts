@@ -21,6 +21,7 @@ export interface Scene {
   colors: Colors;
   sew: SewScene;
   trims: TrimScene;
+  under?: (g: CanvasRenderingContext2D, c: Colors) => void;
 }
 
 const NICE = [1, 2, 5];
@@ -335,7 +336,7 @@ export function drawScene(g: CanvasRenderingContext2D, sc: Scene, tool: Tool): v
     }
   }
 
-  drawSew(g, sc.sew, map, cam.s, sc.sel.seam, sc.sel.tack, colors);
+  drawSew(g, sc.sew, map, cam.s, sc.sel.seam, sc.sel.tack, colors, sc.unit);
   drawTrims(g, sc.trims, map, cam.s, colors, trimState.item);
 
   const hov = sc.hover;
@@ -387,6 +388,7 @@ export function drawScene(g: CanvasRenderingContext2D, sc: Scene, tool: Tool): v
     }
   }
 
+  sc.under?.(g, colors);
   tool.draw(g, colors);
   if (sc.rulers) rulers(g, sc);
 }

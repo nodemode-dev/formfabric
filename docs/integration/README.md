@@ -4,7 +4,7 @@ These files are data and proposals for other repositories. formfabric does not c
 
 | File | Goes to | Owner action |
 | --- | --- | --- |
-| `apps-formfabric.json` | formcompiler `apps/formfabric.json` | copy it in, run formcompiler's registry check, set `enabled` true with the first `compile_v` branch. Repository `nodemode-dev/formfabric`, project extension `.ffbrc`, identifier `ai.nodemode.formfabric`, kind `garment`. |
+| `apps-formfabric.json` | formcompiler `apps/formfabric.json` | proposed to formcompiler as that file, enabled, for Apple silicon, Intel Macs, Windows and Linux, with `developer-id` signing while Apple refuses notarization; this copy matches it. Repository `nodemode-dev/formfabric`, project extension `.ffbrc`, identifier `ai.nodemode.formfabric`, kind `garment`. |
 | `catalogue-entry.json` | formai_dev `catalog/products.json`, then formportal's copy | add the object; keep `id`, `name`, `kind`, `summary` and `identifier` identical to the registry entry and to `src-tauri/tauri.conf.json`. |
 | `product-entry.json` | formai_dev package and extension schemas (the `product` enum) | add `formfabric` to the enum if extension packs are wanted. No new kind or permission is requested. |
 | `gof-handoff.md` | the formsculpt owner | a proposal; no format change was made. Needs agreement before anything changes in `gof.json`. |
@@ -12,4 +12,4 @@ These files are data and proposals for other repositories. formfabric does not c
 
 What the app repository already provides for the compile contract (checked by `./build_app --dry-run`): `./formfabric install`, `install-desktop` and `desktop build [--config FILE]` and the same verbs in `formfabric.bat`, `src-tauri/tauri.conf.json` with the identifier, the `.ffbrc` file association, the sidecar and an empty updater key, `ci.yml` on `main` and `compile_v*` that is never cancelled there, a root `VERSION` file with `python3 setup/version.py check` for every version site, a CHANGELOG heading per version, `.claude/skills`, `.mcp.json`, LF and CRLF rules in `.gitattributes`, and the entitlements file for the unsigned-library sidecar. The packaged program answers `mcp` as its first argument over stdio (and `agents`), which is what an `agents.mcp_launch` of `["mcp"]` in the registry entry needs.
 
-Not done here, because only the owner can: pushing the repository to `nodemode-dev/formfabric`, cutting `compile_v0.17.0`, the formcompiler build on the three operating systems, signing and notarization, and the formportal install and MCP connect.
+Not done here, because only the owner can: merging the registry entry in formcompiler, cutting the release's `compile_v` branch (formai-build does it after the merge), the formcompiler build on the three operating systems, signing and notarization, and the formportal install and MCP connect.

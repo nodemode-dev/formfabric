@@ -10,7 +10,6 @@ from app.core import config
 
 MAX_STRING = 8192
 MAX_LOG_BYTES = 64 * 1024 * 1024
-SKIP_GROUPS = {"sim", "export"}
 SKIP_IDS = {
     "file.save", "fabric.export", "library.add", "library.remove", "library.set_roots", "component.save",
     "anim.record", "anim.stop", "anim.play", "anim.pause", "job.state", "job.harvest", "cache.frame",
@@ -19,23 +18,62 @@ SKIP_PREFIXES = ("link.",)
 REPLAY_PREFIXES = {
     "pattern", "panel", "styleline", "style", "print", "component", "sew", "tack", "button", "buttonhole",
     "hardware", "zipper", "stitch", "fray", "finish", "quilt", "trim", "fabric", "colorway", "body", "history",
+    "view", "motion", "key", "morph", "measure3d", "stage", "light", "fur",
+    "arrange", "pin", "place", "wind", "fold", "fitshell", "uv", "thickness", "quad", "retopo", "topology",
 }
-REPLAY_IDS = {"sample.load", "library.insert", "snapshot.save", "snapshot.restore", "snapshot.remove"}
-REPLAY_DENY = {"fabric.export", "component.save"}
+REPLAY_IDS = {
+    "sample.load", "library.insert", "snapshot.save", "snapshot.restore", "snapshot.remove",
+    "place.volume_set", "place.point_set", "place.defaults", "anim.set", "anim.auto_key",
+}
+LIVE_IDS = {"pin.box", "pin.lasso", "sim.apply", "refit"}
+LIVE_REASON = "it took the positions of the running simulation, which the crash journal does not keep"
+REPLAY_DENY = {"fabric.export", "component.save"} | LIVE_IDS
+NOT_REPEATED = {
+    "cache": "changes to recorded simulation caches are not repeated, because the recordings themselves are not kept in the crash journal",
+    "map": "a fit map is a display choice of the 3D View, not part of the garment",
+    "compare": "a comparison is a display choice of the 3D View, not part of the garment",
+    "exchange": "it wrote or read a file and is not repeated",
+    "file": "it opened, saved or replaced the document and is not repeated",
+}
+NOT_REPEATED_DEFAULT = "this command is not repeated after a crash"
+HISTORY_IDS = {"history.undo", "history.redo"}
+NO_UNDO_STEP = {"map", "compare", "exchange.export_dxf"}
+REPORT_ROWS = 20
 KEEP_PENDING = 5
+SECOND_SERVICE = "second_service"
+JOURNAL_ERROR = "journal_error"
+CLOSING = "closing"
 _lock = threading.Lock()
 _restoring = threading.Lock()
 _owner = None
 _log_bytes = 0
 _count = 0
+_done = 0
+_undone = 0
 _closed = True
 _truncated = False
+_off_reason = JOURNAL_ERROR
+_document: str | None = None
 
 
 def replayable(name: str) -> bool:
     if not isinstance(name, str) or name in REPLAY_DENY or skipped(name, None):
         return False
     return name in REPLAY_IDS or name.split(".", 1)[0] in REPLAY_PREFIXES
+
+
+def not_repeated_reason(name: str) -> str:
+    if name in LIVE_IDS:
+        return LIVE_REASON
+    return NOT_REPEATED.get(str(name).split(".", 1)[0], NOT_REPEATED_DEFAULT)
+
+
+def protection() -> dict:
+    return {"autosave_active": not _closed, "autosave_off_reason": _off_reason if _closed else None}
+
+
+def foreign() -> bool:
+    return _owner is None and _closed
 
 
 def _acquire() -> bool:
@@ -75,17 +113,6 @@ def _rotate_pending() -> None:
 def _rotated() -> list[Path]:
     found = [p for p in _folder().glob("recovery.*") if p.name.split(".", 1)[1].isdigit() and p.is_dir()]
     return sorted(found, key=lambda p: int(p.name.split(".", 1)[1]))
-
-
-def _promote() -> None:
-    if _pending_folder().exists():
-        return
-    older = _rotated()
-    if older:
-        try:
-            os.replace(older[-1], _pending_folder())
-        except OSError:
-            pass
 
 
 def _folder() -> Path:
@@ -143,10 +170,11 @@ def _state(**changes: Any) -> None:
 
 
 def start() -> dict | None:
-    global _closed, _count, _log_bytes, _truncated
+    global _closed, _count, _log_bytes, _truncated, _off_reason
     with _lock:
         if not _acquire():
             _closed = True
+            _off_reason = SECOND_SERVICE
             return pending_info()
         previous = _read_json(_state_file())
         log = _log_file()
@@ -167,9 +195,9 @@ def start() -> dict | None:
                 "base": "autosave" if had_base else "empty",
                 "session_started": previous.get("started"),
                 "truncated": previous.get("truncated") is True,
+                "document": previous.get("document") if isinstance(previous.get("document"), str) else None,
                 "found": _now(),
             })
-        _promote()
         try:
             log.write_text("", encoding="utf-8")
         except OSError:
@@ -183,11 +211,12 @@ def start() -> dict | None:
 
 
 def close() -> None:
-    global _closed
+    global _closed, _off_reason
     with _lock:
         if _closed:
             return
         _closed = True
+        _off_reason = CLOSING
         try:
             _state(clean=True, closed=_now())
         except OSError:
@@ -213,6 +242,7 @@ def pending_info() -> dict | None:
         "truncated": info.get("truncated") is True,
         "base": info.get("base", "empty"),
         "session_started": info.get("session_started"),
+        "document": info.get("document") if isinstance(info.get("document"), str) else None,
     }
 
 
@@ -228,19 +258,32 @@ def _clean_args(args: dict | None) -> tuple[dict, list[str]]:
 
 
 def skipped(name: str, group: str | None) -> bool:
-    return name in SKIP_IDS or name.startswith(SKIP_PREFIXES) or group in SKIP_GROUPS
+    return name in SKIP_IDS or name.startswith(SKIP_PREFIXES)
 
 
-def record(name: str, args: dict | None, group: str | None) -> None:
+def _behind(name: str) -> bool:
+    global _done, _undone
+    if name in HISTORY_IDS:
+        if (_done if name == "history.undo" else _undone) == 0:
+            return True
+        _done, _undone = (_done - 1, _undone + 1) if name == "history.undo" else (_done + 1, _undone - 1)
+    elif replayable(name) or not (name in NO_UNDO_STEP or name.split(".", 1)[0] in NO_UNDO_STEP):
+        _done, _undone = _done + 1, 0
+    return False
+
+
+def record(name: str, args: dict | None, group: str | None) -> bool:
     global _count, _log_bytes, _truncated
     if _closed or skipped(name, group):
-        return
+        return False
     kept, dropped = _clean_args(args)
     entry = {"n": _count + 1, "t": _now(), "id": name, "args": kept}
     if dropped:
         entry["dropped"] = dropped
     line = json.dumps(entry, separators=(",", ":")) + "\n"
     with _lock:
+        if _behind(name):
+            return True
         if _log_bytes + len(line) > MAX_LOG_BYTES:
             if not _truncated:
                 _truncated = True
@@ -249,18 +292,19 @@ def record(name: str, args: dict | None, group: str | None) -> None:
                     _state(truncated=True)
                 except OSError:
                     pass
-            return
+            return False
         try:
             with _log_file().open("a", encoding="utf-8") as handle:
                 handle.write(line)
         except OSError:
-            return
+            return False
         _count += 1
         _log_bytes += len(line)
+    return False
 
 
 def checkpoint() -> None:
-    global _count, _log_bytes, _truncated
+    global _count, _log_bytes, _truncated, _done, _undone
     with _lock:
         if _closed:
             return
@@ -269,17 +313,54 @@ def checkpoint() -> None:
             _state(autosave_at=_now(), clean=False, truncated=False)
         except OSError:
             return
+        _done = _undone = 0
         _count = 0
         _log_bytes = 0
         _truncated = False
 
 
+def note_document(path: str | None) -> None:
+    global _document
+    with _lock:
+        if _closed or path == _document:
+            return
+        try:
+            _state(document=path)
+        except OSError:
+            return
+        _document = path
+
+
+def _writable(path: str | None) -> str | None:
+    if not isinstance(path, str) or not os.path.isfile(path):
+        return None
+    folder = os.path.dirname(path) or "."
+    return path if os.access(path, os.W_OK) and os.access(folder, os.W_OK | os.X_OK) else None
+
+
 def discard() -> bool:
     with _lock:
+        if foreign():
+            return False
         found = _pending_folder().is_dir()
         shutil.rmtree(_pending_folder(), ignore_errors=True)
-        _promote()
         return found
+
+
+def _names(rows: list[dict]) -> str:
+    seen = list(dict.fromkeys(str(row.get("id", "an unreadable line")) for row in rows))
+    return ", ".join(seen[:6]) + (" and others" if len(seen) > 6 else "")
+
+
+def _summary(total: int, replayed: int, skipped: list[dict], failures: list[dict], truncated: bool) -> str:
+    parts = [f"{replayed} of {total} logged commands were repeated on top of the last autosave."]
+    if skipped:
+        parts.append(f"{len(skipped)} were left out on purpose ({_names(skipped)}).")
+    if failures:
+        parts.append(f"{len(failures)} could not be repeated ({_names(failures)}).")
+    if truncated:
+        parts.append("The journal was full before the crash, so the last work before it is missing.")
+    return " ".join(parts)
 
 
 def restore(dispatch: Callable[[str, dict], dict]) -> dict:
@@ -295,7 +376,7 @@ def _restore(dispatch: Callable[[str, dict], dict]) -> dict:
     info = pending_info()
     if info is None:
         raise LookupError("there is nothing to recover")
-    if _owner is None and _closed:
+    if foreign():
         raise RuntimeError("another FormFabric service is running on this data folder")
     folder = _pending_folder()
     base = folder / "autosave.ffbrc"
@@ -307,9 +388,12 @@ def _restore(dispatch: Callable[[str, dict], dict]) -> dict:
     else:
         dispatch("file.new", {})
     replayed = 0
+    skipped: list[dict] = []
+    done: list[bool] = []
+    undone: list[bool] = []
     log = folder / "journal.jsonl"
     try:
-        lines = log.read_text(encoding="utf-8").splitlines() if log.is_file() else []
+        lines = [line for line in log.read_text(encoding="utf-8").splitlines() if line.strip()] if log.is_file() else []
     except OSError:
         lines = []
     for line in lines:
@@ -317,18 +401,48 @@ def _restore(dispatch: Callable[[str, dict], dict]) -> dict:
             entry = json.loads(line)
             name, args = entry["id"], entry.get("args") or {}
         except (ValueError, KeyError, TypeError):
-            failures.append({"line": line[:80], "error": "unreadable log line"})
+            failures.append({"line": line[:80], "error": "this line of the journal could not be read"})
+            done.append(False)
             continue
+        if name in HISTORY_IDS:
+            source, target = (done, undone) if name == "history.undo" else (undone, done)
+            if source and not source.pop():
+                skipped.append({"id": name, "reason": "it undid or redid a step that was not repeated"})
+                target.append(False)
+                continue
+            reply = dispatch(name, {})
+            if reply.get("ok"):
+                replayed += 1
+                target.append(True)
+            else:
+                failures.append({"id": name, "error": (reply.get("error") or {}).get("message", "failed")})
+            continue
+        if not replayable(name) and (str(name) in NO_UNDO_STEP or str(name).split(".", 1)[0] in NO_UNDO_STEP):
+            skipped.append({"id": str(name)[:60], "reason": not_repeated_reason(name)})
+            continue
+        undone.clear()
         if not replayable(name):
-            failures.append({"id": str(name)[:60], "error": "not a replayable command"})
+            skipped.append({"id": str(name)[:60], "reason": not_repeated_reason(name)})
+            done.append(False)
             continue
         if entry.get("dropped") or not isinstance(args, dict):
-            failures.append({"id": name, "error": "arguments were too large to log"})
+            failures.append({"id": name, "error": "its arguments were too large to keep in the journal"})
+            done.append(False)
             continue
         reply = dispatch(name, args)
+        done.append(bool(reply.get("ok")))
         if reply.get("ok"):
             replayed += 1
         else:
             failures.append({"id": name, "error": (reply.get("error") or {}).get("message", "failed")})
     discard()
-    return {"restored": True, "base": info["base"], "autosave_time": info["autosave_time"], "logged": info["commands"], "replayed": replayed, "failed": failures[:20], "truncated": info["truncated"]}
+    document = _writable(info.get("document"))
+    note_document(document)
+    summary = _summary(len(lines), replayed, skipped, failures, info["truncated"])
+    print(f"[formfabric] recovery: {summary}", flush=True)
+    return {
+        "path": document, "name": os.path.basename(document) if document else None,
+        "restored": True, "base": info["base"], "autosave_time": info["autosave_time"], "logged": info["commands"], "replayed": replayed,
+        "skipped": skipped[:REPORT_ROWS], "skipped_count": len(skipped), "failed": failures[:REPORT_ROWS], "failed_count": len(failures),
+        "truncated": info["truncated"], "summary": summary,
+    }

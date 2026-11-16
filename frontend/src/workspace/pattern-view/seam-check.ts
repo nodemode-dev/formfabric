@@ -1,5 +1,6 @@
 import { el, patchList, q, setClass, setText } from '../../ui/dom';
 import { onLanguage, t } from '../../ui/i18n';
+import { loadPrefs } from '../../ui/prefs';
 import type { DocStore } from '../doc';
 import type { Selection } from '../state';
 import { mmText } from './render-sew';
@@ -55,14 +56,14 @@ export class SeamCheck {
       if (m !== undefined) rows.push({ seam: s, mismatch: m });
     }
     setText(this.count, String(rows.length));
-    setText(this.note, this.doc.sew.seams.length === 0 ? t('No seams') : rows.length === 0 ? t('All seams match') : '');
+    setText(this.note, this.doc.sew.seams.length === 0 ? t('No seams') : this.doc.sew.failed ? t('The request failed') : rows.length === 0 ? t('All seams match') : '');
     const name = (id: number | undefined): string => (id === undefined ? '-' : this.doc.panel(id)?.name ?? String(id));
     patchList(this.list, rows, {
       key: (r) => String(r.seam.id),
       create: () => el('<button class="ff-sewcheck-row" type="button"><span data-k="n"></span><output data-k="m"></output></button>'),
       update: (node, r) => {
         setText(q(node, '[data-k="n"]'), `#${r.seam.id}  ${name(r.seam.a[0]?.panel)} / ${name(r.seam.b[0]?.panel)}`);
-        setText(q(node, '[data-k="m"]'), mmText(r.mismatch));
+        setText(q(node, '[data-k="m"]'), mmText(r.mismatch, loadPrefs().units));
         setClass(node, 'is-on', this.sel.seam === r.seam.id);
       },
     });

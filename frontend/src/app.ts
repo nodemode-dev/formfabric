@@ -85,11 +85,9 @@ export function startApp(): void {
     onPrefs: (cb) => { prefsListeners.push(cb); },
   };
 
+  status.setUnits(loadPrefs().units);
   const refresh = async (): Promise<void> => {
-    try {
-      const u = await call<{ units?: string }>('view.units', {});
-      if (u.units) status.setUnits(u.units);
-    } catch { /* the engine may lack view.units */ }
+    status.setUnits(loadPrefs().units);
     if (commands.get('pattern.get')) {
       try { status.setPanels((await call<{ panels?: unknown[] }>('pattern.get', {})).panels?.length ?? 0); } catch { status.setPanels(null); }
     }
@@ -149,6 +147,7 @@ export function startApp(): void {
     if (loaded) return;
     try {
       const cat = await catalogue(true);
+      if (link === 'down') return;
       loaded = true;
       status.setEngine('up', cat.version);
       version = cat.version;
@@ -159,8 +158,9 @@ export function startApp(): void {
       home.refresh();
       void refresh();
       void session.pull();
+      pushAgents();
       adopt();
-      void offerRecovery(() => { session.set(null, true); void refresh(); });
+      void offerRecovery((path) => { session.set(path, true); void refresh(); });
     } catch { loaded = false; }
   };
 
@@ -178,6 +178,11 @@ export function startApp(): void {
   const captions = new CaptionButtons(q(app, '.cv-titlebar'), () => localStorage.getItem('formfabric.customTitleBar') === '1');
   document.addEventListener('ff:title-bar', () => captions.sync());
   document.addEventListener(PREFS_EVENT, () => captions.sync());
+  let agentsSent: Promise<unknown> = Promise.resolve();
+  const pushAgents = (): void => {
+    agentsSent = agentsSent.then(() => fetch(serviceUrl('/api/commands/agents.prefs'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agentsAllowed: loadPrefs().agentsAllowed }) })).catch(() => undefined);
+  };
+  document.addEventListener(PREFS_EVENT, (e) => { if ((e as CustomEvent<{ keys?: string[] }>).detail?.keys?.includes('agentsAllowed')) pushAgents(); });
 
   const menus = () => buildMenus(commands, () => session.recent(), () => (wsLayouts ? layoutSlotIds(wsLayouts) : []));
   const palette = new CommandPalette(commands, menus);
@@ -310,6 +315,7 @@ export function startApp(): void {
   document.addEventListener('keydown', (e) => {
     if (e.defaultPrevented || anyDialogOpen()) return;
     if (home.isOpen && !(e.ctrlKey || e.metaKey)) return;
+    if (e.key === ' ' && e.target instanceof HTMLButtonElement && e.target.matches(':focus-visible')) return;
     const cmd = commands.forEvent(e);
     if (!cmd) return;
     const field = textFieldFocused();

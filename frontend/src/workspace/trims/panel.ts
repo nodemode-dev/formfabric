@@ -5,6 +5,7 @@ import { onLanguage, t } from '../../ui/i18n';
 import { icon } from '../../ui/icons';
 import { toast } from '../../ui/toast';
 import type { DocStore } from '../doc';
+import { emptyLabel } from '../offline';
 import { canPickImage, pickImage } from '../fabric/files';
 import { nativeDialogs, pickPath } from '../../shell/file-dialog';
 import { decimals, fromUnit, toUnit, type Selection } from '../state';
@@ -17,7 +18,7 @@ import {
   type StyleKind, type TStyle, type TrimItem,
 } from './types';
 import {
-  action, label, numRow, pairRow, patchKeyed, selRow, textRow, titled, toggleRow,
+  action, label, numRow, pairRow, patchKeyed, repaint, selRow, textRow, titled, toggleRow,
   type Row,
 } from './widgets';
 
@@ -142,7 +143,7 @@ export class TrimsPanel {
     close.innerHTML = icon('close', 16);
     titled(close, 'Close');
     close.addEventListener('click', () => this.setOpen(false));
-    this.toggle.addEventListener('click', () => { this.setOpen(!this.isOpen); this.toggle.blur(); });
+    this.toggle.addEventListener('click', (e) => { this.setOpen(!this.isOpen); if (e.detail > 0) this.toggle.blur(); });
     root.addEventListener('click', (e) => {
       if (this.isOpen && !this.yielding && e.target instanceof Element && e.target.closest('.ff-fb-toggle, .ff-bd-toggle')) this.setOpen(false);
     }, true);
@@ -164,7 +165,7 @@ export class TrimsPanel {
     bar.append(this.newKind.el, mk.el, dupBtn.el, delBtn.el);
     this.list = el('<div class="ff-tr-list ff-tr-list-styles" role="listbox"></div>');
     this.listEmpty = el('<p class="ff-tr-empty"></p>');
-    label(this.listEmpty, 'No styles');
+    emptyLabel(this.listEmpty, 'No styles');
     this.list.appendChild(this.listEmpty);
     this.name = textRow('Name', (v) => {
       if (v && this.selStyle !== null) void this.doc.run('style.update', { style: this.selStyle, name: v });
@@ -283,7 +284,7 @@ export class TrimsPanel {
     const optional = (labelKey: string, get: () => number | null, put: (v: number | null) => void, mm: boolean, unitText = ''): void => {
       const r = numRow(labelKey, mm ? u() : unitText, {}, (v) => put(mm ? fromUnit(v, u()) : v));
       r.input.disabled = false;
-      r.input.placeholder = t('Style');
+      repaint(() => { r.input.placeholder = t('Style'); });
       r.input.setAttribute('data-plain', '');
       r.input.addEventListener('change', () => { if (r.input.value.trim() === '') put(null); });
       body.appendChild(r.el);
@@ -386,12 +387,11 @@ export class TrimsPanel {
     setClass(this.toggle, 'is-active', on);
     this.toggle.setAttribute('aria-expanded', String(on));
     if (on) {
-      const other = document.querySelector<HTMLElement>('.ff-fb-toggle.is-active, .ff-bd-toggle.is-active');
-      if (other) {
-        this.yielding = true;
-        other.click();
-        this.yielding = false;
+      this.yielding = true;
+      for (const other of document.querySelectorAll<HTMLElement>('.ff-body > aside[data-k]:not([hidden])')) {
+        if (other !== this.drawer) other.querySelector<HTMLButtonElement>('[data-k="close"]')?.click();
       }
+      this.yielding = false;
       this.render();
     }
     setHidden(this.drawer, !on);

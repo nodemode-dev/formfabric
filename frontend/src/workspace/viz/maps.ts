@@ -44,7 +44,7 @@ export class Maps {
   constructor(private readonly host: VizHost, private readonly pop: Pop) {
     pop.setLabel('Maps');
     for (const k of MAP_KINDS) {
-      const b = pop.item(LABELS[k], () => void this.choose(k));
+      const b = pop.item(LABELS[k], () => { pop.close(); void this.choose(k); });
       this.items.set(k, b);
       if (k === 'none') pop.separator();
     }

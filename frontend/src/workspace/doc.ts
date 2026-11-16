@@ -62,6 +62,7 @@ export class DocStore {
     const tacks = raw.tacks ?? [];
     const info = new Map<number, SeamInfo>();
     const bad = new Map<number, number>();
+    let failed = false;
     if (seams.length) {
       try {
         const [list, check] = await Promise.all([
@@ -70,9 +71,9 @@ export class DocStore {
         ]);
         for (const s of list.seams) info.set(s.id, s);
         for (const m of check.mismatched) bad.set(m.id, m.mismatch);
-      } catch { /* lengths stay unknown until the next refresh */ }
+      } catch { failed = true; }
     }
-    return { seams, tacks, info, bad };
+    return { seams, tacks, info, bad, failed };
   }
 
   private async pull(): Promise<void> {

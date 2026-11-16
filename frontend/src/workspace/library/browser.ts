@@ -8,6 +8,7 @@ import { hasCommand, onCommands, run } from '../viz/api';
 import { KIND_LABEL, KINDS, cachedThumb, list, resolveThumb, roots, setRoots, type LibItem } from './api';
 import { KIND_ICON } from './icons';
 import { label, repaint, titled } from '../fabric/widgets';
+import { OFFLINE, engineDown } from '../offline';
 
 const MIN_W = 104;
 const LABEL_H = 38;
@@ -121,7 +122,7 @@ export class LibraryTab {
 
   private gate(): void {
     const lib = hasCommand('library.list');
-    const hint = lib ? '' : tr('The engine does not provide the library yet');
+    const hint = lib ? '' : tr(engineDown() ? OFFLINE : 'The engine does not provide the library yet');
     setTitle(this.pane, hint);
     for (const [b, cmd] of [[this.insertBtn, 'library.insert'], [this.addBtn, 'library.add'], [this.removeBtn, 'library.remove'], [this.rootsBtn, 'library.set_roots']] as const) {
       const ok = hasCommand(cmd) && (b === this.rootsBtn || b === this.addBtn || !!this.selected);
@@ -150,7 +151,7 @@ export class LibraryTab {
     this.rootList = await roots();
     setText(this.rootsEl, this.rootList.join('  |  '));
     setTitle(this.rootsEl, this.rootList.join('\n'));
-    if (got === undefined) { this.say(tr('The library could not be read'), true); return; }
+    if (got === undefined) { this.say(tr(engineDown() ? OFFLINE : 'The library could not be read'), true); return; }
     this.loaded = true;
     this.items = got;
     this.fillTags();

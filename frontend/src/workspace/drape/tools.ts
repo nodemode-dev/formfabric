@@ -44,7 +44,7 @@ export class Tools {
       b.className = 'ff3-btn';
       b.innerHTML = icon(d.icon, 14);
       b.disabled = true;
-      b.addEventListener('click', () => { this.set(this.current === d.tool ? 'none' : d.tool); b.blur(); });
+      b.addEventListener('click', (e) => { this.set(this.current === d.tool ? 'none' : d.tool); if (e.detail > 0) b.blur(); });
       bar.appendChild(b);
       this.buttons.set(d.tool, b);
     }

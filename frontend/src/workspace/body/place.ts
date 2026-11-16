@@ -38,8 +38,8 @@ export class PlaceSection {
     this.count = q(this.place, '.ff-bd-n');
     this.reset = el<HTMLButtonElement>(`<button class="ff-btn" type="button" disabled>${icon('undo', 14)}<span></span></button>`);
     label(this.reset.children[1] as HTMLElement, 'Reset placement');
-    this.place.addEventListener('click', () => { void this.run(); this.place.blur(); });
-    this.reset.addEventListener('click', () => { void this.clear(); this.reset.blur(); });
+    this.place.addEventListener('click', (e) => { void this.run(); if (e.detail > 0) this.place.blur(); });
+    this.reset.addEventListener('click', (e) => { void this.clear(); if (e.detail > 0) this.reset.blur(); });
     actions.append(this.place, this.reset);
     this.group.appendChild(actions);
 
@@ -53,8 +53,8 @@ export class PlaceSection {
     label(this.propose.children[1] as HTMLElement, 'Propose seams');
     this.applyAll = el<HTMLButtonElement>(`<button class="ff-btn" type="button" disabled>${icon('check', 14)}<span></span></button>`);
     label(this.applyAll.children[1] as HTMLElement, 'Apply all');
-    this.propose.addEventListener('click', () => { this.proposed = true; void this.fetch(); this.propose.blur(); });
-    this.applyAll.addEventListener('click', () => { void this.ctx.store.run('sew.auto', { apply: true }); this.applyAll.blur(); });
+    this.propose.addEventListener('click', (e) => { this.proposed = true; void this.fetch(); if (e.detail > 0) this.propose.blur(); });
+    this.applyAll.addEventListener('click', (e) => { void this.ctx.store.run('sew.auto', { apply: true }); if (e.detail > 0) this.applyAll.blur(); });
     bar.append(this.propose, this.applyAll);
   }
 
@@ -135,7 +135,7 @@ export class PlaceSection {
         const node = el('<div class="ff-bd-item"><span class="ff-bd-name"></span><span class="ff-bd-tag"></span></div>');
         const go = el<HTMLButtonElement>(`<button class="cv-icon-btn ff-bd-add" type="button">${icon('check', 16)}</button>`);
         titled(go, 'Apply');
-        go.addEventListener('click', () => { void this.ctx.store.run('sew.segment', p.args); go.blur(); });
+        go.addEventListener('click', (e) => { void this.ctx.store.run('sew.segment', p.args); if (e.detail > 0) go.blur(); });
         node.appendChild(go);
         return node;
       },

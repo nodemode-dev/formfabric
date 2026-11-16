@@ -1,5 +1,6 @@
 .ff-an { position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--z-rail); height: 274px; display: flex; flex-direction: column; min-width: 0; background: var(--bg-secondary); border-top: 1px solid var(--border-color); color: var(--text-primary); font-size: var(--fs-11); }
 .ff-an[hidden] { display: none; }
+.ff-pane-3d.has-timeline { --ff-an-lift: 274px; }
 .ff-an-toggle { flex: none; }
 .ff-an-layers { height: 30px; }
 .ff-an-lk { flex: none; display: inline-flex; width: 12px; color: var(--text-primary); visibility: hidden; }

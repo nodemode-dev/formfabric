@@ -51,6 +51,7 @@ fn magic_ok(kind: &str, bytes: &[u8]) -> bool {
         "png" => bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]),
         "gif" => bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a"),
         "webm" => bytes.starts_with(&[0x1a, 0x45, 0xdf, 0xa3]),
+        "mp4" => bytes.len() >= 8 && &bytes[4..8] == b"ftyp",
         _ => false,
     }
 }
@@ -61,7 +62,7 @@ fn schema() -> Value {
         "properties": {
             "path": {"type": "string", "description": "Absolute output path whose extension matches kind."},
             "data": {"type": "string", "description": "The file bytes, base64 encoded (a data: URL prefix is accepted)."},
-            "kind": {"type": "string", "enum": ["png", "webm", "gif"]}
+            "kind": {"type": "string", "enum": ["png", "webm", "mp4", "gif"]}
         },
         "required": ["path", "data", "kind"],
         "additionalProperties": false
@@ -70,8 +71,8 @@ fn schema() -> Value {
 
 fn write(_: &mut Session, a: &Value) -> Result<Value, CommandError> {
     let kind = args::string(a, "kind")?;
-    if !matches!(kind, "png" | "webm" | "gif") {
-        return Err(bad("kind must be png, webm or gif"));
+    if !matches!(kind, "png" | "webm" | "mp4" | "gif") {
+        return Err(bad("kind must be png, webm, mp4 or gif"));
     }
     let path = args::file_path(a, "path", Some(kind))?;
     let data = args::string(a, "data")?;
@@ -95,7 +96,7 @@ pub(crate) fn commands() -> Vec<Command> {
         mcp: "capture_write",
         group: Group::Export,
         label: "Write Capture",
-        description: "Write bytes captured in the window (a png snapshot, a webm video or a gif) to a file. The path must be absolute with the extension of the kind, the bytes must carry that format's signature, and the size is capped at 512 MB. The file is replaced atomically.",
+        description: "Write bytes captured in the window (a png snapshot, a webm or mp4 video, or a gif) to a file. The path must be absolute with the extension of the kind, the bytes must carry that format's signature, and the size is capped at 512 MB. The file is replaced atomically.",
         keys: &[],
         hints: EXTERNAL,
         schema,

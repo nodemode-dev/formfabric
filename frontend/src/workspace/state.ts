@@ -29,7 +29,15 @@ export class Selection {
     return [...this.panels];
   }
 
-  prune(ids: Set<number>, seams?: Set<number>, tacks?: Set<number>): void {
+  private lens = new Map<number, number>();
+
+  prune(ids: Set<number>, seams?: Set<number>, tacks?: Set<number>, lens?: Map<number, number>): void {
+    if (lens) {
+      const moved = (panel: number): boolean => { const was = this.lens.get(panel); return was !== undefined && was !== lens.get(panel); };
+      if (this.pts && moved(this.pts.panel)) this.pts = null;
+      if (this.seg && moved(this.seg.panel)) this.seg = null;
+      this.lens = new Map(lens);
+    }
     if (seams && this.seam !== null && !seams.has(this.seam)) this.seam = null;
     if (tacks && this.tack !== null && !tacks.has(this.tack)) this.tack = null;
     for (const id of [...this.panels]) if (!ids.has(id)) this.panels.delete(id);

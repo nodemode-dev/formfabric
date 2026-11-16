@@ -1,3 +1,4 @@
+import { catalogue } from '../../engine/service';
 import { Dialog } from '../../ui/dialogs';
 import { el, setDisabled, setHidden, setText } from '../../ui/dom';
 import { t } from '../../ui/i18n';
@@ -38,6 +39,23 @@ function wait(ms: number): Promise<void> {
   return new Promise((r) => window.setTimeout(r, ms));
 }
 
+const VIDEO_TYPES: Array<[string, 'webm' | 'mp4']> = [
+  ['video/webm;codecs=vp9', 'webm'], ['video/webm;codecs=vp8', 'webm'], ['video/webm', 'webm'],
+  ['video/mp4;codecs=avc1', 'mp4'], ['video/mp4', 'mp4'],
+];
+
+function videoType(): [string, 'webm' | 'mp4'] | null {
+  if (typeof MediaRecorder === 'undefined') return null;
+  return VIDEO_TYPES.find(([m]) => MediaRecorder.isTypeSupported(m)) ?? null;
+}
+
+async function writesKind(kind: string): Promise<boolean> {
+  try {
+    const c = await catalogue();
+    return c.commands.find((x) => x.id === 'capture.write')?.inputSchema.properties?.kind?.enum?.includes(kind) ?? false;
+  } catch { return false; }
+}
+
 export class Capture {
   private dialog: Dialog | null = null;
   private kind: HTMLSelectElement | null = null;
@@ -68,8 +86,9 @@ export class Capture {
     const body = el('<div class="ffz-cap"></div>');
     d.body.appendChild(body);
     const kind = el<HTMLSelectElement>('<select class="cv-input"><option value="snapshot">Snapshot (PNG)</option><option value="multi">Multi-view snapshot (PNG)</option><option value="video">Video (WebM)</option><option value="turntable">Turntable (WebM)</option><option value="gif">Turntable (GIF)</option></select>');
-    for (const o of Array.from(kind.options)) o.textContent = t(o.textContent ?? '');
-    const size = el<HTMLSelectElement>('<select class="cv-input"></select>');
+    const vext = videoType()?.[1] ?? 'webm';
+    for (const o of Array.from(kind.options)) o.textContent = t((o.textContent ?? '').replace('(WebM)', vext === 'mp4' ? '(MP4)' : '(WebM)'));
+    const size =el<HTMLSelectElement>('<select class="cv-input"></select>');
     for (const [v, label] of SIZES) {
       const o = document.createElement('option');
       o.value = v;
@@ -180,7 +199,7 @@ export class Capture {
     this.slotRows.forEach((row, i) => setHidden(row, !multi || i >= n));
     setHidden(this.rows.seconds, snap);
     setHidden(this.rows.range, kind !== 'video' || !hasCommand('anim.get'));
-    const ext = snap ? 'png' : kind === 'gif' ? 'gif' : 'webm';
+    const ext = snap ? 'png' : kind === 'gif' ? 'gif' : videoType()?.[1] ?? 'webm';
     if (this.path && this.path.value && !this.path.value.endsWith(`.${ext}`)) this.path.value = this.path.value.replace(/\.[A-Za-z0-9]+$/, `.${ext}`);
     if (this.path) this.path.placeholder = `/absolute/path/capture.${ext}`;
   }
@@ -193,7 +212,8 @@ export class Capture {
     if (this.busy || !this.kind || !this.path || !this.go) return;
     const kind = this.kind.value as Kind;
     const target = this.path.value.trim();
-    const canWrite = hasCommand('capture.write');
+    const ext = kind === 'snapshot' || kind === 'multi' ? 'png' : kind === 'gif' ? 'gif' : videoType()?.[1] ?? 'webm';
+    const canWrite = hasCommand('capture.write') && (ext !== 'mp4' || await writesKind('mp4'));
     if (canWrite && !target.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(target)) {
       this.say(t('Enter an absolute path to save to'));
       return;
@@ -206,7 +226,7 @@ export class Capture {
       if (kind === 'multi' && this.separate?.checked) { await this.multiSeparate(target, canWrite); return; }
       const blob = kind === 'snapshot' ? await this.snapshot() : kind === 'multi' ? await this.multi() : kind === 'video' ? await this.video() : kind === 'gif' ? await this.gif() : await this.turntable();
       if (!blob) return;
-      await this.deliver(blob, target, canWrite, kind === 'snapshot' || kind === 'multi' ? 'png' : kind === 'gif' ? 'gif' : 'webm');
+      await this.deliver(blob, target, canWrite, ext);
     } catch (err) {
       this.say(message(err));
       toast(message(err), 'error');
@@ -355,15 +375,14 @@ export class Capture {
   }
 
   private recorder(): { rec: MediaRecorder; done: Promise<Blob>; push: () => void } {
-    if (typeof MediaRecorder === 'undefined') throw new Error(t('This window cannot record video'));
-    const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
-    const mime = types.find((m) => MediaRecorder.isTypeSupported(m));
-    if (!mime) throw new Error(t('This window cannot record video'));
+    const type = videoType();
+    if (!type) throw new Error(t('This window cannot record video'));
+    const mime = type[0];
     const stream = this.host.canvas.captureStream(FPS);
     const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
     const chunks: Blob[] = [];
     rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
-    const done = new Promise<Blob>((res) => { rec.onstop = () => { for (const tr of stream.getTracks()) tr.stop(); res(new Blob(chunks, { type: 'video/webm' })); }; });
+    const done = new Promise<Blob>((res) => { rec.onstop = () => { for (const tr of stream.getTracks()) tr.stop(); res(new Blob(chunks, { type: mime.split(';')[0] })); }; });
     const track = stream.getVideoTracks()[0] as (MediaStreamTrack & { requestFrame?: () => void }) | undefined;
     return { rec, done, push: () => track?.requestFrame?.() };
   }
