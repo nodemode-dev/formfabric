@@ -10,11 +10,18 @@ export interface Stream {
 
 const RETRY_MS = 1500;
 const IDLE_MS = 45000;
+const live = new Set<() => void>();
+
+export function recheckStreams(): void {
+  for (const again of Array.from(live)) again();
+}
 
 export function openStream(url: string, handlers: StreamHandlers): Stream {
   let stopped = false;
   let controller: AbortController | null = null;
   let timer = 0;
+  let recheck = false;
+  const again = (): void => { live.delete(again); recheck = true; controller?.abort(); };
 
   const retry = (refused: boolean): void => {
     if (stopped) return;
@@ -30,6 +37,7 @@ export function openStream(url: string, handlers: StreamHandlers): Stream {
     } catch { retry(false); return; }
     if (!response.ok || !response.body) { retry(!response.ok); return; }
     handlers.open();
+    live.add(again);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -55,8 +63,16 @@ export function openStream(url: string, handlers: StreamHandlers): Stream {
         }
         if (from) buffer = buffer.slice(from);
       }
-    } catch { window.clearTimeout(idle); controller?.abort(); retry(false); return; }
+    } catch {
+      window.clearTimeout(idle);
+      live.delete(again);
+      if (recheck && !stopped) { recheck = false; void run(); return; }
+      controller?.abort();
+      retry(false);
+      return;
+    }
     window.clearTimeout(idle);
+    live.delete(again);
     retry(false);
   };
 
@@ -65,6 +81,7 @@ export function openStream(url: string, handlers: StreamHandlers): Stream {
   return {
     close(): void {
       stopped = true;
+      live.delete(again);
       window.clearTimeout(timer);
       controller?.abort();
     },

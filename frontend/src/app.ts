@@ -85,11 +85,9 @@ export function startApp(): void {
     onPrefs: (cb) => { prefsListeners.push(cb); },
   };
 
+  status.setUnits(loadPrefs().units);
   const refresh = async (): Promise<void> => {
-    try {
-      const u = await call<{ units?: string }>('view.units', {});
-      if (u.units) status.setUnits(u.units);
-    } catch { /* the engine may lack view.units */ }
+    status.setUnits(loadPrefs().units);
     if (commands.get('pattern.get')) {
       try { status.setPanels((await call<{ panels?: unknown[] }>('pattern.get', {})).panels?.length ?? 0); } catch { status.setPanels(null); }
     }
@@ -149,6 +147,7 @@ export function startApp(): void {
     if (loaded) return;
     try {
       const cat = await catalogue(true);
+      if (link === 'down') return;
       loaded = true;
       status.setEngine('up', cat.version);
       version = cat.version;
