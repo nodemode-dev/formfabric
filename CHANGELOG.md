@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.25.1 · 2026-11-17
+
+- The desktop build runs again: `@tauri-apps/api` and `@tauri-apps/cli` move to 2.12.5 to match the `tauri` crate (2.12 in `src-tauri/Cargo.lock`). Tauri refuses to build when the two are on different minor releases, which stopped the 0.25.0 release on every platform.
+
 ## v0.25.0 · 2026-11-16
 
 A polish round before the public release: crash recovery keeps far more of your work and brings back the garment's file, the service refuses unsafe files and, when you switch them off, outside agents, glTF exports at the right size, and the window no longer shifts at load or loses keyboard focus. Nothing in this release was run on macOS or Windows; the desktop shell was compile-checked on Linux only, and no signing ran.
