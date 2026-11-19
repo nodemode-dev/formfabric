@@ -2,6 +2,15 @@
 
 Living context for the FastAPI engine service. What would be comments in `backend/` lives here, newest first. Read before editing.
 
+## v0.25.3 · 2026-11-19
+
+### setup/freeze_backend :: sign_engine · notarization: the framework signed in place, the loose links made real first
+
+- Fault: 0.25.2, the first FormFabric build sent to Apple's notary (formcompiler run 44438017114, submission 0dbca56d-2872-43d6-ac09-5fab06e20ebc), was refused as Invalid for one file, `_internal/Python.framework/Versions/3.14/Python`: "The signature of the binary is invalid." The 0.25.0 fix signed every file under a `*.framework/` as a loose copy outside its framework and moved it back. That kept `_internal/Python` (a link Tauri ships as a plain copy) loadable, but left the framework's own binary with a plain signature inside a framework, which the notary refuses.
+- Now, the layout FormDAM ships notarized since 1.29.0 (its src-tauri/HASHOUT_LOG.md, v1.28.7): (1) every file link outside a framework becomes a real file first (`cp -L -p`), so `_internal/Python`, the path the bootloader opens, is signed as a plain Mach-O at its own path; (2) every Mach-O is signed in place, deepest first, with the hardened runtime and a timestamp (entitlements on executables), so `Versions/3.x/Python` is signed as its framework's binary; (3) the links inside frameworks are removed, which Tauri could not ship anyway; (4) every file passes `codesign --verify --strict`, and the engine keeps `disable-library-validation`.
+- Removed: the keep test (a file PyInstaller had signed was kept), the copy-out branch for framework files, and the strict copy guard over links (no file link is left outside a framework, and none inside).
+- Checked on an Apple silicon Mac: the engine frozen with Python 3.14 (Homebrew, arm64, the runner's layout) and signed with this function under the Developer ID; the zipped folder Accepted by Apple's notary (submission 262400da-d86c-466c-befe-d0a78828b959); `--selfcheck` passes as signed and after a file-by-file copy like Tauri's; `_internal/Python` passes `codesign --verify --strict`.
+
 ## v0.25.0 · 2026-11-16
 
 Polish round: service, scripts, CI.
