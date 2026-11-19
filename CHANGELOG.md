@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.25.2 · 2026-11-18
+
+- Mac builds are signed with the new Developer ID and notarized by Apple, so macOS opens the downloaded app without asking first. Nothing in the app changed.
+
 ## v0.25.1 · 2026-11-17
 
 - The desktop build runs again: `@tauri-apps/api` and `@tauri-apps/cli` move to 2.12.5 to match the `tauri` crate (2.12 in `src-tauri/Cargo.lock`). Tauri refuses to build when the two are on different minor releases, which stopped the 0.25.0 release on every platform.
