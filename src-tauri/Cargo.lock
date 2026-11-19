@@ -1073,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "formfabric"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "objc2",
  "objc2-app-kit",

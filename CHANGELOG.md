@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.25.3 · 2026-11-19
+
+- Mac builds pass Apple's notarization: the engine's bundled Python framework is signed in place, as part of its framework, and `_internal/Python` is signed as its own file. 0.25.2 was refused for it ("The signature of the binary is invalid"). Nothing in the app changed.
+
 ## v0.25.2 · 2026-11-18
 
 - Mac builds are signed with the new Developer ID and notarized by Apple, so macOS opens the downloaded app without asking first. Nothing in the app changed.

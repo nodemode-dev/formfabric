@@ -6,7 +6,7 @@ from .client import Client, connect, default_client, use
 from .errors import ArgumentError, BackendError, CommandError, FormfabricError
 from .model import Garment, Link, Panel, Sim, sample_drape
 
-__version__ = "0.25.2"
+__version__ = "0.25.3"
 
 __all__ = [
     "ArgumentError",
