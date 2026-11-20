@@ -3,3 +3,4 @@ uvicorn[standard]==0.53.0
 python-multipart==0.0.32
 maturin==1.11.5
 ptyprocess==0.7.0
+keyring==25.7.0

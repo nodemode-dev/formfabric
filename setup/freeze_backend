@@ -57,7 +57,7 @@ rm -rf build/pyinstaller dist-engine
 pyinstaller --noconfirm --clean "$mode" --name formfabric-engine \
   --distpath dist-engine --workpath build/pyinstaller --specpath build/pyinstaller \
   --add-data "$src/frontend/dist${sep}frontend_dist" \
-  --collect-submodules app --collect-submodules uvicorn --collect-all ffb_engine \
+  --collect-submodules app --collect-submodules uvicorn --collect-all ffb_engine --collect-submodules keyring \
   --hidden-import app.services.cmd_terminal --hidden-import app.services.claude_code --hidden-import app.services.cmd_chat \
   "${extra[@]}" \
   "$src/backend/formfabric_engine.py"

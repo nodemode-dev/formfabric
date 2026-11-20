@@ -4,7 +4,7 @@ import shlex
 import time
 from pathlib import Path
 
-from app.core import config, prefs
+from app.core import config, prefs, seal
 from app.services import agent_lookup, agents, terminal
 from app.services.commands import CommandError, command
 
@@ -121,4 +121,4 @@ def agent_prefs(claudeFolder: str | None = None, claudeBin: str | None = None, c
     if agentsAllowed is False:
         agents.reset()
     _cache["value"] = None
-    return {k: current[k] for k in prefs.DEFAULTS}
+    return {k: current[k] for k in (*prefs.DEFAULTS, *seal.REPORTS)}
