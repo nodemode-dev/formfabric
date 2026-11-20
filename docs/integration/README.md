@@ -4,7 +4,7 @@ These files are data and proposals for other repositories. formfabric does not c
 
 | File | Goes to | Owner action |
 | --- | --- | --- |
-| `apps-formfabric.json` | formcompiler `apps/formfabric.json` | proposed to formcompiler as that file, enabled, for Apple silicon, Intel Macs, Windows and Linux, with `developer-id` signing while Apple refuses notarization; this copy matches it. Repository `nodemode-dev/formfabric`, project extension `.ffbrc`, identifier `ai.nodemode.formfabric`, kind `garment`. |
+| `apps-formfabric.json` | formcompiler `apps/formfabric.json` | proposed to formcompiler as that file, enabled, for Apple silicon, Intel Macs, Windows and Linux, with `apple` signing; this copy matches it. Repository `nodemode-dev/formfabric`, project extension `.ffbrc`, identifier `ai.nodemode.formfabric`, kind `garment`. |
 | `catalogue-entry.json` | formai_dev `catalog/products.json`, then formportal's copy | add the object; keep `id`, `name`, `kind`, `summary` and `identifier` identical to the registry entry and to `src-tauri/tauri.conf.json`. |
 | `product-entry.json` | formai_dev package and extension schemas (the `product` enum) | add `formfabric` to the enum if extension packs are wanted. No new kind or permission is requested. |
 | `gof-handoff.md` | the formsculpt owner | a proposal; no format change was made. Needs agreement before anything changes in `gof.json`. |
