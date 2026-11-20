@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import glob
+import hashlib
 import json
 import os
 import shutil
@@ -152,6 +153,11 @@ def mirrored_equal() -> bool:
 
 
 def sync(check: bool) -> int:
+    if check:
+        for problem in dock_problems():
+            say(problem)
+        if dock_problems():
+            return 1
     try:
         cat = catalogue()
         block = render(cat)
@@ -180,6 +186,24 @@ def sync(check: bool) -> int:
 MANIFEST = ROOT / "agents" / "manifest.json"
 DOCK = {"present": True, "positions": ["bottom", "right"], "tabs": ["chat", "terminal", "claude-code", "codex", "cursor", "antigravity"]}
 CLIENTS = ("claude", "codex", "cursor", "antigravity")
+DOCK_DIR = ROOT / "frontend" / "src" / "dock"
+DOCK_MANIFEST = DOCK_DIR / "MANIFEST.json"
+DOCK_VERSION = "2.2.1"
+
+
+def _dock_files() -> dict[str, str]:
+    return {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(DOCK_DIR.iterdir()) if p.is_file() and p.name != DOCK_MANIFEST.name}
+
+
+def dock_problems() -> list[str]:
+    try:
+        held = json.loads(DOCK_MANIFEST.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return [f"{DOCK_MANIFEST.relative_to(ROOT)}: missing or not JSON"]
+    rel = DOCK_DIR.relative_to(ROOT).as_posix()
+    problems = [] if held.get("version") == DOCK_VERSION else [f"{rel}/MANIFEST.json: version {held.get('version')}, this app expects {DOCK_VERSION}"]
+    kept, now = held.get("files", {}), _dock_files()
+    return problems + [f"{rel}/{name}: does not match MANIFEST.json (the shared dock module changes only as a whole new version)" for name in sorted(set(kept) | set(now)) if kept.get(name) != now.get(name)]
 
 
 def manifest_text(cat: dict) -> str:
@@ -203,7 +227,7 @@ def manifest_text(cat: dict) -> str:
 
 
 def check() -> int:
-    problems = []
+    problems = dock_problems()
     try:
         cat = catalogue()
         if MODELING.read_text(encoding="utf-8") != splice(MODELING.read_text(encoding="utf-8"), render(cat)):

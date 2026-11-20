@@ -85,7 +85,7 @@
 ```sh
 ./formfabric py -m formfabric commands   # list the engine commands
 ./formfabric py my_script.py             # run a script against the engine
-./formfabric mcp                         # MCP server on stdio for Claude Code, Codex and Cursor
+./formfabric mcp                         # MCP server on stdio for Claude Code, Codex, Cursor and Antigravity
 ```
 
 `.mcp.json`, `.codex/config.toml` and `.cursor/mcp.json` are already wired in this repo. See [`AGENTS.md`](AGENTS.md).
