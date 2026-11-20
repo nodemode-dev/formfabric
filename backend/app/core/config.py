@@ -62,20 +62,16 @@ def window_origins() -> list[str]:
     return [*cors_origins(), *dev, f"http://127.0.0.1:{own}", f"http://localhost:{own}", "tauri://localhost", "http://tauri.localhost"]
 
 
-TOKEN_MIN = 32
-_TOKEN = os.environ.pop("FFB_WINDOW_TOKEN", "").strip()
+INHERITED_ENV = "FFB_WINDOW_TOKEN"
+KEY_STDOUT_ENV = "FFB_WINDOW_KEY_STDOUT"
+KEY_LINE = "formfabric-window-key: "
+INHERITED_IGNORED = os.environ.pop(INHERITED_ENV, None) is not None
 _OWN_KEY = secrets.token_urlsafe(32)
 
 
-def window_key_given() -> bool:
-    return bool(_TOKEN)
+def key_stdout() -> bool:
+    return os.environ.get(KEY_STDOUT_ENV) == "1"
 
 
-def window_token() -> str | None:
-    if not _TOKEN:
-        return _OWN_KEY
-    return _TOKEN if len(_TOKEN) >= TOKEN_MIN else None
-
-
-def window_token_rejected() -> bool:
-    return 0 < len(_TOKEN) < TOKEN_MIN
+def window_token() -> str:
+    return _OWN_KEY

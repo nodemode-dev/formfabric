@@ -129,6 +129,18 @@ def test_a_broken_path_is_not_sealed_by_a_later_write(keychain, prefs_file):
     assert (after["claudeBin"], after["seal"], after["sealBroken"]) == ("", "ok", False)
 
 
+def test_the_window_still_hears_of_a_broken_seal_after_the_next_write(keychain, prefs_file):
+    from app.core import prefs
+    from app.services import agents
+
+    prefs.update({"agentsAllowed": True})
+    assert agents.status()["sealWasBroken"] is False
+    edit(prefs_file, claudeBin="/tmp/elsewhere/claude")
+    prefs.update({"agentsAllowed": True})
+    got = agents.status()
+    assert (got["sealBroken"], got["sealWasBroken"]) == (False, True)
+
+
 def test_with_no_keychain_the_stored_values_stand(prefs_file):
     import keyring
     from keyring.backends import fail

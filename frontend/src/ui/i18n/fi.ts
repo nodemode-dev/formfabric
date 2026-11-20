@@ -1025,4 +1025,5 @@ export const fi: Record<string, string> = {
   "its arguments were too large to keep in the journal": "sen argumentit olivat liian suuria säilytettäviksi lokissa",
   "this line of the journal could not be read": "tätä lokin riviä ei voitu lukea",
   "this command is not repeated after a crash": "tätä komentoa ei toisteta kaatumisen jälkeen",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "Agenttivalintaa muutettiin formfabricin ulkopuolella, joten sen kanssa tallennettua ohjelmapolkua ei käytetä.",
 };

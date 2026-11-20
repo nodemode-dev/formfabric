@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.29.0 · 2026-11-20
+
+The window's key comes from the engine alone, FormFabric uses the family's design names, and Preferences says when the agent choice was changed outside the app.
+
+- The engine makes the window's key itself each time it starts and takes none from outside: a key handed to it in its environment is ignored, and the log says so. The desktop app reads the engine's own key and gives it to its window; started from source, the engine gives it once to the first page that asks. A page reloaded after the engine restarted asks for the new key instead of sending the old one.
+- Every design name of FormVis now works in FormFabric with FormVis's values. You see two small differences in the agent dock: its terminal text is one point larger (13 instead of 12), and the dim behind the dock's first-run guide and the outside-agent dialog is a little darker.
+- When the saved agent choice was changed outside the app, Preferences says so in one sentence under "Allow outside agents", in every language, and the program path saved with it is not used. The space for the sentence is kept free, so nothing moves when it appears.
+
 ## v0.28.0 · 2026-11-20
 
 Antigravity tabs keep to themselves, and your choice about agents is protected.

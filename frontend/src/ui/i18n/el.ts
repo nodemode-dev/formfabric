@@ -1025,4 +1025,5 @@ export const el: Record<string, string> = {
   "its arguments were too large to keep in the journal": "τα ορίσματά της ήταν πολύ μεγάλα για να κρατηθούν στο ημερολόγιο",
   "this line of the journal could not be read": "αυτή η γραμμή του ημερολογίου δεν ήταν δυνατό να διαβαστεί",
   "this command is not repeated after a crash": "αυτή η εντολή δεν επαναλαμβάνεται μετά από κατάρρευση",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "Η επιλογή για τους πράκτορες άλλαξε έξω από το formfabric, οπότε η διαδρομή προγράμματος που αποθηκεύτηκε μαζί της δεν χρησιμοποιείται.",
 };

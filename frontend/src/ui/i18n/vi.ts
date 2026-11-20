@@ -1025,4 +1025,5 @@ export const vi: Record<string, string> = {
   "its arguments were too large to keep in the journal": "đối số của lệnh quá lớn để lưu trong nhật ký",
   "this line of the journal could not be read": "không đọc được dòng này của nhật ký",
   "this command is not repeated after a crash": "lệnh này không được lặp lại sau sự cố",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "Lựa chọn tác tử đã bị thay đổi bên ngoài formfabric, nên đường dẫn chương trình được lưu cùng không được dùng.",
 };

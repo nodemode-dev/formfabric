@@ -1,17 +1,17 @@
 :root, .ft-dock {
   --dock-bg: var(--bg-primary);
   --dock-bar-bg: var(--bg-secondary);
-  --dock-raised: var(--bg-tertiary);
+  --dock-raised: var(--surface-raised);
   --dock-hover: var(--bg-hover);
   --dock-input-bg: var(--bg-input);
   --dock-border: var(--border-color);
-  --dock-tab-border: var(--border-light);
-  --dock-scrim: var(--scrim);
+  --dock-tab-border: var(--line-2);
+  --dock-scrim: var(--bg-scrim);
   --dock-text: var(--text-primary);
   --dock-text-dim: var(--text-secondary);
   --dock-text-muted: var(--text-muted);
   --dock-accent: var(--accent-color);
-  --dock-accent-line: var(--accent-color-dim);
+  --dock-accent-line: var(--accent-line);
   --dock-accent-ink: var(--accent-ink);
   --dock-danger: var(--danger);
   --dock-danger-text: var(--danger-text);
@@ -32,5 +32,6 @@
   --dock-term-fg: var(--text-primary);
   --dock-term-cursor: var(--accent-color);
   --dock-term-selection: var(--accent-color-dim);
-  --dock-term-font-size: var(--fs-12);
+  --dock-term-font-size: var(--fs-13);
+  --dock-outline: var(--border-light);
 }

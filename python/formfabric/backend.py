@@ -118,7 +118,7 @@ class HttpBackend(Backend):
             except (ValueError, OSError):
                 pass
             if exc.code == 403:
-                raise BackendError(f"the service refused the call ({detail or 'forbidden'}); set FFB_WINDOW_TOKEN to the token the service was started with, or use the in-process backend") from exc
+                raise BackendError(f"the service refused the call ({detail or 'forbidden'}); only the window holding the key the service made can change things through it, so use the in-process backend") from exc
             if exc.code == 503:
                 raise BackendError(detail or "the engine module is not built in the service") from exc
             raise BackendError(f"{path}: HTTP {exc.code} {detail}".strip()) from exc

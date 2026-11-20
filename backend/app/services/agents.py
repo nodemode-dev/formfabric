@@ -56,7 +56,8 @@ def switched_off() -> str | None:
 def status() -> dict:
     stored = prefs.load()
     return {"window": window_live(), "enabled": stored.get("agentsAllowed") is not False, "allowed": _allowed, "asking": _pending is not None,
-            "declined": time.monotonic() < _declined_until, "seal": stored["seal"], "sealBroken": stored["sealBroken"]}
+            "declined": time.monotonic() < _declined_until, "seal": stored["seal"], "sealBroken": stored["sealBroken"],
+            "sealWasBroken": stored["sealWasBroken"]}
 
 
 def answer(allow: bool) -> None:

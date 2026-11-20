@@ -1025,4 +1025,5 @@ export const srLatn: Record<string, string> = {
   "its arguments were too large to keep in the journal": "njeni argumenti su bili preveliki za dnevnik",
   "this line of the journal could not be read": "ovaj red dnevnika nije mogao da se pročita",
   "this command is not repeated after a crash": "ova komanda se ne ponavlja posle pada",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "Izbor za agente je promenjen van formfabric-a, pa se putanja programa sačuvana uz njega ne koristi.",
 };

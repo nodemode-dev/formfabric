@@ -6,13 +6,15 @@ import secrets
 SERVICE = "formfabric"
 ACCOUNT = "settings-seal"
 FIELD = "seal"
-REPORTS = ("seal", "sealBroken")
+REPORTS = ("seal", "sealBroken", "sealWasBroken")
 SEALED = ("agentsAllowed", "claudeBin")
 _CACHE: dict = {"tried": False, "available": False, "key": None}
+SEEN = {"broken": False}
 
 
 def reset() -> None:
     _CACHE.update(tried=False, available=False, key=None)
+    SEEN["broken"] = False
 
 
 def _load(create: bool) -> bytes | None:
@@ -67,7 +69,8 @@ def effective(values: dict, state: str) -> dict:
     out = {k: v for k, v in values.items() if k != FIELD and k not in REPORTS}
     if state == "broken":
         out.update(agentsAllowed=values.get("agentsAllowed") is not False, claudeBin="")
-    return {**out, "seal": "ok" if state == "adopt" else state, "sealBroken": state == "broken"}
+        SEEN["broken"] = True
+    return {**out, "seal": "ok" if state == "adopt" else state, "sealBroken": state == "broken", "sealWasBroken": SEEN["broken"]}
 
 
 def sign(values: dict) -> dict:

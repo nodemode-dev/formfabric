@@ -24,7 +24,7 @@ def health() -> dict:
 
 @router.post("/window/key")
 def claim_window_key():
-    if config.window_key_given():
+    if config.key_stdout():
         return JSONResponse({"detail": "Not Found"}, status_code=404)
     key = window_guard.claim()
     if key is None:

@@ -4,6 +4,8 @@ use std::time::Duration;
 
 pub const APP: &str = "FormFabric";
 pub const SHELL_ENV: &str = "FORMFABRIC_SHELL_PID";
+pub const KEY_STDOUT_ENV: &str = "FFB_WINDOW_KEY_STDOUT";
+const KEY_MARK: &str = "window-key";
 pub const ADDRESS_WAIT: Duration = Duration::from_secs(90);
 pub const EXIT_WAIT: Duration = Duration::from_secs(1);
 pub const BUSY_CODE: i32 = 2;
@@ -28,6 +30,9 @@ pub struct Tail(VecDeque<String>);
 
 impl Tail {
     pub fn push(&mut self, line: &str) {
+        if line.contains(KEY_MARK) {
+            return;
+        }
         let clean: String = line.chars().filter(|c| !c.is_control()).take(LINE_CHARS).collect();
         if clean.trim().is_empty() {
             return;

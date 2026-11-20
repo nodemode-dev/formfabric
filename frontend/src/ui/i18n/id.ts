@@ -1025,4 +1025,5 @@ export const id: Record<string, string> = {
   "its arguments were too large to keep in the journal": "argumennya terlalu besar untuk disimpan di jurnal",
   "this line of the journal could not be read": "baris jurnal ini tidak dapat dibaca",
   "this command is not repeated after a crash": "perintah ini tidak diulang setelah crash",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "Pilihan agen diubah di luar formfabric, jadi jalur program yang disimpan bersamanya tidak digunakan.",
 };

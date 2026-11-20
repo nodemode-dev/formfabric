@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.core import config, quiet_log
+from app.core import config, quiet_log, window_guard
 from app.core.isolation import CrossOriginIsolation
 from app.core.local_guard import LocalGuard
 from app.core.window_guard import WindowKeyGuard
@@ -26,6 +26,7 @@ WINDOW_COMMANDS = (cmd_terminal, claude_code, cmd_chat)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     quiet_log.install()
+    window_guard.announce()
     loop = asyncio.get_running_loop()
     bus.bind(loop)
     terminal.start(loop)

@@ -5,6 +5,7 @@ import { language, languages, onLanguage, setLanguage, t, type Lang } from './i1
 import { DEFAULT_PREFS, FONT_SIZES, LAYOUTS, UNITS, loadPrefs, resetPrefs, updatePrefs, type Prefs } from './prefs';
 import { THEMES, readChoice, setAccent, setIntensity, setTheme } from './themes';
 import { checkOf, numberRow, selectRow, sliderRow, toggleRow, type Row } from './controls';
+import { serviceUrl } from '../engine/service';
 
 export const PREF_SECTIONS = ['General', 'Interface', 'Workspace', 'Performance', 'History & Cache', 'Pattern', 'Drape', 'Viewport', 'Plugins'] as const;
 export type PrefSection = (typeof PREF_SECTIONS)[number];
@@ -14,6 +15,7 @@ const RAIL_ICONS: Record<PrefSection, string> = {
   Pattern: 'pen', Drape: 'panel', Viewport: 'layout3d', Plugins: 'pfPlugins',
 };
 
+type SealState = { sealBroken?: unknown; sealWasBroken?: unknown };
 const RAIL_KEY = 'formfabric.prefsRailCollapsed';
 const TITLE_BAR_KEY = 'formfabric.customTitleBar';
 const MENUS_KEY = 'formfabric.menusInWindow';
@@ -32,6 +34,8 @@ export class SettingsDialog extends Dialog {
   private readonly grid = el('<div class="nm-theme-grid" role="group" aria-label="Theme"></div>');
   private readonly accent = el<HTMLInputElement>('<input class="cv-input" type="color" aria-label="Accent color">');
   private readonly sections = new Map<string, HTMLElement>();
+  private readonly sealSay = el('<p class="cv-note cv-seal-say" role="status"></p>');
+  private sealBroken = false;
   private pagesEl!: HTMLElement;
   private shell!: { frame: HTMLElement; rail: HTMLElement; port: HTMLElement; shade: SVGPathElement; line: SVGPathElement };
   private current = '';
@@ -175,8 +179,9 @@ export class SettingsDialog extends Dialog {
     nodemodeRow.appendChild(nodemode);
     nodemode.disabled = true;
     nodemodeRow.classList.add('is-off');
+    onLanguage(() => this.paintSeal());
     add('Plugins',
-      grp('Connected Apps', toggle('agentsAllowed', 'Allow outside agents').el, mcpRow,
+      grp('Connected Apps', toggle('agentsAllowed', 'Allow outside agents').el, this.sealSay, mcpRow,
         note('Agents connect to the address above; every command in the menus is also a tool for them.'), nodemodeRow, soon()),
       grp('Plugins', note('No plugins are installed.')));
 
@@ -244,11 +249,20 @@ export class SettingsDialog extends Dialog {
     this.rows.get('language')?.set(language() as never);
     this.intensity.set(Math.round((readChoice().intensity ?? 1) * 100));
     setValue(this.nodemode, this.prefs.nodemodeUrl);
+    this.paintSeal();
+    void fetch(serviceUrl('/api/mcp/status'), { cache: 'no-store' })
+      .then((r): Promise<SealState> | SealState => (r.ok ? r.json() as Promise<SealState> : {}))
+      .then((s) => { this.sealBroken = s.sealBroken === true || s.sealWasBroken === true; this.paintSeal(); })
+      .catch(() => undefined);
     this.sync();
     if (section && this.sections.has(section)) this.showSection(section);
     this.open();
     if (section && this.sections.has(section)) this.scrollToSection(section, 'auto');
     this.queueWire();
+  }
+
+  private paintSeal(): void {
+    setText(this.sealSay, this.sealBroken ? t('The agent choice was changed outside formfabric, so the program path saved with it is not used.') : '');
   }
 
   private change(patch: Partial<Prefs>): void {

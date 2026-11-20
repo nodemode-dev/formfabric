@@ -21,10 +21,20 @@ function keep(value: string): void {
   try { sessionStorage.setItem(STORE, value); } catch { return; }
 }
 
+async function accepted(base: string, value: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${base}/api/recent`, { headers: { 'x-ffb-window': value }, cache: 'no-store' });
+    return response.ok;
+  } catch { return false; }
+}
+
 export async function claimWindowKey(base: string): Promise<string> {
   if (key) return key;
-  key = stored();
-  if (key) return key;
+  const kept = stored();
+  if (kept && await accepted(base, kept)) {
+    key = kept;
+    return key;
+  }
   try {
     const response = await fetch(`${base}/api/window/key`, { method: 'POST', cache: 'no-store' });
     if (!response.ok) return key;
