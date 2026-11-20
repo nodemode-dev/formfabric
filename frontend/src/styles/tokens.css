@@ -66,7 +66,7 @@
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
   --shadow-window: 0 24px 60px rgba(0,0,0,0.6);
   --shadow-panel: -10px 0 24px rgba(0,0,0,0.32);
-  --scrim: rgba(0,0,0,0.45);
+  --scrim: var(--bg-scrim);
   --uv-island-off: rgba(128,128,128,0.18);
   --axis-x: #dc5252;
   --axis-y: #66c761;
@@ -170,8 +170,12 @@
      section 6.2.2) so a companion surface embedded next to the app never
      collides. Component CSS uses var(--z-*) only. Never a raw number,
      never 9999. */
+  --z-under: -1;
   --z-base: 0;
-  --z-raised: 8;          /* hovered card lift (the app's .node:hover) */
+  --z-local-2: 2;
+  --z-local-4: 4;
+  --z-local-5: 5;
+  --z-raised: 8;         /* hovered card lift (the app's .node:hover) */
   --z-selected: 9;        /* selected card (the app's .node.selected) */
   --z-rail: 10;           /* mini icon rail */
   --z-chrome: 100;        /* top and bottom bars, selection box */
@@ -242,7 +246,22 @@ body.nm-home .nm-canvas-surface { display: none !important; }
 /* formfabric app tokens appended to the family base: layout sizes and the toast band. */
 :root {
   --cv-titlebar-h: 40px;
+  --cv-options-h: 40px;
+  --cv-tabs-h: 34px;
   --cv-status-h: 28px;
+  --cv-rail-w: 52px;
+  --cv-layers-w: 288px;
+  --cv-row-h: 40px;
+  --cv-thumb: 30px;
+  --cv-checker-a: #ffffff;
+  --cv-checker-b: #cccccc;
+  --cv-ants-a: #000000;
+  --cv-ants-b: #ffffff;
+  --cv-pixel-grid: rgba(128, 128, 140, 0.35);
+  --cv-handle-fill: #ffffff;
+  --cv-doc-edge: rgba(0, 0, 0, 0.55);
+  --cv-action-blue: #3b82f6;
+  --cv-action-violet: #8b5cf6;
   --z-toast: 3000;
 }
 

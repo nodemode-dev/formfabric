@@ -2,6 +2,15 @@
 
 Living context for the window. What would be comments in `frontend/` lives here, newest first. Read before editing.
 
+## v0.29.0 · 2026-11-20
+
+### The family's design names (FormVis's palette)
+
+- FormFabric shares FormVis's palette: both token files are the same stylized-nodemode base, every shared `:root` and light token had FormVis's value already, and the theme profiles are FormVis's (FormVis has one more, AMOLED Black). So the step is FormVis's values, not names only.
+- Added, with FormVis Studio Dark's values: `--cv-options-h`, `--cv-tabs-h`, `--cv-rail-w`, `--cv-layers-w`, `--cv-row-h`, `--cv-thumb`, `--cv-checker-a`, `--cv-checker-b`, `--cv-ants-a`, `--cv-ants-b`, `--cv-pixel-grid`, `--cv-handle-fill`, `--cv-doc-edge`, `--cv-action-blue`, `--cv-action-violet`, `--z-under`, `--z-local-2`, `--z-local-4`, `--z-local-5`, and `--dock-outline`. Every FormVis token name now resolves here.
+- Own names kept: `--scrim` is now an alias of FormVis's `--bg-scrim` (FormVis's dock reads that name where formfabric's read `--scrim`), so a scrim is black at 60 percent instead of 45. `--shadow-panel`, `--uv-island-off`, `--axis-*` and `--trim-*` have no FormVis counterpart and stay as they are.
+- Shared dock names that differed take FormVis's value: `--dock-raised` (`--surface-raised`), `--dock-tab-border` (`--line-2`, the same colour), `--dock-scrim` (`--bg-scrim`), `--dock-accent-line` (`--accent-line`), `--dock-term-font-size` (13 px, was 12). No rule, literal or layout was touched.
+
 ## v0.26.0 · 2026-11-20
 
 ### The agent dock 2.2.0 replaces formfabric's own dock
