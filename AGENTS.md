@@ -32,7 +32,7 @@ Rules that apply to every edit:
 
 ## Drafting patterns through formfabric (natural language)
 
-Use the `formfabric` MCP server with the `formfabric-modeling` skill (`.agents/skills/formfabric-modeling`). Codex reads `.codex/config.toml` and Cursor `.cursor/mcp.json`; both run `./formfabric mcp`. `./formfabric agents install` registers formfabric for Claude Code, Codex and Cursor outside this folder. `./formfabric agents sync` regenerates the skill's tool reference from the engine catalogue.
+Use the `formfabric` MCP server with the `formfabric-modeling` skill (`.agents/skills/formfabric-modeling`). Codex reads `.codex/config.toml` and Cursor `.cursor/mcp.json`; both run `./formfabric mcp`. `./formfabric agents install` registers formfabric for Claude Code, Codex, Cursor and Antigravity outside this folder; `./formfabric agents check` validates the kit. `./formfabric agents sync` regenerates the skill's tool reference from the engine catalogue.
 
 ## Commits
 

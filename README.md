@@ -90,6 +90,14 @@
 
 `.mcp.json`, `.codex/config.toml` and `.cursor/mcp.json` are already wired in this repo. See [`AGENTS.md`](AGENTS.md).
 
+The agent dock (Ctrl+J, Cmd+J on a Mac) holds a shell, Chat & tabs that run the real Claude Code, Codex, Cursor & Antigravity w/ formfabric's MCP server already connected, each tab w/ its own key that ends when the tab closes. A program that is not installed shows its install line.
+
+```sh
+./formfabric agents install             # register formfabric w/ Claude Code, Codex, Cursor & Antigravity (--dry-run to preview)
+./formfabric agents sync                # refresh the skills' tool reference, the .agents mirror & agents/manifest.json
+./formfabric agents check               # validate the agent kit
+```
+
 ## Under the hood
 
 - **Engine:** a Rust workspace of 14 crates, with a native cloth solver (block descent and implicit) and an opt-in wgpu compute path
