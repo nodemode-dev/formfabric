@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
+import shutil
 import time
 from pathlib import Path
 
@@ -24,10 +26,17 @@ def mcp_url() -> str:
     return config.engine_url() + "/api/mcp"
 
 
-def tab_folder(kind: str) -> Path:
+def tab_folder(kind: str, tab: str = "") -> Path:
     folder = config.data_dir() / "agent-tabs" / kind
+    if tab:
+        folder = folder / tab
     folder.mkdir(parents=True, exist_ok=True)
     return folder
+
+
+def remove_tab_folder(folder: Path, token: str) -> None:
+    remove_tab_entry(folder, token)
+    shutil.rmtree(folder, ignore_errors=True)
 
 
 def _write_private(path: Path, data: dict) -> None:
@@ -106,7 +115,7 @@ def open_terminal(kind: str, cols: int, rows: int) -> dict:
     if found.state != "runs":
         _cache["value"] = None
         raise LookupError(agent_lookup.sentence(found, PROGRAMS[kind]["install"], claude_code.OTHERWISE))
-    folder = tab_folder(kind) if kind == "antigravity" else claude_code.workdir()
+    folder = tab_folder(kind, secrets.token_hex(6)) if kind == "antigravity" else claude_code.workdir()
     if kind == "cursor":
         cursor_config(folder)
     token = agents.issue()
@@ -119,9 +128,9 @@ def open_terminal(kind: str, cols: int, rows: int) -> dict:
     except BaseException:
         agents.revoke(token)
         if kind == "antigravity":
-            remove_tab_entry(folder, token)
+            remove_tab_folder(folder, token)
         raise
     session.on_close.append(lambda: agents.revoke(token))
     if kind == "antigravity":
-        session.on_close.append(lambda: remove_tab_entry(folder, token))
+        session.on_close.append(lambda: remove_tab_folder(folder, token))
     return session.describe()
