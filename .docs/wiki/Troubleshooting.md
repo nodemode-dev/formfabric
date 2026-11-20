@@ -6,7 +6,7 @@ Start with `./formfabric doctor`: it checks the toolchain, the installs and the 
 | --- | --- | --- |
 | 503, "engine module is not built" | the `ffb_engine` Python module is missing or stale | `./formfabric engine build`, then restart the service |
 | A new command is missing in menus, MCP or the skill | the engine was not rebuilt or the reference not synced | `./formfabric engine build`, then `./formfabric agents sync` |
-| Window opens but nothing draws; 401 or 403 on `/api/` | the window token does not match the service | start both through `./formfabric boot`; set `FFB_WINDOW_TOKEN` (32 or more characters) for both when starting by hand |
+| Window opens but nothing draws; 401 or 403 on `/api/` | the window key was already given to another page of this launch | close the other page and reload, or restart `./formfabric boot`; the service gives its key to the first window that asks |
 | Port already in use | 8280 or 5280 taken | stop the other process or set `FFB_PORT` and `FFB_FRONTEND_PORT`; the Vite HMR port is the frontend port plus one |
 | `sample_load` fails with `unsaved_changes` | the open project has edits | save, or pass `force` true after asking the person |
 | The drape does nothing | no placement, or cloth not built | `sim_reset` first; place panels with `place_panel` or `arrange_place` when the garment is hand-drafted |

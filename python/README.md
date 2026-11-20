@@ -67,12 +67,7 @@ A client built on a newer engine also exposes the live catalogue: `client.bind()
 
 ## The HTTP backend and the window token
 
-The service refuses window routes unless the caller proves it is the window or an agent the window allowed. The Python client sends one of:
-
-1. the token you pass as `token=`, or `FFB_WINDOW_TOKEN`, in the `x-ffb-window` header. It must be the value the service was started with (`./formfabric boot` generates one and the desktop shell makes one per launch; the service removes it from its own environment, so export the same value yourself when you start the service by hand). Tokens under 32 characters are refused by the service and by this client;
-2. `FFB_INAPP_TOKEN` in the `x-formfabric-inapp` header. The service gives this to the Claude Code it starts inside the window, so a script run by that Claude Code works without any setup.
-
-The window's own terminal deliberately does not receive either token, so a script run by hand in that terminal should use the in-process backend or be given a token. This client does not use the outside-agent consent flow of `/api/mcp` (that gate belongs to MCP over HTTP); the token is the whole authorisation, and the host must be 127.0.0.1 or localhost on the service's port.
+Only FormFabric's own window can change things through the service. The Python client sends the token you pass as `token=`, or `FFB_WINDOW_TOKEN`, in the `x-ffb-window` header; it must be the value the service was started with (export it yourself when you start the service by hand; without one the service makes its own key and gives it to the first window that asks). Tokens under 32 characters are refused by the service and by this client. An agent's token opens only the MCP route, never the window's routes, so a script run by an agent or in the window's terminal should use the in-process backend. This client does not use the outside-agent consent flow of `/api/mcp` (that gate belongs to MCP over HTTP); the token is the whole authorisation, and the host must be 127.0.0.1 or localhost on the service's port.
 
 ## Plugins
 

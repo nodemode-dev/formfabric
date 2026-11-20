@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import re
 import secrets
@@ -6,14 +7,15 @@ import secrets
 from fastapi import HTTPException, Request, WebSocket, WebSocketDisconnect
 
 from app.core import config
-from app.services import agents
 
 _ORIGIN = re.compile(r"^([a-z][a-z0-9+.\-]*)://(\[[0-9a-f:]+\]|[a-z0-9._\-]+)(?::([0-9]{1,5}))?$")
 _DEFAULT_PORT = {"http": 80, "https": 443}
-REFUSAL = "this route answers the formfabric window only"
+REFUSAL = "Only the formfabric window can do this"
 WINDOW_HEADER = "x-ffb-window"
+READS = ("GET", "HEAD", "OPTIONS")
+OPEN = ("/api/mcp", "/api/window/key")
+CLAIM = {"claimed": False, "secondClaim": False}
 _log = logging.getLogger("formfabric.window_guard")
-_warned = False
 _warned_short = False
 HANDSHAKE_SECONDS = 5
 
@@ -46,11 +48,6 @@ def host_ok(headers) -> bool:
     return headers.get("host", "").strip().lower() in allowed_hosts()
 
 
-def _token(headers) -> bool:
-    given = headers.get(agents.INAPP_HEADER, "")
-    return secrets.compare_digest(given.encode("utf-8"), agents.INAPP_TOKEN.encode("utf-8"))
-
-
 def _window_token(given: str, expected: str) -> bool:
     return secrets.compare_digest(given.encode("utf-8"), expected.encode("utf-8"))
 
@@ -62,30 +59,41 @@ def _warn_short() -> None:
         _log.error("FFB_WINDOW_TOKEN is shorter than %d characters: every window route is refused until a longer token is set", config.TOKEN_MIN)
 
 
-def _warn_open() -> None:
-    global _warned
-    if not _warned:
-        _warned = True
-        _log.warning("FFB_WINDOW_TOKEN is not set: window routes fall back to the exact-origin rule, which a local program can forge")
+def claim() -> str | None:
+    if config.window_key_given():
+        return None
+    if CLAIM["claimed"]:
+        CLAIM["secondClaim"] = True
+        return None
+    CLAIM["claimed"] = True
+    return config.window_token()
 
 
 def from_window(headers, same_origin_read: bool = False) -> bool:
     if not host_ok(headers):
         return False
-    if _token(headers):
-        return True
     if config.window_token_rejected():
         _warn_short()
         return False
     expected = config.window_token()
-    if expected is not None:
-        return _window_token(headers.get(WINDOW_HEADER, ""), expected)
-    _warn_open()
-    origin = headers.get("origin")
-    if origin is not None:
-        key = exact(origin)
-        return key is not None and key in window_origins()
-    return same_origin_read and headers.get("sec-fetch-site", "").strip().lower() == "same-origin"
+    return expected is not None and _window_token(headers.get(WINDOW_HEADER, ""), expected)
+
+
+class WindowKeyGuard:
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http" or scope.get("method") in READS or str(scope.get("path", "")) in OPEN:
+            await self.app(scope, receive, send)
+            return
+        headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
+        if from_window(headers):
+            await self.app(scope, receive, send)
+            return
+        body = json.dumps({"detail": REFUSAL}).encode("utf-8")
+        await send({"type": "http.response.start", "status": 403, "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]})
+        await send({"type": "http.response.body", "body": body})
 
 
 def require_window(request: Request) -> None:
