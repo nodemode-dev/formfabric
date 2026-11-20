@@ -95,6 +95,27 @@ jobs:
       - name: Agent skill references match the engine catalogue
         working-directory: .
         run: ./formfabric agents sync --check
+      - name: Agent setup, MCP configs and the shared panel's manifest
+        working-directory: .
+        run: ./formfabric agents check
+      - name: Backend tests
+        run: |
+          venv/bin/pip install pytest httpx
+          venv/bin/python -m pytest -q tests
+
+  scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Shell script syntax
+        run: |
+          for f in $(git ls-files | xargs grep -lIE '^#!(/usr/bin/env bash|/bin/bash)'); do bash -n "$f"; echo "ok $f"; done
+      - name: Python byte-compiles
+        run: python -m compileall -q backend setup python
 
   desktop-shell:
     runs-on: ubuntu-latest
