@@ -1073,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "formfabric"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "objc2",
  "objc2-app-kit",
@@ -1088,6 +1088,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "webkit2gtk",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

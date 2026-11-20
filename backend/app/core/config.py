@@ -1,4 +1,5 @@
 import os
+import secrets
 import sys
 from pathlib import Path
 
@@ -63,9 +64,16 @@ def window_origins() -> list[str]:
 
 TOKEN_MIN = 32
 _TOKEN = os.environ.pop("FFB_WINDOW_TOKEN", "").strip()
+_OWN_KEY = secrets.token_urlsafe(32)
+
+
+def window_key_given() -> bool:
+    return bool(_TOKEN)
 
 
 def window_token() -> str | None:
+    if not _TOKEN:
+        return _OWN_KEY
     return _TOKEN if len(_TOKEN) >= TOKEN_MIN else None
 
 

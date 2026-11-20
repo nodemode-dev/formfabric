@@ -1,6 +1,15 @@
 import json
+import logging
 import os
 import sys
+from pathlib import Path
+
+if sys.stdin is None:
+    sys.stdin = open(os.devnull, encoding="utf-8")
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
 
 def resource_dir() -> str:
@@ -37,41 +46,19 @@ def selfcheck() -> int:
     return 1 if failed else 0
 
 
-def parent_alive(pid: int) -> bool:
-    if os.name == "nt":
-        import ctypes
+def watch_shell(data) -> None:
+    from app.core import runtime, startup
 
-        kernel32 = ctypes.windll.kernel32
-        handle = kernel32.OpenProcess(0x00100000, False, pid)
-        if not handle:
-            return False
-        try:
-            return kernel32.WaitForSingleObject(handle, 0) == 0x102
-        finally:
-            kernel32.CloseHandle(handle)
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
-
-
-def watch_parent() -> None:
-    raw = os.environ.get("FFB_PARENT_PID", "")
-    if not raw.isdigit():
+    shell = startup.shell_pid()
+    if shell <= 1:
         return
-    pid = int(raw)
-    import threading
-    import time
 
-    def loop() -> None:
-        while parent_alive(pid):
-            time.sleep(1.5)
+    def leave() -> None:
+        logging.getLogger("formfabric").info("the app that started this engine is gone (process %s), stopping", shell)
+        runtime.release(data)
         os._exit(0)
 
-    threading.Thread(target=loop, name="parent-watch", daemon=True).start()
+    startup.watch(shell, leave)
 
 
 def free_port() -> int:
@@ -97,7 +84,35 @@ def main() -> int:
             print("formfabric: the agent setup tool is not in this build", file=sys.stderr)
             return 1
         return runpy.run_path(tool, run_name="__formfabric_agents__")["main"](sys.argv[2:])
-    watch_parent()
+    return serve()
+
+
+def serve() -> int:
+    from app.core import config, runtime, startup
+
+    try:
+        data = config.data_dir()
+        logs = runtime.start_logging(data).parent
+    except OSError as err:
+        print(f"formfabric cannot use its data folder: {err}", file=sys.stderr)
+        return 5
+    startup.keep_errors(logs)
+    log = logging.getLogger("formfabric")
+    if startup.alone():
+        beside = startup.app_beside(Path(sys.executable))
+        if beside is not None and startup.open_app(beside):
+            log.info("started without its app, so it opened %s and stopped", beside)
+            return 0
+        log.error("started without its app, and no app program was found near %s", sys.executable)
+        print("formfabric-engine is a part of FormFabric and serves nothing on its own. Open FormFabric instead.", file=sys.stderr)
+        return 4
+    try:
+        runtime.claim(data)
+    except runtime.AlreadyRunning as err:
+        log.error("%s", err)
+        print(err, file=sys.stderr)
+        return 2
+    watch_shell(data)
     bundled = os.path.join(resource_dir(), "frontend_dist")
     if os.path.isdir(bundled):
         os.environ.setdefault("FFB_DIST", bundled)
@@ -108,8 +123,12 @@ def main() -> int:
 
     port = int(os.environ.get("FFB_PORT", "0") or 0) or free_port()
     os.environ["FFB_PORT"] = str(port)
-    uvicorn.run(fastapi_app, host="127.0.0.1", port=port, log_level="info", timeout_graceful_shutdown=1)
-    return 0
+    server = uvicorn.Server(uvicorn.Config(fastapi_app, host="127.0.0.1", port=port, log_level="info", log_config=runtime.server_log_config(data), timeout_graceful_shutdown=1))
+    try:
+        server.run()
+    finally:
+        runtime.release(data)
+    return 0 if server.started else 3
 
 
 if __name__ == "__main__":

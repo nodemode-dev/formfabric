@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse, JSONResponse
 
-from app.core import config
+from app.core import config, window_guard
 from app.core.window_guard import require_window, require_window_read
 from app.services import agent_programs, engine, recent, recovery
 
@@ -20,6 +20,21 @@ IMAGE_LIMIT = 20 * 1024 * 1024
 @router.get("/health")
 def health() -> dict:
     return {"ok": True, "app": config.APP_NAME, "version": config.VERSION}
+
+
+@router.post("/window/key")
+def claim_window_key():
+    if config.window_key_given():
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    key = window_guard.claim()
+    if key is None:
+        return JSONResponse({"detail": "The window key was already given out for this launch"}, status_code=409)
+    return {"key": key}
+
+
+@router.get("/window/key")
+def window_key_state() -> dict:
+    return {"secondClaim": window_guard.CLAIM["secondClaim"]}
 
 
 @router.get("/version")

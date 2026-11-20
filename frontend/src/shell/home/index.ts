@@ -122,7 +122,7 @@ export class Home {
 <div class="cv-home-open" hidden><div class="cv-home-nav-sep"></div><div class="cv-home-nav-title">${t('Open garment')}</div><div class="cv-home-open-list"></div></div>
 <div class="cv-home-nav-sep"></div>
 <div class="cv-home-nav-title">${t('Agents')}</div>
-<button class="cv-home-nav-item" type="button" data-a="agents">${icon('agent', 16)}<span translate="no">Claude Code, Codex, Cursor</span></button>
+<button class="cv-home-nav-item" type="button" data-a="agents">${icon('agent', 16)}<span translate="no">Claude Code, Codex, Cursor, Antigravity</span></button>
 <div class="cv-home-nav-foot">
 <button class="cv-home-nav-item" type="button" data-a="back" hidden>${icon('chevronLeft', 16)}<span>${t('Back to Workspace')}</span></button>
 <button class="cv-home-nav-item" type="button" data-a="local" title="${t('Your garments, fabrics and bodies stay on this computer.')}">${icon('cloudOff', 16)}<span>${t('Local only')}</span></button>

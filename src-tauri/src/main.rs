@@ -9,17 +9,19 @@ use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_updater::UpdaterExt;
 
+mod engine_start;
 mod packaged;
 mod reveal;
 mod text_edit;
 mod traffic_lights;
+#[cfg(windows)]
+mod win_job;
 mod window_state;
 
 const PROJECT_EXT: &str = "ffbrc";
 const FALLBACK_SIZE: (f64, f64) = (1323.0, 860.0);
 const MIN_SIZE: (f64, f64) = (980.0, 640.0);
 const SCREEN_FRACTION: f64 = 0.9;
-const ENGINE_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
 
 struct Backend(Mutex<Option<CommandChild>>);
 
@@ -68,6 +70,8 @@ fn kill_backend(handle: &tauri::AppHandle) {
         }
         let _ = child.kill();
     }
+    #[cfg(windows)]
+    win_job::end();
 }
 
 #[cfg(windows)]
@@ -154,68 +158,32 @@ fn close_splash(handle: &tauri::AppHandle) {
     }
 }
 
-enum EngineStart {
-    Port(u16),
-    Exited(Option<i32>),
-    Silent,
+enum Step {
+    Event(CommandEvent),
+    Ended,
+    Late,
 }
 
-async fn read_port(rx: &mut tauri::async_runtime::Receiver<CommandEvent>) -> EngineStart {
-    let pattern = regex::Regex::new(r"http://127\.0\.0\.1:(\d+)").unwrap();
-    let (tick, mut timer) = tauri::async_runtime::channel::<()>(1);
+fn start_limit(late: &tauri::async_runtime::Sender<Step>, limit: std::time::Duration) {
+    let late = late.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(ENGINE_WAIT);
-        let _ = tick.blocking_send(());
+        std::thread::sleep(limit);
+        let _ = late.blocking_send(Step::Late);
     });
-    loop {
-        let event = std::future::poll_fn(|cx| match timer.poll_recv(cx) {
-            std::task::Poll::Ready(_) => std::task::Poll::Ready(Err(())),
-            std::task::Poll::Pending => rx.poll_recv(cx).map(Ok),
-        })
-        .await;
-        let line = match event {
-            Err(()) => return EngineStart::Silent,
-            Ok(None) => return EngineStart::Exited(None),
-            Ok(Some(CommandEvent::Terminated(end))) => return EngineStart::Exited(end.code),
-            Ok(Some(CommandEvent::Stdout(bytes) | CommandEvent::Stderr(bytes))) => {
-                String::from_utf8_lossy(&bytes).into_owned()
-            }
-            Ok(Some(_)) => continue,
-        };
-        if let Some(port) = pattern
-            .captures(&line)
-            .and_then(|found| found[1].parse::<u16>().ok())
-        {
-            return EngineStart::Port(port);
-        }
-    }
 }
 
-fn quit_launch(handle: &tauri::AppHandle, reason: Option<&str>) {
+fn engine_failed(handle: &tauri::AppHandle, failure: engine_start::Failure, tail: &engine_start::Tail) {
+    let text = engine_start::message(&failure, &tail.lines(), engine_start::engine_log().as_deref());
+    eprintln!("formfabric: {text}");
+    let _ = handle
+        .dialog()
+        .message(text)
+        .title(engine_start::APP)
+        .kind(MessageDialogKind::Error)
+        .blocking_show();
     close_splash(handle);
-    if let Some(reason) = reason {
-        handle
-            .dialog()
-            .message(format!("The formfabric engine failed to start: {reason}\n\nPlease relaunch the app. If it keeps happening, install formfabric again."))
-            .title("FormFabric")
-            .kind(MessageDialogKind::Error)
-            .blocking_show();
-    }
     kill_backend(handle);
     handle.exit(1);
-}
-
-fn keep_waiting(handle: &tauri::AppHandle) -> bool {
-    handle
-        .dialog()
-        .message("The formfabric engine has not answered for a minute. A first start on a slow or busy computer can take longer.")
-        .title("FormFabric")
-        .kind(MessageDialogKind::Warning)
-        .buttons(MessageDialogButtons::OkCancelCustom(
-            "Keep Waiting".into(),
-            "Quit".into(),
-        ))
-        .blocking_show()
 }
 
 fn engine_stopped(handle: &tauri::AppHandle) {
@@ -573,52 +541,88 @@ fn main() {
             open_paths(&handle, paths_from_args(&launch_args, None));
             let engine = match packaged::engine_folder() {
                 Some(program) => Ok(app.shell().command(program)),
-                None => app.shell().sidecar("formfabric-engine"),
+                None => app
+                    .shell()
+                    .sidecar("formfabric-engine")
+                    .map_err(|_| engine_start::Failure::Missing),
             };
             let token = window_token();
-            let spawned = engine.and_then(|engine| {
+            let started = engine.and_then(|engine| {
                 let mut sidecar = engine
                     .env("FFB_PORT", "0")
                     .env("FFB_WINDOW_TOKEN", &token)
-                    .env("FFB_PARENT_PID", std::process::id().to_string());
+                    .env(engine_start::SHELL_ENV, std::process::id().to_string());
                 if let Some(path) = packaged::launcher() {
                     sidecar = sidecar.env("FORMFABRIC_LAUNCHER", path);
                 }
                 if let Some(dir) = user_data_dir_arg(&launch_args) {
                     sidecar = sidecar.env("FORMFABRIC_DATA_DIR", dir);
                 }
-                sidecar.spawn()
+                sidecar
+                    .spawn()
+                    .map_err(|err| engine_start::Failure::NotStarted(err.to_string()))
             });
-            let spawned = match spawned {
-                Ok((rx, child)) => {
-                    *app.state::<Backend>().0.lock().unwrap() = Some(child);
-                    Ok(rx)
+            let (mut rx, child) = match started {
+                Ok(pair) => pair,
+                Err(failure) => {
+                    std::thread::spawn(move || {
+                        engine_failed(&handle, failure, &engine_start::Tail::default())
+                    });
+                    return Ok(());
                 }
-                Err(err) => Err(err.to_string()),
             };
+            #[cfg(windows)]
+            win_job::hold_pid(child.pid());
+            *app.state::<Backend>().0.lock().unwrap() = Some(child);
 
             tauri::async_runtime::spawn(async move {
-                let mut rx = match spawned {
-                    Ok(rx) => rx,
-                    Err(err) => {
-                        let reason = format!("it could not be run ({err}). It may be missing from the installation or blocked by security software.");
-                        return quit_launch(&handle, Some(&reason));
-                    }
-                };
-                let port = loop {
-                    match read_port(&mut rx).await {
-                        EngineStart::Port(found) => break Some(found),
-                        EngineStart::Silent if keep_waiting(&handle) => continue,
-                        EngineStart::Silent => break None,
-                        EngineStart::Exited(code) => {
-                            let reason = match code {
-                                Some(code) => format!("it ended before it was ready (exit code {code})."),
-                                None => "it ended before it was ready.".to_string(),
-                            };
-                            return quit_launch(&handle, Some(&reason));
+                let pattern = regex::Regex::new(r"http://127\.0\.0\.1:(\d+)").unwrap();
+                let (tx, mut events) = tauri::async_runtime::channel::<Step>(64);
+                let late = tx.clone();
+                tauri::async_runtime::spawn(async move {
+                    while let Some(event) = rx.recv().await {
+                        if tx.send(Step::Event(event)).await.is_err() {
+                            break;
                         }
                     }
-                };
+                    let _ = tx.send(Step::Ended).await;
+                });
+                start_limit(&late, engine_start::ADDRESS_WAIT);
+                let mut port: Option<u16> = None;
+                let mut stopped = false;
+                let mut tail = engine_start::Tail::default();
+                let mut failure = engine_start::Failure::Stopped(None);
+                while let Some(step) = events.recv().await {
+                    let text = match step {
+                        Step::Event(CommandEvent::Stdout(bytes) | CommandEvent::Stderr(bytes)) => {
+                            String::from_utf8_lossy(&bytes).into_owned()
+                        }
+                        Step::Event(CommandEvent::Terminated(ended)) => {
+                            failure = engine_start::Failure::Stopped(ended.code);
+                            stopped = true;
+                            start_limit(&late, engine_start::EXIT_WAIT);
+                            continue;
+                        }
+                        Step::Event(_) => continue,
+                        Step::Ended => break,
+                        Step::Late if stopped => break,
+                        Step::Late => {
+                            failure = engine_start::Failure::TimedOut;
+                            break;
+                        }
+                    };
+                    for line in text.lines() {
+                        tail.push(line);
+                    }
+                    port = pattern
+                        .captures(&text)
+                        .and_then(|found| found[1].parse::<u16>().ok());
+                    if port.is_some() && !stopped {
+                        break;
+                    }
+                    port = None;
+                }
+                drop(late);
                 match port {
                     Some(port) => {
                         #[cfg(windows)]
@@ -688,13 +692,17 @@ fn main() {
                             window_state::restore(&window, &place);
                             window_state::watch_renderer(&window);
                         } else {
-                            return quit_launch(&handle, Some("its window could not be opened."));
+                            return engine_failed(
+                                &handle,
+                                engine_start::Failure::Window,
+                                &engine_start::Tail::default(),
+                            );
                         }
                     }
-                    None => return quit_launch(&handle, None),
+                    None => return engine_failed(&handle, failure, &tail),
                 }
-                while let Some(event) = rx.recv().await {
-                    if matches!(event, CommandEvent::Terminated(_)) {
+                while let Some(step) = events.recv().await {
+                    if matches!(step, Step::Event(CommandEvent::Terminated(_)) | Step::Ended) {
                         break;
                     }
                 }

@@ -1,5 +1,6 @@
 import { recheckStreams } from '../agent/sse';
 import { onEngineChanged, onEngineLink, type EngineChanged, type Link } from './events';
+import { claimWindowKey, windowKey } from './window-key';
 
 export { onEngineChanged, onEngineLink };
 export type { EngineChanged, Link };
@@ -114,13 +115,12 @@ export function serviceUrl(path: string): string {
 }
 
 function installWindowToken(): void {
-  const token = (window as unknown as { __FFB_WINDOW__?: unknown }).__FFB_WINDOW__;
-  if (typeof token !== 'string' || !token) return;
   const native = window.fetch.bind(window);
   const origin = new URL(base() || location.origin, location.href).origin;
   window.fetch = (input, init) => {
+    const token = windowKey();
     const url = new URL(input instanceof Request ? input.url : String(input), location.href);
-    if (url.origin !== origin || !url.pathname.startsWith('/api/')) return native(input, init);
+    if (!token || url.origin !== origin || !url.pathname.startsWith('/api/')) return native(input, init);
     const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
     headers.set('x-ffb-window', token);
     return native(input, { ...init, headers });
@@ -128,3 +128,7 @@ function installWindowToken(): void {
 }
 
 installWindowToken();
+
+export function claimWindow(): Promise<string> {
+  return claimWindowKey(base());
+}

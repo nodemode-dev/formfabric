@@ -8,7 +8,7 @@ from pathlib import Path
 from app.core import config
 from app.services import agent_lookup, agents, claude_code, terminal
 
-DOCK_CONTRACT = "2.2.0"
+DOCK_CONTRACT = "2.2.1"
 PROGRAMS = {
     "codex": {"title": "Codex", "install": agent_lookup.install("codex")},
     "cursor": {"title": "Cursor", "install": agent_lookup.install("cursor")},

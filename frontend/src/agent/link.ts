@@ -1,3 +1,4 @@
+import { windowKey } from '../engine/window-key';
 import { openStream, type Stream } from './sse';
 
 export interface DockDeps {
@@ -42,8 +43,7 @@ export class Link {
   }
 
   private token(): string {
-    const found = (window as unknown as { __FFB_WINDOW__?: unknown }).__FFB_WINDOW__;
-    return typeof found === 'string' ? found : '';
+    return windowKey();
   }
 
   async cmd<T = unknown>(id: string, params: Record<string, unknown> = {}): Promise<T> {

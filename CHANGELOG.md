@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.27.0 · 2026-11-20
+
+FormFabric is brought to the family's standard for the window, the engine's start and stop, and the checks on every change. Nothing in this release was run on macOS or Windows, and the desktop shell was not compiled on the build machine.
+
+- Only FormFabric's own window can change things. The window claims the service's key before its first request; every request that changes something, runs something or reads your files without that key is refused with "Only the formfabric window can do this". An agent's key opens formfabric's MCP tools only. A second page that asks for the key is turned away.
+- The engine keeps a log, `Logs/formfabric-engine.log` in your formfabric folder, and keeps its errors there when it has no console.
+- A second engine on the same folder is refused with a sentence that says which one holds it, and an engine left running by an app that is gone is stopped and replaced, so autosave and crash recovery work after a crash or a forced quit.
+- On Windows the engine ends with the app however the app ends, and it runs without a console window (`FFB_ENGINE_WINDOWED=0` keeps one when you build it yourself).
+- The app waits at most 90 seconds for the engine. When the engine cannot start, the message says why, shows the engine's last lines, its exit code and where its log is, and you see it before the app closes.
+- The agent panel's first-run guide says that Codex, Cursor and Antigravity each get a button when they are installed, and the start page and the README name all four programs.
+- Every pull request now runs the backend tests, the agent kit check and the script checks.
+
 ## v0.26.0 · 2026-11-20
 
 The family's agent dock, module 2.2.0, replaces formfabric's own terminal dock. Nothing in this release was run on macOS or Windows.

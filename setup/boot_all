@@ -2,10 +2,6 @@
 set -e
 source "$(dirname "$0")/lib.sh"
 cd "$FFB_ROOT"
-if [ -z "${FFB_WINDOW_TOKEN:-}" ]; then
-  FFB_WINDOW_TOKEN="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-fi
-export FFB_WINDOW_TOKEN
 pids=()
 ( cd backend && ./boot_backend ) &
 pids+=($!)
