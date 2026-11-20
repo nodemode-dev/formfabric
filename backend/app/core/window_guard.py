@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import secrets
+import sys
 
 from fastapi import HTTPException, Request, WebSocket, WebSocketDisconnect
 
@@ -16,7 +17,6 @@ READS = ("GET", "HEAD", "OPTIONS")
 OPEN = ("/api/mcp", "/api/window/key")
 CLAIM = {"claimed": False, "secondClaim": False}
 _log = logging.getLogger("formfabric.window_guard")
-_warned_short = False
 HANDSHAKE_SECONDS = 5
 
 
@@ -52,15 +52,15 @@ def _window_token(given: str, expected: str) -> bool:
     return secrets.compare_digest(given.encode("utf-8"), expected.encode("utf-8"))
 
 
-def _warn_short() -> None:
-    global _warned_short
-    if not _warned_short:
-        _warned_short = True
-        _log.error("FFB_WINDOW_TOKEN is shorter than %d characters: every window route is refused until a longer token is set", config.TOKEN_MIN)
+def announce() -> None:
+    if config.INHERITED_IGNORED:
+        _log.warning("%s was set and is ignored: the engine makes its own window key", config.INHERITED_ENV)
+    if config.key_stdout() and sys.stdout is not None:
+        print(config.KEY_LINE + config.window_token(), flush=True)
 
 
 def claim() -> str | None:
-    if config.window_key_given():
+    if config.key_stdout():
         return None
     if CLAIM["claimed"]:
         CLAIM["secondClaim"] = True
@@ -72,11 +72,7 @@ def claim() -> str | None:
 def from_window(headers, same_origin_read: bool = False) -> bool:
     if not host_ok(headers):
         return False
-    if config.window_token_rejected():
-        _warn_short()
-        return False
-    expected = config.window_token()
-    return expected is not None and _window_token(headers.get(WINDOW_HEADER, ""), expected)
+    return _window_token(headers.get(WINDOW_HEADER, ""), config.window_token())
 
 
 class WindowKeyGuard:
@@ -110,7 +106,7 @@ async def socket_from_window(ws: WebSocket) -> bool:
     if from_window(ws.headers):
         return True
     expected = config.window_token()
-    if expected is None or not host_ok(ws.headers):
+    if not host_ok(ws.headers):
         return False
     try:
         given = await asyncio.wait_for(ws.receive_text(), timeout=HANDSHAKE_SECONDS)

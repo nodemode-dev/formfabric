@@ -1,8 +1,10 @@
 import re
+import subprocess
+import sys
 
 import pytest
 
-from conftest import window_headers
+from conftest import BACKEND, window_headers
 
 READS = {"GET", "HEAD", "OPTIONS"}
 OPEN = {("POST", "/api/mcp"), ("POST", "/api/window/key")}
@@ -81,13 +83,24 @@ def test_the_window_key_is_given_once(bare):
     assert bare.get("/api/window/key").json() == {"secondClaim": True}
 
 
-def test_the_shell_given_key_closes_the_claim(monkeypatch, bare):
-    from app.core import config
+def test_when_the_shell_reads_the_key_there_is_no_claim(monkeypatch, bare, capsys):
+    from app.core import config, window_guard
 
-    monkeypatch.setattr(config, "_TOKEN", "k" * 64)
+    monkeypatch.setenv(config.KEY_STDOUT_ENV, "1")
     assert bare.post("/api/window/key").status_code == 404
-    assert bare.post("/api/mcp/window", json={}, headers={"x-ffb-window": "k" * 64}).status_code != 403
-    assert window_headers()["x-ffb-window"] == "k" * 64
+    window_guard.announce()
+    assert capsys.readouterr().out == config.KEY_LINE + config.window_token() + "\n"
+
+
+def test_an_inherited_window_token_is_ignored():
+    code = "import os; os.environ['FFB_WINDOW_TOKEN'] = 'k' * 64\nfrom app.core import config\nprint(config.INHERITED_IGNORED, config.window_token() != 'k' * 64, 'FFB_WINDOW_TOKEN' in os.environ)"
+    done = subprocess.run([sys.executable, "-c", code], cwd=BACKEND, capture_output=True, text=True, timeout=60)
+    assert done.stdout.split() == ["True", "True", "False"]
+
+
+def test_a_local_program_with_the_inherited_token_is_refused(bare):
+    r = bare.post("/api/mcp/window", json={}, headers={"x-ffb-window": "k" * 64})
+    assert r.status_code == 403 and r.json() == REFUSED
 
 
 def test_a_wrong_host_is_refused_even_with_the_key(bare):

@@ -24,7 +24,7 @@ The installable app is a Tauri 2 shell around a frozen copy of the Python servic
 
 Flags: `--no-install` (macOS: leave the app where it is), `--install` (Linux: install the built deb with apt), `--open`. Linux bundles default to deb; set `FFB_BUNDLES=deb,rpm,appimage` for more. Every step logs to `build_app.log`. The first release engine build takes tens of minutes on a small machine. Bundles end up in `src-tauri/target/release/bundle`.
 
-`./formfabric desktop dev` runs the app from source with the splash; `./formfabric desktop build` builds the installer and forwards `--config FILE` to Tauri; `./formfabric install-desktop` installs PyInstaller and checks the Rust and Tauri toolchain. The shell picks a free service port per launch and a fresh window token.
+`./formfabric desktop dev` runs the app from source with the splash; `./formfabric desktop build` builds the installer and forwards `--config FILE` to Tauri; `./formfabric install-desktop` installs PyInstaller and checks the Rust and Tauri toolchain. The shell picks a free service port per launch; the engine makes the window key and the shell reads it from the engine's output and hands it to the window.
 
 ## formcompiler and formportal
 

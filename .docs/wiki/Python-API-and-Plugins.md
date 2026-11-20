@@ -32,7 +32,7 @@ Run scripts with `./formfabric py script.py`. `connect()` chooses the `http` bac
 
 ## The HTTP backend and tokens
 
-Only FormFabric's own window can change things through the service. The client sends `FFB_WINDOW_TOKEN` (or `token=`, 32 or more characters, the value the service was started with) in `x-ffb-window`. An agent's token opens only `/api/mcp`, never the window's routes, so a script run by an agent or in the window's terminal should use the in-process backend. The host must be 127.0.0.1 or localhost.
+Only FormFabric's own window can change things through the service. The client sends `FFB_WINDOW_TOKEN` (or `token=`, 32 or more characters: the key the service made and gave out once, since it takes none from its environment) in `x-ffb-window`. An agent's token opens only `/api/mcp`, never the window's routes, so a script run by an agent or in the window's terminal should use the in-process backend. The host must be 127.0.0.1 or localhost.
 
 ## Plugins
 
