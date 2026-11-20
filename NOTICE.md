@@ -114,6 +114,8 @@ These six packages have no further runtime dependencies in `package-lock.json`.
 | typing_extensions 4.16.0 | PSF-2.0 | permissive, Python Software Foundation licence |
 | ptyprocess 0.7.0 | ISC | terminal, not on Windows |
 | pywinpty 3.0.5 | MIT | terminal on Windows; licence as declared upstream, not installed on the audit machine |
+| keyring 25.7.0, jaraco.classes, jaraco.context, jaraco.functools, more-itertools, jeepney (Linux) | MIT | engine, keeps the key that seals the agent access setting in the system keychain |
+| SecretStorage (Linux), pywin32-ctypes (Windows) | BSD-3-Clause | engine, keychain access for keyring |
 
 The frozen service also carries CPython (PSF-2.0) and the shared libraries that interpreter links. Inspect the frozen folder (`src-tauri/engine`) after each freeze and add anything found.
 

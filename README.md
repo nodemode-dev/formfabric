@@ -11,12 +11,12 @@
 </p>
 
 <p align="center">
-  <img alt="version v0.27.0" src="https://img.shields.io/badge/version-v0.27.0-f97316?style=flat-square">
+  <img alt="version v0.28.0" src="https://img.shields.io/badge/version-v0.28.0-f97316?style=flat-square">
   <img alt="Rust 1.99" src="https://img.shields.io/badge/Rust-1.99-000000?style=flat-square&logo=rust&logoColor=white">
   <img alt="TypeScript and Vite" src="https://img.shields.io/badge/TypeScript-Vite-3178C6?style=flat-square&logo=typescript&logoColor=white">
   <img alt="macOS, Linux, Windows" src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-native-2f7bf5?style=flat-square">
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-3a3a3a?style=flat-square">
-  <img alt="Status: pre-1.0" src="https://img.shields.io/badge/status-pre--1.0-d69e2e?style=flat-square">
+  <img alt="Status: released" src="https://img.shields.io/badge/status-released-d69e2e?style=flat-square">
 </p>
 
 <p align="center">
@@ -134,7 +134,7 @@ cd formfabric
 On Windows use `formfabric_oc_install.bat` and `formfabric.bat`. The backend listens on 127.0.0.1:8280 only. `FORMFABRIC_DATA_DIR` moves autosaves, recovery, the Library and the Garments folder Home lists.
 
 > [!IMPORTANT]
-> **Status:** pre-1.0. The GPU path and solver speed on real hardware, the Unreal run and a few other items still wait for sign-off before v1.0.0.
+> **Status:** released. FormFabric is built and bundled for macOS, Windows and Linux and has been tested on all three. The Live Link to Unreal has not been tried against Unreal itself ([`docs/integration/unreal-live-link.md`](docs/integration/unreal-live-link.md)); see the [CHANGELOG](CHANGELOG.md) for what each version brings.
 
 **Contributing:** branch from `main`, keep changes to source here, and leave packaging and releases to formcompiler. See [`CONTRIBUTING.md`](CONTRIBUTING.md), [`.docs/BRANCHING.md`](.docs/BRANCHING.md) and [`AGENTS.md`](AGENTS.md).
 

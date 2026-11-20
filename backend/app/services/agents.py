@@ -27,7 +27,7 @@ def is_inapp(given: str | None) -> bool:
 LIVE_SECONDS = 4.0
 DECLINE_SECONDS = 600.0
 ASK_SECONDS = 90.0
-SWITCHED_OFF = "Outside agents are switched off in formfabric (Preferences, Plugins, Allow outside agents). Ask the person to switch that on, then retry."
+SWITCHED_OFF = "Agents are switched off in formfabric (Preferences, Plugins, Allow outside agents), the agent dock's tabs and Chat included. Ask the person to switch that on, then retry."
 
 _last_poll = 0.0
 _allowed: bool | None = None
@@ -54,7 +54,9 @@ def switched_off() -> str | None:
 
 
 def status() -> dict:
-    return {"window": window_live(), "enabled": switched_off() is None, "allowed": _allowed, "asking": _pending is not None, "declined": time.monotonic() < _declined_until}
+    stored = prefs.load()
+    return {"window": window_live(), "enabled": stored.get("agentsAllowed") is not False, "allowed": _allowed, "asking": _pending is not None,
+            "declined": time.monotonic() < _declined_until, "seal": stored["seal"], "sealBroken": stored["sealBroken"]}
 
 
 def answer(allow: bool) -> None:

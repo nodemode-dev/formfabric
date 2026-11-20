@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.28.0 · 2026-11-20
+
+Antigravity tabs keep to themselves, and your choice about agents is protected.
+
+- Each Antigravity tab in the agent dock works in a folder of its own, so two tabs open at once each keep their own connection to formfabric, and closing one leaves the other connected. The folder is removed when its tab closes.
+- Your choice about outside agents and the Claude Code program you set are now protected with a key kept in your system's keychain. If the settings file is changed outside the app, formfabric asks again instead of following it, and does not run a program path it did not set. Your choice from an earlier version is kept as it was. Without a keychain the app works as before.
+- Switching off "Allow outside agents" now also stops the agents in the dock's tabs and in Chat from using formfabric's tools.
+- The README's status says released, built and tested on macOS, Windows and Linux.
+
 ## v0.27.0 · 2026-11-20
 
 FormFabric is brought to the family's standard for the window, the engine's start and stop, and the checks on every change. Nothing in this release was run on macOS or Windows, and the desktop shell was not compiled on the build machine.

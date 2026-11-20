@@ -30,9 +30,9 @@ def _err(req_id, code: int, message: str) -> dict:
 
 
 async def call_tool(name: str, args: dict, inapp: bool = False) -> dict:
-    refusal = None if inapp else agents.switched_off()
+    refusal = agents.switched_off()
     if refusal is None and not engine.read_only(name):
-        refusal = await agents.permit(name, inapp) or (None if inapp else agents.switched_off())
+        refusal = await agents.permit(name, inapp) or agents.switched_off()
     if refusal:
         return {"content": [{"type": "text", "text": refusal}], "isError": True}
     reply = await run_in_threadpool(engine.dispatch, name, args)

@@ -2,7 +2,7 @@ import json
 import threading
 from typing import Any
 
-from app.core import config
+from app.core import config, seal
 
 DEFAULTS: dict = {
     "claudeFolder": "",
@@ -17,15 +17,36 @@ def _path():
     return config.data_dir() / "preferences.json"
 
 
+def _stored() -> dict:
+    try:
+        data = json.loads(_path().read_text())
+    except (OSError, ValueError):
+        data = {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write(values: dict) -> None:
+    tmp = _path().with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(values, indent=1))
+    tmp.replace(_path())
+
+
+def _merged(data: dict) -> dict:
+    out = json.loads(json.dumps(DEFAULTS))
+    out.update(data)
+    return out
+
+
 def load() -> dict:
     with _lock:
-        try:
-            data = json.loads(_path().read_text())
-        except (OSError, ValueError):
-            data = {}
-    out = json.loads(json.dumps(DEFAULTS))
-    out.update(data if isinstance(data, dict) else {})
-    return out
+        data = _stored()
+        state = seal.check(_merged(data))
+        if state == "adopt":
+            try:
+                _write(seal.sign(_merged(data)))
+            except OSError:
+                pass
+    return seal.effective(_merged(data), state)
 
 
 def update(values: dict[str, Any]) -> dict:
@@ -35,10 +56,9 @@ def update(values: dict[str, Any]) -> dict:
     unknown = sorted(set(values) - set(DEFAULTS))
     if unknown:
         raise ValueError(f"unknown preference {', '.join(unknown)}")
-    cur = load()
-    cur.update(values)
+    current = load()
     with _lock:
-        tmp = _path().with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(cur, indent=1))
-        tmp.replace(_path())
-    return cur
+        stored = _stored()
+        sealed = seal.sign({**stored, **{k: current.get(k) for k in seal.SEALED}, **values})
+        _write(sealed)
+    return seal.effective(_merged(sealed), seal.check(_merged(sealed)))
