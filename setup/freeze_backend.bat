@@ -18,6 +18,7 @@ if exist "%ROOT%\setup\agents.py" set EXTRA=--add-data "%ROOT%\setup\agents.py;s
 if exist "%ROOT%\.claude\skills" set EXTRA=%EXTRA% --add-data "%ROOT%\.claude\skills;.claude\skills"
 if exist "%ROOT%\backend\plugins\*.py" set EXTRA=%EXTRA% --add-data "%ROOT%\backend\plugins;plugins"
 if exist "%ROOT%\assets\samples" set EXTRA=%EXTRA% --add-data "%ROOT%\assets\samples;assets\samples"
+if not "%FFB_ENGINE_WINDOWED%"=="0" set EXTRA=%EXTRA% --noconsole
 pyinstaller --noconfirm --clean --onefile --name formfabric-engine --distpath dist-engine --workpath build\pyinstaller --specpath build\pyinstaller --add-data "%ROOT%\frontend\dist;frontend_dist" %EXTRA% --collect-submodules app --collect-submodules uvicorn --collect-all ffb_engine --hidden-import app.services.cmd_terminal --hidden-import app.services.claude_code --hidden-import app.services.cmd_chat --hidden-import winpty "%ROOT%\backend\formfabric_engine.py" || ( popd & exit /b 1 )
 popd
 if not exist src-tauri\binaries mkdir src-tauri\binaries

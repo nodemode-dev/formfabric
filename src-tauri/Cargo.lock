@@ -1088,6 +1088,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "webkit2gtk",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
