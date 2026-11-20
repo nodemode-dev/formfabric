@@ -1025,4 +1025,5 @@ export const zhCN: Record<string, string> = {
   "its arguments were too large to keep in the journal": "它的参数太大，无法保存在日志中",
   "this line of the journal could not be read": "无法读取日志的这一行",
   "this command is not repeated after a crash": "此命令在崩溃后不会重复",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "代理选项在 formfabric 之外被更改，因此不会使用随之保存的程序路径。",
 };

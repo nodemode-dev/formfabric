@@ -1025,4 +1025,5 @@ export const hu: Record<string, string> = {
   "its arguments were too large to keep in the journal": "az argumentumai túl nagyok voltak a naplóhoz",
   "this line of the journal could not be read": "a napló ezen sorát nem lehetett beolvasni",
   "this command is not repeated after a crash": "ezt a parancsot összeomlás után nem ismétli meg",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "Az ügynökbeállítást a formfabricon kívül módosították, ezért a vele mentett programútvonal nincs használatban.",
 };

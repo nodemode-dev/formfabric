@@ -1025,4 +1025,5 @@ export const es: Record<string, string> = {
   "its arguments were too large to keep in the journal": "sus argumentos eran demasiado grandes para guardarlos en el registro",
   "this line of the journal could not be read": "no se pudo leer esta línea del registro",
   "this command is not repeated after a crash": "este comando no se repite tras un cierre inesperado",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "La opción de agentes se cambió fuera de formfabric, así que no se usa la ruta del programa guardada con ella.",
 };

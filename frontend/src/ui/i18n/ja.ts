@@ -1025,4 +1025,5 @@ export const ja: Record<string, string> = {
   "its arguments were too large to keep in the journal": "引数が大きすぎてジャーナルに保存できませんでした",
   "this line of the journal could not be read": "ジャーナルのこの行を読み取れませんでした",
   "this command is not repeated after a crash": "このコマンドはクラッシュ後に再実行されません",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "エージェントの設定が formfabric の外で変更されたため、一緒に保存されたプログラムのパスは使われません。",
 };

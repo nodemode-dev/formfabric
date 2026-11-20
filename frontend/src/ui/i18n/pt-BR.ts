@@ -1025,4 +1025,5 @@ export const ptBR: Record<string, string> = {
   "its arguments were too large to keep in the journal": "seus argumentos eram grandes demais para guardar no registro",
   "this line of the journal could not be read": "não foi possível ler esta linha do registro",
   "this command is not repeated after a crash": "este comando não é repetido após uma falha",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "A escolha de agentes foi alterada fora do formfabric, então o caminho do programa salvo com ela não é usado.",
 };

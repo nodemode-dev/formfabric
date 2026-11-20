@@ -1025,4 +1025,5 @@ export const ar: Record<string, string> = {
   "its arguments were too large to keep in the journal": "كانت وسائطه أكبر من أن تُحفظ في السجل",
   "this line of the journal could not be read": "تعذّرت قراءة هذا السطر من السجل",
   "this command is not repeated after a crash": "لا يُكرر هذا الأمر بعد التعطل",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "تم تغيير خيار الوكلاء خارج formfabric، لذلك لا يُستخدم مسار البرنامج المحفوظ معه.",
 };

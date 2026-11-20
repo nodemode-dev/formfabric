@@ -1025,4 +1025,5 @@ export const tr: Record<string, string> = {
   "its arguments were too large to keep in the journal": "bağımsız değişkenleri günlükte saklanamayacak kadar büyüktü",
   "this line of the journal could not be read": "günlüğün bu satırı okunamadı",
   "this command is not repeated after a crash": "bu komut çökmeden sonra tekrarlanmaz",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "Ajan seçimi formfabric dışında değiştirildi, bu yüzden onunla kaydedilen program yolu kullanılmıyor.",
 };

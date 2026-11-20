@@ -1025,4 +1025,5 @@ export const nl: Record<string, string> = {
   "its arguments were too large to keep in the journal": "de argumenten waren te groot om in het logboek te bewaren",
   "this line of the journal could not be read": "deze regel van het logboek kon niet worden gelezen",
   "this command is not repeated after a crash": "deze opdracht wordt na een crash niet herhaald",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "De agentkeuze is buiten formfabric gewijzigd, dus het programmapad dat ermee is opgeslagen wordt niet gebruikt.",
 };

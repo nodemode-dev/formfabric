@@ -4,6 +4,10 @@ Living context for the window. What would be comments in `frontend/` lives here,
 
 ## v0.29.0 · 2026-11-20
 
+### A sentence when the agent choice was changed outside the app
+
+- Preferences, Plugins, Connected Apps: under "Allow outside agents", `.cv-seal-say` reads `GET /api/mcp/status` each time the dialog opens and says "The agent choice was changed outside formfabric, so the program path saved with it is not used." when `sealBroken` or `sealWasBroken` is true (FormPDF's and FormPath's wording, for what a broken seal does here: the program path is dropped, the choice itself stands). The window pushes `agentsAllowed` at every start, which writes and seals the file again, so the engine also reports `sealWasBroken` for the rest of that launch. The space is reserved (three lines plus 4 px, `dialogs.css`), so the rows below do not move: measured at 980 and 1440 px wide in all 30 languages, the block is 54 px with and without the sentence. In all 27 full tables; es-MX and fr-CA hold only regional differences and show the es and fr sentence.
+
 ### The family's design names (FormVis's palette)
 
 - FormFabric shares FormVis's palette: both token files are the same stylized-nodemode base, every shared `:root` and light token had FormVis's value already, and the theme profiles are FormVis's (FormVis has one more, AMOLED Black). So the step is FormVis's values, not names only.

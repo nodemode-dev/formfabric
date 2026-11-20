@@ -1025,4 +1025,5 @@ export const ko: Record<string, string> = {
   "its arguments were too large to keep in the journal": "인수가 너무 커서 저널에 보관할 수 없었습니다",
   "this line of the journal could not be read": "저널의 이 줄을 읽을 수 없었습니다",
   "this command is not repeated after a crash": "이 명령은 충돌 후 반복되지 않습니다",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "에이전트 선택이 formfabric 밖에서 변경되어, 함께 저장된 프로그램 경로는 사용되지 않습니다.",
 };

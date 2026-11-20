@@ -1025,4 +1025,5 @@ export const sv: Record<string, string> = {
   "its arguments were too large to keep in the journal": "dess argument var för stora för att sparas i journalen",
   "this line of the journal could not be read": "den här raden i journalen kunde inte läsas",
   "this command is not repeated after a crash": "det här kommandot upprepas inte efter en krasch",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "Agentvalet ändrades utanför formfabric, så programsökvägen som sparades med det används inte.",
 };

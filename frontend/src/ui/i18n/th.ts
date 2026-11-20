@@ -1025,4 +1025,5 @@ export const th: Record<string, string> = {
   "its arguments were too large to keep in the journal": "อาร์กิวเมนต์ใหญ่เกินกว่าจะเก็บในบันทึก",
   "this line of the journal could not be read": "อ่านบรรทัดนี้ของบันทึกไม่ได้",
   "this command is not repeated after a crash": "คำสั่งนี้ไม่ถูกทำซ้ำหลังการขัดข้อง",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "ตัวเลือกเอเจนต์ถูกเปลี่ยนนอก formfabric จึงไม่ใช้เส้นทางโปรแกรมที่บันทึกไว้กับตัวเลือกนั้น",
 };

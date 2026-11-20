@@ -1025,4 +1025,5 @@ export const zhTW: Record<string, string> = {
   "its arguments were too large to keep in the journal": "它的引數太大，無法保存在日誌中",
   "this line of the journal could not be read": "無法讀取日誌的這一行",
   "this command is not repeated after a crash": "此命令在當機後不會重複",
+  "The agent choice was changed outside formfabric, so the program path saved with it is not used.": "代理選項在 formfabric 之外被變更，因此不會使用隨之儲存的程式路徑。",
 };
