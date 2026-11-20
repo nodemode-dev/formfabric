@@ -6,6 +6,24 @@ from app.core import prefs
 
 INAPP_HEADER = "x-formfabric-inapp"
 INAPP_TOKEN = secrets.token_urlsafe(24)
+TAB_TOKENS: set[str] = set()
+
+
+def issue() -> str:
+    token = secrets.token_urlsafe(32)
+    TAB_TOKENS.add(token)
+    return token
+
+
+def revoke(token: str | None) -> None:
+    TAB_TOKENS.discard(token or "")
+
+
+def is_inapp(given: str | None) -> bool:
+    if not isinstance(given, str) or not given:
+        return False
+    raw = given.encode("utf-8")
+    return any(secrets.compare_digest(raw, t.encode("utf-8")) for t in [INAPP_TOKEN, *TAB_TOKENS])
 LIVE_SECONDS = 4.0
 DECLINE_SECONDS = 600.0
 ASK_SECONDS = 90.0

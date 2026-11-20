@@ -47,8 +47,7 @@ def host_ok(headers) -> bool:
 
 
 def _token(headers) -> bool:
-    given = headers.get(agents.INAPP_HEADER, "")
-    return secrets.compare_digest(given.encode("utf-8"), agents.INAPP_TOKEN.encode("utf-8"))
+    return agents.is_inapp(headers.get(agents.INAPP_HEADER, ""))
 
 
 def _window_token(given: str, expected: str) -> bool:

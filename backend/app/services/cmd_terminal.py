@@ -1,6 +1,6 @@
 import re
 
-from app.services import terminal
+from app.services import agent_programs, terminal
 from app.services.commands import CommandError, command
 
 ID = {"type": "string", "description": "terminal id from terminal.open or terminal.list"}
@@ -63,8 +63,24 @@ def restart(id: str) -> dict:
     return terminal.restart(id).describe()
 
 
-@command("terminal.close", "Close a Terminal", {"id": ID}, description="Ends the program and closes the terminal.")
+@command("terminal.close", "Close a Terminal", {"id": ID}, description="Ends the program and closes the terminal. Closing a terminal that is already gone succeeds.")
 def close(id: str) -> dict:
-    _session(id)
     terminal.close(id)
     return {"closed": id}
+
+
+@command("terminal.agent", "Open an Agent Program", {"kind": {"type": "string", "description": "codex, cursor or antigravity"}, "cols": {"type": "integer"}, "rows": {"type": "integer"}},
+         description="Starts Codex, Cursor's agent or Antigravity in a terminal tab of formfabric's dock, connected to formfabric's MCP tools with a key made for that tab and ended when it closes. The window only.")
+def agent(kind: str, cols: int | None = None, rows: int | None = None) -> dict:
+    try:
+        return agent_programs.open_terminal(kind, min(1000, max(10, cols or 100)), min(1000, max(4, rows or 30)))
+    except LookupError as exc:
+        raise CommandError(str(exc), 404) from None
+    except OSError as exc:
+        raise CommandError(f"The program could not start: {exc}", 500) from None
+
+
+@command("agents.status", "Agent Programs", {"fresh": {"type": "boolean"}},
+         description="Whether Claude Code, Codex, Cursor's agent and Antigravity are installed and start: for each, its path, version, how it was found, where formfabric looked and the line that installs it. The window only.")
+def agents_status(fresh: bool | None = None) -> dict:
+    return agent_programs.status(bool(fresh))

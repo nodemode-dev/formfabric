@@ -37,6 +37,7 @@ class Session:
         self.cols = 100
         self.rows = 30
         self.pos = 0
+        self.on_close: list = []
 
     def describe(self) -> dict:
         return {"id": self.id, "title": self.title, "cwd": self.cwd, "alive": self.alive, "kind": self.kind}
@@ -213,6 +214,11 @@ def close(sid: str) -> None:
         session.proc.terminate(force=True)
     except Exception:
         pass
+    for done in session.on_close:
+        try:
+            done()
+        except Exception:
+            pass
     events.publish("terminal.closed", id=sid)
 
 

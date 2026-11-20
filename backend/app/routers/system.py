@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from app.core import config
 from app.core.window_guard import require_window, require_window_read
-from app.services import engine, recent, recovery
+from app.services import agent_programs, engine, recent, recovery
 
 router = APIRouter()
 IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif"}
@@ -24,7 +24,7 @@ def health() -> dict:
 
 @router.get("/version")
 def version() -> dict:
-    return {"app": config.APP_NAME, "version": config.VERSION}
+    return {"app": config.APP_NAME, "version": config.VERSION, "dock": agent_programs.DOCK_CONTRACT}
 
 
 @router.get("/recent", dependencies=[Depends(require_window_read)])
