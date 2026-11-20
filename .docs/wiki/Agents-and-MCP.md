@@ -10,15 +10,18 @@ An agent drafts and drapes garments through the same 255 commands the window use
 | `backend/app/mcp_stdio.py` | the stdio MCP server started by `./formfabric mcp` |
 | `backend/app/services/mcp_tools.py`, `routers/mcp.py` | the tool list and the HTTP MCP endpoint `/api/mcp` with its consent flow |
 | `backend/app/services/agents.py` | outside-agent consent state |
-| `backend/app/services/claude_code.py`, `cmd_chat.py`, `cmd_terminal.py` | the Claude Code and terminal docks in the window |
-| `setup/agents.py` | `agents sync` and `agents install` |
+| `frontend/src/dock/` | the family's shared agent dock, module 2.2.0, unchanged (hashes in its `MANIFEST.json`); `frontend/src/dock-adapter.ts` connects it to the service |
+| `frontend/src/agent/` | formfabric's own Chat pane and the outside-agent consent dialog |
+| `backend/app/services/claude_code.py`, `agent_programs.py`, `agent_lookup.py`, `cmd_chat.py`, `cmd_terminal.py` | the dock's engine side: Claude Code, Codex, Cursor and Antigravity tabs, finding the programs, Chat and the shell |
+| `setup/agents.py` | `agents sync`, `agents check` and `agents install [--dry-run]` |
+| `agents/manifest.json` | the agent kit's manifest (`form-agent-manifest`, version 1), written by `agents sync` |
 | `.mcp.json`, `.codex/config.toml`, `.cursor/mcp.json` | MCP registration for Claude Code, Codex and Cursor |
 | `.claude/skills/`, `.agents/skills/` | the skills; `.agents` mirrors `.claude` for Codex |
 
 ## Connecting
 
-- Inside this folder the three config files above start `./formfabric mcp` (stdio). `./formfabric agents install` registers formfabric for Claude Code, Codex and Cursor outside the folder; a packaged app sets `FORMFABRIC_LAUNCHER` so the registration points at the app.
-- Over HTTP, `/api/mcp` serves the same tools. The first change asks the person in the window for consent once. The window routes need the window token; a Claude Code started inside the window gets an in-app token automatically.
+- Inside this folder the three config files above start `./formfabric mcp` (stdio). `./formfabric agents install` registers formfabric for Claude Code, Codex, Cursor and Antigravity outside the folder (`--dry-run` shows what it would write; a second run changes nothing, other servers are kept, and a server named formfabric that it did not write is left alone); a packaged app sets `FORMFABRIC_LAUNCHER` so the registration points at the app.
+- Over HTTP, `/api/mcp` serves the same tools. The first change asks the person in the window for consent once. The window routes need the window token; a Claude Code, Codex, Cursor or Antigravity tab started in the agent dock gets an in-app key made for that tab, from its environment (Antigravity: the `formfabric_tab` entry in `.agents/mcp_config.json` of its working folder, mode 0600), and the key stops working when the tab closes.
 - In the packaged app the frozen engine answers `formfabric-engine mcp` (stdio) and `formfabric-engine agents`, which formportal's connect relies on.
 
 ## Names

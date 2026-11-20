@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="version v0.25.3" src="https://img.shields.io/badge/version-v0.25.3-f97316?style=flat-square">
+  <img alt="version v0.26.0" src="https://img.shields.io/badge/version-v0.26.0-f97316?style=flat-square">
   <img alt="Rust 1.99" src="https://img.shields.io/badge/Rust-1.99-000000?style=flat-square&logo=rust&logoColor=white">
   <img alt="TypeScript and Vite" src="https://img.shields.io/badge/TypeScript-Vite-3178C6?style=flat-square&logo=typescript&logoColor=white">
   <img alt="macOS, Linux, Windows" src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-native-2f7bf5?style=flat-square">
@@ -89,6 +89,14 @@
 ```
 
 `.mcp.json`, `.codex/config.toml` and `.cursor/mcp.json` are already wired in this repo. See [`AGENTS.md`](AGENTS.md).
+
+The agent dock (Ctrl+J, Cmd+J on a Mac) holds a shell, Chat & tabs that run the real Claude Code, Codex, Cursor & Antigravity w/ formfabric's MCP server already connected, each tab w/ its own key that ends when the tab closes. A program that is not installed shows its install line.
+
+```sh
+./formfabric agents install             # register formfabric w/ Claude Code, Codex, Cursor & Antigravity (--dry-run to preview)
+./formfabric agents sync                # refresh the skills' tool reference, the .agents mirror & agents/manifest.json
+./formfabric agents check               # validate the agent kit
+```
 
 ## Under the hood
 

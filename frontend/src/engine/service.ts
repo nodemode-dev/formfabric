@@ -1,4 +1,4 @@
-import { recheckStreams } from '../dock/sse';
+import { recheckStreams } from '../agent/sse';
 import { onEngineChanged, onEngineLink, type EngineChanged, type Link } from './events';
 
 export { onEngineChanged, onEngineLink };

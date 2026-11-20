@@ -1,4 +1,4 @@
-import { openStream, type Stream } from '../dock/sse';
+import { openStream, type Stream } from '../agent/sse';
 
 export interface EngineChanged { type: 'engine.changed'; epoch: number; name: string }
 export type Link = 'connecting' | 'up' | 'down';

@@ -26,8 +26,7 @@ async def attach(ws: WebSocket, sid: str) -> None:
 
     async def outbound() -> None:
         backlog, seen = session.snapshot()
-        if backlog:
-            await ws.send_text(backlog)
+        await ws.send_text(backlog)
         if not session.alive:
             await ws.send_text(json.dumps({"type": "exit"}))
         while True:

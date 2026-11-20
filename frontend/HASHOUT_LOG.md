@@ -2,6 +2,18 @@
 
 Living context for the window. What would be comments in `frontend/` lives here, newest first. Read before editing.
 
+## v0.26.0 · 2026-11-20
+
+### The agent dock 2.2.0 replaces formfabric's own dock
+
+- `dock/` · the family's shared module, 2.2.0, copied byte for byte from formvis (15 files and `MANIFEST.json`; every hash matches). Never edit it here; a change goes to formvis first. `setup/i18n.py` skips this folder: its `t(key, english)` calls pass ids such as `lead`, not English keys; the English goes through the adapter's `t`, which looks it up in the language tables.
+- Removed: `dock/index.ts` (`mountDock`) and `dock/terminal-dock.ts` (the old tab strip, terminal and ask line). Moved with `git mv` to `agent/`: `chat-pane.ts` (formfabric's Chat, with its usage meter, Claude Code hand-off and adopt), `agent-link.ts` (the outside-agent consent dialog and the engine epoch poll), `link.ts`, `dom.ts`, `markdown.ts`, `sse.ts`; `engine/service.ts` and `engine/events.ts` import `agent/sse`. `styles/dock.css` became `styles/agent.css` without the old dock's rules.
+- `dock-adapter.ts` · `DockAdapter<'antigravity'>` over the service's window commands: tabs Chat, shell, Claude Code, Codex, Cursor, Antigravity. Chat is formfabric's own pane through `chat.pane(host)` with `ask: 'line'`, so the ask line sends to Chat on the Chat tab and opens Claude Code with the text elsewhere, as the old dock did. The socket's exit frame is the text `{"type": "exit"}`; the adapter turns it into `onExit`. No `consent` or `storedChoice`: the outside-agent dialog stays formfabric's own (`agent/agent-link.ts`). No activity tab: formfabric has no such feed.
+- `app.ts` · `new Dock(adapter).mount(.cv-dock)`, once; `dock.onTab` keeps the title bar buttons in step; Cmd or Ctrl+Shift+J toggles Claude Code and Alt+J Chat (the old dock's chords), Cmd or Ctrl+J is the module's own. `ff:dock-toggle` (menus, layouts) still opens and closes it.
+- Layout: the dock lives in the shell grid's own track (`.cv-app` row 3, `--ft-dock-h`), and `styles/terminal.css` adds the right-side column (`--ft-dock-w`), so opening, closing and resizing change a track size, never a node outside the dock. `index.html`'s pre-paint seed now also sets `data-ft-dock-side` and the width from `formfabric.dock`. The storage key is unchanged, so a saved height and open state carry over; the first-run guide shows once, since the old key has no `seen`.
+- `styles/dock-tokens.css` maps every `--dock-*` token onto formfabric's tokens.
+- Checked in headless Chrome against the dev server and the live service, CPU throttled 4x: the dock opened in its region, showed the Chat and shell tabs and the Claude Code, Codex, Cursor and Antigravity launchers, ran `echo ui-dock-ok` in the shell, and a `MutationObserver` on `.cv-app` saw no node added or removed outside `.cv-dock` across open, close, open, close; no console errors. The Home screen covers the window, the dock included, as it did before.
+
 ## v0.25.0 · 2026-11-16
 
 Polish round: workspace bar, Preferences, outside agents, export units, shortcuts.

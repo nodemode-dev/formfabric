@@ -153,14 +153,16 @@ def mirrored_equal() -> bool:
 
 def sync(check: bool) -> int:
     try:
-        block = render(catalogue())
+        cat = catalogue()
+        block = render(cat)
         current = MODELING.read_text(encoding="utf-8")
         updated = splice(current, block)
+        manifest = manifest_text(cat)
     except NoEngine as err:
         say(str(err))
         return 1
     if check:
-        drift = current != updated or not mirrored_equal()
+        drift = current != updated or not mirrored_equal() or not MANIFEST.is_file() or MANIFEST.read_text(encoding="utf-8") != manifest
         say("the modeling skill's tool reference has drifted; run ./formfabric agents sync" if drift else "tool reference up to date")
         return 1 if drift else 0
     MODELING.write_text(updated, encoding="utf-8")
@@ -168,13 +170,99 @@ def sync(check: bool) -> int:
         shutil.rmtree(MIRROR)
     MIRROR.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(SKILLS, MIRROR)
+    MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    MANIFEST.write_text(manifest, encoding="utf-8")
+    say(f"wrote {MANIFEST.relative_to(ROOT)}")
     say(f"wrote the tool reference in {MODELING.relative_to(ROOT)} and mirrored the skills to {MIRROR.relative_to(ROOT)}")
+    return 0
+
+
+MANIFEST = ROOT / "agents" / "manifest.json"
+DOCK = {"present": True, "positions": ["bottom", "right"], "tabs": ["chat", "terminal", "claude-code", "codex", "cursor", "antigravity"]}
+CLIENTS = ("claude", "codex", "cursor", "antigravity")
+
+
+def manifest_text(cat: dict) -> str:
+    tools = cat["commands"]
+    names = [c["name"] for c in tools]
+    read_only = [c["name"] for c in tools if (c.get("annotations") or {}).get("readOnlyHint") is True]
+    skills = []
+    for folder in sorted(p for p in SKILLS.iterdir() if (p / "SKILL.md").is_file()):
+        subs = sorted(s.parent.name for s in folder.rglob("SUB-SKILL.md") if s.parent != folder)
+        skills.append({"name": folder.name, "sub_skills": subs})
+    data = {
+        "format": "form-agent-manifest",
+        "version": 1,
+        "app": "formfabric",
+        "mcp": {"tools": names, "read_only": read_only, "approval_gated": [n for n in names if n not in read_only], "transports": ["stdio", "http"]},
+        "skills": skills,
+        "dock": DOCK,
+        "extensions": None,
+    }
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+
+def check() -> int:
+    problems = []
+    try:
+        cat = catalogue()
+        if MODELING.read_text(encoding="utf-8") != splice(MODELING.read_text(encoding="utf-8"), render(cat)):
+            problems.append(f"{MODELING.relative_to(ROOT)} has drifted from the engine catalogue; run ./formfabric agents sync")
+        if not MANIFEST.is_file() or MANIFEST.read_text(encoding="utf-8") != manifest_text(cat):
+            problems.append(f"{MANIFEST.relative_to(ROOT)} is missing or out of date; run ./formfabric agents sync")
+    except NoEngine as err:
+        problems.append(str(err))
+    if not mirrored_equal():
+        problems.append(f"{MIRROR.relative_to(ROOT)} does not mirror {SKILLS.relative_to(ROOT)}; run ./formfabric agents sync")
+    for folder in (p for p in SKILLS.iterdir() if p.is_dir()):
+        text = (folder / "SKILL.md").read_text(encoding="utf-8") if (folder / "SKILL.md").is_file() else ""
+        if not text.startswith("---") or f"name: {folder.name}" not in text or "description:" not in text:
+            problems.append(f"{folder.relative_to(ROOT)}/SKILL.md lacks front matter naming {folder.name} with a description")
+    for rel, key in ((".mcp.json", "mcpServers"), (".cursor/mcp.json", "mcpServers")):
+        try:
+            server = json.loads((ROOT / rel).read_text(encoding="utf-8"))[key]["formfabric"]
+            if "formfabric" not in server.get("command", "") or server.get("args") != ["mcp"]:
+                problems.append(f"{rel} does not start the formfabric launcher with mcp")
+        except (OSError, ValueError, KeyError, TypeError):
+            problems.append(f"{rel} has no formfabric MCP server")
+    if "[mcp_servers.formfabric]" not in (ROOT / ".codex" / "config.toml").read_text(encoding="utf-8"):
+        problems.append(".codex/config.toml has no formfabric MCP server")
+    for p in problems:
+        say(p)
+    if not problems:
+        say("clean: tool reference, skill mirror, skill front matter, MCP configs and agents/manifest.json agree")
+    return 1 if problems else 0
+
+
+def install_antigravity(command: str, dry: bool) -> int:
+    cfg = Path.home() / ".gemini" / "config" / "mcp_config.json"
+    try:
+        data = json.loads(cfg.read_text(encoding="utf-8") or "{}") if cfg.exists() else {}
+    except (OSError, ValueError):
+        data = None
+    if not isinstance(data, dict) or not isinstance(data.get("mcpServers", {}), dict):
+        say(f"{cfg} is not an MCP servers file formfabric can read; left untouched")
+        return 1
+    entry = {"command": command, "args": ["mcp"]}
+    have = data.get("mcpServers", {}).get("formfabric")
+    if have == entry:
+        say(f"{cfg} already has formfabric")
+    elif have is not None and not str((have or {}).get("command", "")).endswith("formfabric"):
+        say(f"{cfg} has a server named formfabric that formfabric did not write; left untouched")
+    else:
+        say(("would write" if dry else "writing") + f" formfabric into {cfg}")
+        if not dry:
+            cfg.parent.mkdir(parents=True, exist_ok=True)
+            if cfg.exists():
+                shutil.copy2(cfg, cfg.with_suffix(".json.bak"))
+            data.setdefault("mcpServers", {})["formfabric"] = entry
+            cfg.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     return 0
 
 
 def install(dry: bool, targets: list[str]) -> int:
     command = os.environ.get("FORMFABRIC_LAUNCHER") or str(ROOT / "formfabric")
-    targets = targets or ["claude", "codex", "cursor"]
+    targets = targets or list(CLIENTS)
     if "claude" in targets:
         if shutil.which("claude"):
             args = ["claude", "mcp", "add", "--scope", "user", "formfabric", "--", command, "mcp"]
@@ -218,6 +306,8 @@ def install(dry: bool, targets: list[str]) -> int:
             return 1
         if servers.get("formfabric", {}).get("command") == command:
             say(f"{cfg} already has formfabric")
+        elif "formfabric" in servers and not str(servers["formfabric"].get("command", "")).endswith("formfabric"):
+            say(f"{cfg} has a server named formfabric that formfabric did not write; left untouched")
         else:
             servers["formfabric"] = {"command": command, "args": ["mcp"]}
             say(("would write" if dry else "writing") + f" formfabric into {cfg}")
@@ -226,13 +316,17 @@ def install(dry: bool, targets: list[str]) -> int:
                 if cfg.exists():
                     shutil.copy2(cfg, cfg.with_suffix(".json.bak"))
                 cfg.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    if "antigravity" in targets:
+        return install_antigravity(command, dry)
     return 0
 
 
 def main(argv: list[str]) -> int:
-    if not argv or argv[0] not in ("sync", "install"):
-        print("usage: ./formfabric agents sync [--check] | install [--dry-run] [claude|codex|cursor ...]")
+    if not argv or argv[0] not in ("sync", "check", "install") or any(a not in (*CLIENTS, "--dry-run", "--check") for a in argv[1:]):
+        print("usage: ./formfabric agents sync [--check] | check | install [--dry-run] [claude|codex|cursor|antigravity ...]")
         return 2
+    if argv[0] == "check":
+        return check()
     if argv[0] == "sync":
         return sync("--check" in argv[1:])
     rest = [a for a in argv[1:] if a not in ("--dry-run",)]

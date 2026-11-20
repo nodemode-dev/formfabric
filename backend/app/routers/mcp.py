@@ -1,5 +1,4 @@
 import json
-import secrets
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel
@@ -77,7 +76,7 @@ async def mcp(request: Request) -> Response:
     elif method == "tools/call":
         name, args = params.get("name"), params.get("arguments") or {}
         names = {t["name"] for t in mcp_tools.tools()}
-        inapp = secrets.compare_digest(request.headers.get(agents.INAPP_HEADER, ""), agents.INAPP_TOKEN)
+        inapp = agents.is_inapp(request.headers.get(agents.INAPP_HEADER, ""))
         if inapp:
             events.publish("agent.activity", tool=name)
         out = _ok(req_id, await call_tool(name, args, inapp), modern) if name in names and isinstance(args, dict) else _err(req_id, -32602, f"No tool named {name}")

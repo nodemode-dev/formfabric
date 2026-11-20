@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.26.0 · 2026-11-20
+
+The family's agent dock, module 2.2.0, replaces formfabric's own terminal dock. Nothing in this release was run on macOS or Windows.
+
+- The dock now runs the real Claude Code, Codex, Cursor and Antigravity in its tabs, beside the shell and formfabric's own Chat, each with formfabric's MCP server already connected. A program that is not installed shows the line that installs it; the engine finds a program however formfabric was started (your setting, its development override, the engine's PATH, the usual install folders, then your shell's PATH).
+- Every agent tab, Claude Code's included, gets its own key to formfabric's tools, and the key stops working when the tab closes. Antigravity's key is written to `.agents/mcp_config.json` in its own folder, readable only by you, and taken out again when its tab closes.
+- The dock can sit at the bottom or in a column at the right, keeps its height and open state from before, and offers a short first-run guide. Cmd or Ctrl+J shows and hides it; Shift adds Claude Code, Alt Chat, as before.
+- `./formfabric agents install` registers formfabric with Antigravity too, changes nothing on a second run and leaves alone a server named formfabric that it did not write; `./formfabric agents check` validates the agent kit; `./formfabric agents sync` also writes `agents/manifest.json`.
+- Removed: the old dock's `frontend/src/dock/index.ts` and `terminal-dock.ts`. The Chat pane and the outside-agent dialog moved to `frontend/src/agent/`. No engine route was removed.
+
 ## v0.25.3 · 2026-11-19
 
 - Mac builds pass Apple's notarization: the engine's bundled Python framework is signed in place, as part of its framework, and `_internal/Python` is signed as its own file. 0.25.2 was refused for it ("The signature of the binary is invalid"). Nothing in the app changed.

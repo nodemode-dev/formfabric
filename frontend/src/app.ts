@@ -1,6 +1,11 @@
 import { VERSION } from './version';
 import { call, catalogue, fetchVersion, onEngineChanged, onEngineLink, serviceUrl, type CatalogueCommand, type Link } from './engine/service';
-import { mountDock, type DockHandle } from './dock';
+import { Dock } from './dock/dock';
+import './dock/dock.css';
+import './styles/dock-tokens.css';
+import './styles/terminal.css';
+import './styles/agent.css';
+import { formfabricDock } from './dock-adapter';
 import { mountWorkspace } from './workspace';
 import { CaptionButtons } from './ui/caption-buttons';
 import { Commands, engineCommands, hasRequired } from './ui/commands';
@@ -347,10 +352,18 @@ export function startApp(): void {
 
   const mountPoint = q<HTMLElement>(app, '[data-region="workspace"]');
   mountWorkspace(mountPoint, deps);
-  const dock: DockHandle = mountDock(q(app, '[data-region="dock"]'), {
-    t, icons: { icon }, serviceUrl, language, onFail: (err) => toast(message(err), 'error'),
-  });
-  dock.onChange(() => titlebar.syncDock(dock.isOpen(), dock.isOpen() ? 'shell' : null));
+  const fabricDock = formfabricDock({ t, icons: { icon }, serviceUrl, language, onFail: (err) => toast(message(err), 'error') }, () => settings.show('Plugins'));
+  const dock = new Dock(fabricDock.adapter);
+  fabricDock.attach(dock);
+  dock.onTab = () => titlebar.syncDock(dock.isOpen(), dock.activeKind());
+  dock.mount(q(app, '[data-region="dock"]'));
+  dock.onTab();
+  document.addEventListener('keydown', (e) => {
+    if (e.repeat || e.code !== 'KeyJ' || !(e.metaKey || e.ctrlKey) || e.shiftKey === e.altKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    void dock.toggleKind(e.shiftKey ? 'claude' : 'chat');
+  }, true);
   document.addEventListener('ff:dock-toggle', (e) => {
     const { kind, on } = (e as CustomEvent<{ kind: 'shell' | 'claude'; on?: boolean }>).detail;
     if (on === undefined) void dock.toggleKind(kind);
