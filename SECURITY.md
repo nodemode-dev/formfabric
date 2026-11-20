@@ -32,8 +32,10 @@ something outside it could get in:
 - **Agents over MCP** (`./formfabric mcp` and the service's MCP route): an agent
   changing the garment or touching the file system without the person's consent in
   the window.
-- **The terminal dock and Claude Code**: starting a shell or a command there from
-  anywhere but the app's own window, or the window token leaking into a shell.
+- **The agent dock and its programs** (Claude Code, Codex, Cursor, Antigravity):
+  starting a shell or a command there from anywhere but the app's own window, the
+  window token leaking into a shell, or a tab's MCP key still working after its
+  tab has closed.
 - **Plugins and scripts** (`backend/plugins`, `./formfabric py`): a plugin or script
   running without the person choosing to run it.
 - **Files**: opening or importing a project (`.ffbrc`), a pattern (DXF-AAMA), a

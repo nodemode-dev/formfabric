@@ -37,7 +37,7 @@ def has_text(s: str) -> bool:
 def extract_keys() -> list[str]:
     found: set[str] = set()
     for f in sorted(SRC.rglob("*.ts")):
-        if TABLES in f.parents:
+        if TABLES in f.parents or SRC / "dock" in f.parents:
             continue
         text = f.read_text(encoding="utf-8")
         for m in T_CALL.finditer(text):
