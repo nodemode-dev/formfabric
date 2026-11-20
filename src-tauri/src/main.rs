@@ -452,36 +452,13 @@ fn single_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     plugin.build()
 }
 
-#[cfg(unix)]
-fn fill_random(buf: &mut [u8]) -> std::io::Result<()> {
-    use std::io::Read;
-    std::fs::File::open("/dev/urandom")?.read_exact(buf)
-}
-
-#[cfg(windows)]
-fn fill_random(buf: &mut [u8]) -> std::io::Result<()> {
-    #[link(name = "advapi32")]
-    extern "system" {
-        fn SystemFunction036(buffer: *mut u8, length: u32) -> u8;
-    }
-    let ok = unsafe { SystemFunction036(buf.as_mut_ptr(), buf.len() as u32) };
-    if ok != 0 {
-        Ok(())
-    } else {
-        Err(std::io::Error::last_os_error())
-    }
-}
-
-fn window_token() -> String {
-    let mut bytes = [0u8; 32];
-    fill_random(&mut bytes).expect("the operating system gave no random bytes for the window token");
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-fn window_script(url: &str, token: &str) -> String {
+fn window_script(url: &str, key: Option<&str>) -> String {
     let url = serde_json::to_string(url).unwrap_or_default();
-    let token = serde_json::to_string(token).unwrap_or_default();
-    format!("(function(){{if(location.origin!=={url})return;window.__FFB_ENGINE__={url};window.__FFB_WINDOW__={token};}})();")
+    let key = match key {
+        Some(value) => format!("window.__FFB_WINDOW__={};", serde_json::to_string(value).unwrap_or_default()),
+        None => String::new(),
+    };
+    format!("(function(){{if(location.origin!=={url})return;window.__FFB_ENGINE__={url};{key}}})();")
 }
 
 fn main() {
@@ -546,11 +523,10 @@ fn main() {
                     .sidecar("formfabric-engine")
                     .map_err(|_| engine_start::Failure::Missing),
             };
-            let token = window_token();
             let started = engine.and_then(|engine| {
                 let mut sidecar = engine
                     .env("FFB_PORT", "0")
-                    .env("FFB_WINDOW_TOKEN", &token)
+                    .env(engine_start::KEY_STDOUT_ENV, "1")
                     .env(engine_start::SHELL_ENV, std::process::id().to_string());
                 if let Some(path) = packaged::launcher() {
                     sidecar = sidecar.env("FORMFABRIC_LAUNCHER", path);
@@ -577,6 +553,8 @@ fn main() {
 
             tauri::async_runtime::spawn(async move {
                 let pattern = regex::Regex::new(r"http://127\.0\.0\.1:(\d+)").unwrap();
+                let key_pattern = regex::Regex::new(r"formfabric-window-key: ([A-Za-z0-9_-]{32,})").unwrap();
+                let mut token: Option<String> = None;
                 let (tx, mut events) = tauri::async_runtime::channel::<Step>(64);
                 let late = tx.clone();
                 tauri::async_runtime::spawn(async move {
@@ -614,6 +592,9 @@ fn main() {
                     for line in text.lines() {
                         tail.push(line);
                     }
+                    if token.is_none() {
+                        token = key_pattern.captures(&text).map(|found| found[1].to_string());
+                    }
                     port = pattern
                         .captures(&text)
                         .and_then(|found| found[1].parse::<u16>().ok());
@@ -628,7 +609,7 @@ fn main() {
                         #[cfg(windows)]
                         {
                             if let Ok(mut slot) = handle.state::<Service>().0.lock() {
-                                *slot = Some((port, token.clone()));
+                                *slot = token.clone().map(|key| (port, key));
                             }
                         }
                         let url = format!("http://127.0.0.1:{port}");
@@ -661,7 +642,7 @@ fn main() {
                         .inner_size(width, height)
                         .min_inner_size(MIN_SIZE.0, MIN_SIZE.1)
                         .disable_drag_drop_handler()
-                        .initialization_script(window_script(&url, &token))
+                        .initialization_script(window_script(&url, token.as_deref()))
                         .on_navigation({
                             let handle = handle.clone();
                             move |url| match window_state::shell_choice(url) {
