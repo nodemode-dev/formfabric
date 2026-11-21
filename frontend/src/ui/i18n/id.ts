@@ -164,6 +164,7 @@ export const id: Record<string, string> = {
   "Forest": "Hutan",
   "GitHub Dark": "GitHub Gelap",
   "High Contrast": "Kontras Tinggi",
+  "AMOLED Black": "Hitam AMOLED",
   "Light": "Cahaya",
   "Midnight Blue": "Biru Tengah Malam",
   "Mono Ink": "Tinta Mono",

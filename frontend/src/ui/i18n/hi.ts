@@ -164,6 +164,7 @@ export const hi: Record<string, string> = {
   "Forest": "जंगल",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "उच्च कंट्रास्ट",
+  "AMOLED Black": "AMOLED काला",
   "Light": "प्रकाश",
   "Midnight Blue": "मध्यरात्रि नीला",
   "Mono Ink": "मोनो इंक",

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.30.0 · 2026-11-20
+
+A new theme, AMOLED Black.
+
+- AMOLED Black is a true-black theme for OLED screens, where a black pixel is off. The window, panels, Home, the Pattern and 3D views and the agent panel are black, and panels are told apart by their borders. Inputs and fields keep a dark grey fill so they stay visible. Text is light grey, 17.9, 8.6 and 5.7 to 1 on black. Pick it in Preferences, Interface, Theme; its name is in every language of the app.
+
 ## v0.29.1 · 2026-11-20
 
 The window no longer asks for live events before it has its key.

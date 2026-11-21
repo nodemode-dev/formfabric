@@ -164,6 +164,7 @@ export const fi: Record<string, string> = {
   "Forest": "Metsä",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "Korkea kontrasti",
+  "AMOLED Black": "AMOLED-musta",
   "Light": "Valo",
   "Midnight Blue": "Yösininen",
   "Mono Ink": "Yksivärimuste",

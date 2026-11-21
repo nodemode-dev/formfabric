@@ -164,6 +164,7 @@ export const ptBR: Record<string, string> = {
   "Forest": "Floresta",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "Alto contraste",
+  "AMOLED Black": "Preto AMOLED",
   "Light": "Luz",
   "Midnight Blue": "Azul meia-noite",
   "Mono Ink": "Tinta monocromática",

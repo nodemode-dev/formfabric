@@ -2,6 +2,30 @@
 
 Living context for the window. What would be comments in `frontend/` lives here, newest first. Read before editing.
 
+## v0.30.0 · 2026-11-20
+
+### themes · AMOLED Black and the oled flag (ui/themes.ts THEMES['amoled'], ThemeProfile.oled, applyTheme)
+
+- A true-black theme for OLED screens, where a `#000000` pixel is off, as in `/home/claude/form/work/AMOLED_SPEC.md` (FormTxt is the reference). High Contrast is not that theme: its panels are `#0a0a0a` and `#161616` and its borders are bright. AMOLED Black puts `--bg-primary`, `--bg-secondary`, `--bg-node` and `--canvas-bg` at `#000000` and tells panels apart by `--border-color` `#262626` and `--border-light` `#3a3a3a`. `--bg-tertiary` stays `#141414`: inputs and fields use it as their only fill. Text is `#ededed`, `#a6a6a6`, `#858585` (17.9, 8.6 and 5.7 to 1 on black). The accent is the user's own. The profile is FormVis's row byte for byte, `--grid-color` `#262626` included; no `--node-shadow` (a shadow on black shows nothing).
+- `oled: true` makes `applyTheme` set `data-oled` on `html`, and remove it for every other theme, touching the attribute only when it changes. CSS hangs the true-black exceptions on `data-oled`, never on the theme id, so another OLED profile only needs the flag.
+- The Preferences swatch grid and the Dark theme list are built from `THEMES`, so they list it with no other change. Its name is translated in the 27 full language tables (es-MX and fr-CA take es and fr); no speaker has read them.
+- The Pattern View, the 3D View, the UV view and the guides read `--canvas-bg`, `--border-color` (the pattern grid) and the text colours when `nm:ui-settings-changed` fires, so the canvases are black and the grid is `#262626` with no change of theirs.
+
+### index · the OLED flag before first paint (index.html, the inline theme script and the critical style)
+
+- `PROFILES` and `LIGHT` are a second copy of `THEMES` in `src/ui/themes.ts`; a theme in one table and not the other paints Studio Dark first and then switches. `OLED` is the same kind of copy for the `oled` flag: the script sets `data-oled` on `html` before first paint, so the rules below apply on the first frame. The eleventh column of a `PROFILES` row is `--bg-node`.
+- The critical style paints `html, body` `#0a0a0a` until the stylesheets arrive, and only `html` takes the profile's colour from the script, so `html[data-oled] body { background: #000000; }` keeps the body, which fills the window while `#app` is hidden, black.
+
+### tokens · true-black surfaces under data-oled (styles/tokens.css `:root[data-oled]`, styles/dialogs.css, shell/home/home.css)
+
+- `--bg-hover` and `--border-soft` go from white at 6% and 8% to 10% and 12%: over black the old values gave 1.10 and 1.14 to 1 (now 1.21 and 1.27).
+- `--surface-1` mixes 45% of `--bg-tertiary` into `--bg-primary` and came out `#090909`; it fills the title bar's lower half, the template and garment pictures' frames on Home, the workspace switch and the title bar buttons. Under `data-oled` it is `--bg-primary`.
+- `--line-0` mixes `--bg-primary` with black and is the divider under the title bar; on a black window it vanished, and borders are all that part panels here, so under `data-oled` it is `--border-color` (as `body.theme-light` already does).
+- `.cv-prefs-group` mixes 55% of `--bg-tertiary` into `--bg-secondary` (`#0b0b0b`); under `data-oled` it is `--bg-secondary` with a 1 px inset ring of `--border-color`, drawn as a shadow so no box changes size when the theme changes.
+- `.cv-home-hero` lays an accent glow over `--surface-2`; under `data-oled` it is plain `--surface-2`, except while a file is dragged over it (`.is-drag-over` keeps its accent).
+- The agent panel is FormVis's shared `dock/`, unchanged; `styles/dock-tokens.css` already maps its surfaces onto `--bg-primary` and `--bg-secondary`, so it is black with no rule.
+- Verified under throttling: the built window against the engine in headless Chrome at 1440 by 900, 4x CPU, 150 ms and 200 kB/s, cache off, AMOLED Black saved, the agent panel open. Cold load (from a black page, 10 frames after navigation) and hard reload (10 frames): 280 sample points (corners and centre of the viewport and of 55 large surfaces), 0 frames with any colour other than `#000000` or the settled value. Workspace and Preferences: no large element with a non-black fill but the 60% scrim. Live switch to Studio Dark and back from the swatches, with a garment open: 5078 elements before, between and after, 0 boxes moved, `data-oled` on, off, on; per switch the terminal (xterm, in the shared `dock/`) rewrites the text of 4 of its style elements and one row span, as it does for any theme change (0 changes in 5 s idle before).
+
 ## v0.29.1 · 2026-11-20
 
 ### Live events are asked for only once the window holds its key

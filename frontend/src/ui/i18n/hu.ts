@@ -164,6 +164,7 @@ export const hu: Record<string, string> = {
   "Forest": "Erdő",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "Nagy kontraszt",
+  "AMOLED Black": "AMOLED fekete",
   "Light": "Fény",
   "Midnight Blue": "Éjkék",
   "Mono Ink": "Egyszínű tinta",

@@ -164,6 +164,7 @@ export const uk: Record<string, string> = {
   "Forest": "Ліс",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "Висока контрастність",
+  "AMOLED Black": "AMOLED чорний",
   "Light": "Світло",
   "Midnight Blue": "Опівнічний синій",
   "Mono Ink": "Одноколірна фарба",

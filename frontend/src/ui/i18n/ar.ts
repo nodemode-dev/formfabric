@@ -164,6 +164,7 @@ export const ar: Record<string, string> = {
   "Forest": "غابة",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "تباين عالٍ",
+  "AMOLED Black": "أسود AMOLED",
   "Light": "الضوء",
   "Midnight Blue": "أزرق منتصف الليل",
   "Mono Ink": "حبر أحادي",
