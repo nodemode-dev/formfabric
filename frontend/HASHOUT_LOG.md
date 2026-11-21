@@ -2,6 +2,13 @@
 
 Living context for the window. What would be comments in `frontend/` lives here, newest first. Read before editing.
 
+## v0.29.1 · 2026-11-20
+
+### Live events are asked for only once the window holds its key
+
+- `workspace/offline.ts` and `workspace/viz/api.ts` call `onEngineLink` when their modules load, which is before `main.ts` has claimed the window key, so `engine/events.ts` opened `GET /api/events` without the key, was refused (403) and retried 1.5 s later. `window-key.ts` now has `keySettled()`, a promise that settles when `claimWindowKey` has finished (with or without a key), and `events.ts` opens its stream only after it. The dock's own stream (`agent/link.ts`) already started inside `startApp`, after the claim.
+- Seen with the real engine and the built window, 10 starts in a row at normal speed and 10 under 4x CPU throttle: 0 refused requests on the events route in the page's network record and in the engine's access log (before: 1 per start); a page without the key is still refused (403).
+
 ## v0.29.0 · 2026-11-20
 
 ### A sentence when the agent choice was changed outside the app

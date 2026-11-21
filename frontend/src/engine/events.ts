@@ -1,4 +1,5 @@
 import { openStream, type Stream } from '../agent/sse';
+import { keySettled } from './window-key';
 
 export interface EngineChanged { type: 'engine.changed'; epoch: number; name: string }
 export type Link = 'connecting' | 'up' | 'down';
@@ -11,6 +12,7 @@ const linkListeners = new Set<LinkListener>();
 let source: Stream | null = null;
 let link: Link = 'connecting';
 let seen = false;
+let asked = false;
 
 function eventsUrl(): string {
   const injected = (window as unknown as { __FFB_ENGINE__?: string }).__FFB_ENGINE__;
@@ -24,8 +26,13 @@ function setLink(next: Link): void {
 }
 
 function open(): void {
-  if (source || !(listeners.size || linkListeners.size)) return;
-  source = openStream(eventsUrl(), {
+  if (asked || !(listeners.size || linkListeners.size)) return;
+  asked = true;
+  void keySettled().then(() => { source = source ?? stream(); });
+}
+
+function stream(): Stream {
+  return openStream(eventsUrl(), {
     open: () => { seen = true; setLink('up'); },
     error: (refused) => setLink(refused || seen ? 'down' : 'connecting'),
     message: (text) => {
