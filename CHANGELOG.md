@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.29.1 · 2026-11-20
+
+The window no longer asks for live events before it has its key.
+
+- At each start the window asked the engine for its live events a moment before it held its key, was refused once and asked again 1.5 seconds later. It now waits for its key first, so a normal start shows no refused request, and the events reach the window from the first try.
+
 ## v0.29.0 · 2026-11-20
 
 The window's key comes from the engine alone, FormFabric uses the family's design names, and Preferences says when the agent choice was changed outside the app.

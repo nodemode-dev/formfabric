@@ -8,6 +8,12 @@ function take(): string {
 }
 
 let key = take();
+let settle: () => void = () => undefined;
+const settled = new Promise<void>((resolve) => { settle = resolve; });
+
+export function keySettled(): Promise<void> {
+  return settled;
+}
 
 export function windowKey(): string {
   return key;
@@ -28,7 +34,13 @@ async function accepted(base: string, value: string): Promise<boolean> {
   } catch { return false; }
 }
 
-export async function claimWindowKey(base: string): Promise<string> {
+export function claimWindowKey(base: string): Promise<string> {
+  const claim = claimOnce(base);
+  claim.then(settle, settle);
+  return claim;
+}
+
+async function claimOnce(base: string): Promise<string> {
   if (key) return key;
   const kept = stored();
   if (kept && await accepted(base, kept)) {
