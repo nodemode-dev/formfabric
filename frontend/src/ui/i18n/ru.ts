@@ -164,6 +164,7 @@ export const ru: Record<string, string> = {
   "Forest": "Лес",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "Высокая контрастность",
+  "AMOLED Black": "AMOLED чёрный",
   "Light": "Свет",
   "Midnight Blue": "Полуночный синий",
   "Mono Ink": "Одноцветная краска",

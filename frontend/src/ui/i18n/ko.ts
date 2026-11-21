@@ -164,6 +164,7 @@ export const ko: Record<string, string> = {
   "Forest": "숲",
   "GitHub Dark": "GitHub 다크",
   "High Contrast": "고대비",
+  "AMOLED Black": "AMOLED 블랙",
   "Light": "조명",
   "Midnight Blue": "미드나잇 블루",
   "Mono Ink": "단색 잉크",

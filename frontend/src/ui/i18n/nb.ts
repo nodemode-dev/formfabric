@@ -164,6 +164,7 @@ export const nb: Record<string, string> = {
   "Forest": "Skog",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "Høy kontrast",
+  "AMOLED Black": "AMOLED-svart",
   "Light": "Lys",
   "Midnight Blue": "Midnattsblå",
   "Mono Ink": "Enkeltfarget blekk",

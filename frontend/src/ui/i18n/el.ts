@@ -164,6 +164,7 @@ export const el: Record<string, string> = {
   "Forest": "Δάσος",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "Υψηλή αντίθεση",
+  "AMOLED Black": "Μαύρο AMOLED",
   "Light": "Φως",
   "Midnight Blue": "Μπλε του μεσονυχτιού",
   "Mono Ink": "Μονόχρωμη μελάνη",

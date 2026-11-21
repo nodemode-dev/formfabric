@@ -164,6 +164,7 @@ export const zhCN: Record<string, string> = {
   "Forest": "森林",
   "GitHub Dark": "GitHub 深色",
   "High Contrast": "高对比度",
+  "AMOLED Black": "AMOLED 纯黑",
   "Light": "光源",
   "Midnight Blue": "午夜蓝",
   "Mono Ink": "单色墨水",

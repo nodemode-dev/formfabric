@@ -164,6 +164,7 @@ export const tr: Record<string, string> = {
   "Forest": "Orman",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "Yüksek Karşıtlık",
+  "AMOLED Black": "AMOLED Siyah",
   "Light": "Işık",
   "Midnight Blue": "Gece Mavisi",
   "Mono Ink": "Tek Renkli Mürekkep",

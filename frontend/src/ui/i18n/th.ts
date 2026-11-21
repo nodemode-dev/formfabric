@@ -164,6 +164,7 @@ export const th: Record<string, string> = {
   "Forest": "ป่า",
   "GitHub Dark": "GitHub มืด",
   "High Contrast": "คอนทราสต์สูง",
+  "AMOLED Black": "ดำ AMOLED",
   "Light": "แสง",
   "Midnight Blue": "น้ำเงินเที่ยงคืน",
   "Mono Ink": "หมึกโมโน",

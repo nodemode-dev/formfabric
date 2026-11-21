@@ -164,6 +164,7 @@ export const srLatn: Record<string, string> = {
   "Forest": "Šuma",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "Visok kontrast",
+  "AMOLED Black": "AMOLED crna",
   "Light": "Svetlo",
   "Midnight Blue": "Ponoćno plava",
   "Mono Ink": "Jednobojno mastilo",

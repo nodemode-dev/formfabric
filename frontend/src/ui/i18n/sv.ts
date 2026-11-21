@@ -164,6 +164,7 @@ export const sv: Record<string, string> = {
   "Forest": "Skog",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "Hög kontrast",
+  "AMOLED Black": "AMOLED-svart",
   "Light": "Ljus",
   "Midnight Blue": "Midnattsblå",
   "Mono Ink": "Monobläck",

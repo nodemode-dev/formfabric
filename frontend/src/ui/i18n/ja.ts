@@ -164,6 +164,7 @@ export const ja: Record<string, string> = {
   "Forest": "森",
   "GitHub Dark": "GitHub ダーク",
   "High Contrast": "ハイコントラスト",
+  "AMOLED Black": "AMOLEDブラック",
   "Light": "光源",
   "Midnight Blue": "ミッドナイトブルー",
   "Mono Ink": "モノインク",

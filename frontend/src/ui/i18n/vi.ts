@@ -164,6 +164,7 @@ export const vi: Record<string, string> = {
   "Forest": "Rừng",
   "GitHub Dark": "GitHub tối",
   "High Contrast": "Tương phản cao",
+  "AMOLED Black": "Đen AMOLED",
   "Light": "Ánh sáng",
   "Midnight Blue": "Xanh nửa đêm",
   "Mono Ink": "Mực đơn sắc",

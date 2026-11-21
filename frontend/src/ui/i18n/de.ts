@@ -164,6 +164,7 @@ export const de: Record<string, string> = {
   "Forest": "Wald",
   "GitHub Dark": "GitHub Dark",
   "High Contrast": "Hoher Kontrast",
+  "AMOLED Black": "AMOLED-Schwarz",
   "Light": "Licht",
   "Midnight Blue": "Mitternachtsblau",
   "Mono Ink": "Monotinte",

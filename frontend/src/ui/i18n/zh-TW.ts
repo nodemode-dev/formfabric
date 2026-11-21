@@ -164,6 +164,7 @@ export const zhTW: Record<string, string> = {
   "Forest": "森林",
   "GitHub Dark": "GitHub 深色",
   "High Contrast": "高對比",
+  "AMOLED Black": "AMOLED 純黑",
   "Light": "光源",
   "Midnight Blue": "午夜藍",
   "Mono Ink": "單色墨水",
