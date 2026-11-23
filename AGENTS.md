@@ -13,7 +13,7 @@ Rules that apply to every edit:
 - Near-zero comments and no commented-out code; rationale goes to the HASHOUT_LOG files.
 - Vite `server.host` is `false` (port 5280, HMR 5281); uvicorn binds 127.0.0.1 only.
 - Dependencies must be MIT, Apache-2.0, BSD, ISC, Zlib, OFL, Unicode or MPL-2.0 (file-level). No GPL, LGPL or AGPL code (formcompiler and formportal are met through contracts only). List each new dependency with its licence in `NOTICE.md`.
-- Create new files with the Write tool; no heredoc, no scripted string replacement, no tests kept in the repo.
+- Create new files with the Write tool; no heredoc, no scripted string replacement. Tests are added when the owner asks; a change in behaviour updates its tests in the same pull request; every test follows the five rules in `docs/TESTING.md` (`./formfabric test` runs them).
 - After a command change run `./formfabric engine build`, then `./formfabric agents sync`; after interface strings run `python3 setup/i18n.py check`; `./build_app --dry-run` checks the compile contract and `python3 setup/version.py check` the version sites.
 - Version bumps, `CHANGELOG.md` and the HASHOUT logs are the lead's; add your own HASHOUT line for a feature change.
 
