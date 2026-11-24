@@ -98,6 +98,7 @@ atk, atk-sys, block2, bytes, cairo-rs, cairo-sys-rs, cargo_metadata, cfb, darlin
 | @xterm/xterm 6.0.0, @xterm/addon-fit 0.11.0 | MIT | terminal dock |
 | @tauri-apps/api 2.11.1 | MIT or Apache-2.0 | window bridge |
 | @tauri-apps/plugin-dialog 2.8.4 | MIT or Apache-2.0 | file dialogs |
+| vitest 5.0.5, happy-dom 21.0.4 | MIT, MIT | `devDependencies`, test tools for `frontend/tests/unit`, test only, not shipped |
 
 These six packages have no further runtime dependencies in `package-lock.json`.
 

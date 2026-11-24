@@ -69,7 +69,8 @@ build is long; use a private `CARGO_TARGET_DIR` when several builds share a mach
 - A command is declared only in `native/crates/ffb-commands`. After adding or changing
   one, run `./formfabric engine build`, then `./formfabric agents sync`, and refresh
   `python/formfabric/catalogue.json` with `./formfabric py -m formfabric snapshot`.
-- No test files are kept in this repository; say in the pull request what you ran.
+- A change in behaviour updates its tests in the same pull request; `./formfabric test`
+  runs them, and [docs/TESTING.md](docs/TESTING.md) says what a test must do to be accepted.
 - Icons are inline `currentColor` SVG in `frontend/src/ui/icons.ts`, every `z-index`
   is a `--z-*` token from `frontend/src/styles/tokens.css`, and Vite binds localhost
   only.

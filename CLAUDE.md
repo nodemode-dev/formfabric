@@ -28,7 +28,7 @@ How to build and verify:
 - `./formfabric engine build` builds the engine and the Python module; `./formfabric engine check` runs cargo check and clippy over the workspace; `./formfabric engine wasm` builds the preview engine (no rayon, no threads there).
 - After a command change: `./formfabric agents sync`, then `./formfabric agents sync --check`; refresh `python/formfabric/catalogue.json` with `./formfabric py -m formfabric snapshot`.
 - `cd frontend && npm run build` type-checks and builds; `python3 setup/i18n.py check` checks every language table; `python3 setup/version.py check` checks the ten version sites and the changelog heading; `./build_app --dry-run` checks the compile contract.
-- CI is `.github/workflows/ci.yml` (frontend, engine, backend jobs; on `main`, `compile_v*` and pull requests). Measurement and check scripts live outside this tree, in the build tools folder; no tests are kept in the repo.
+- CI is `.github/workflows/ci.yml` (frontend, engine, backend, test jobs; on `main`, `compile_v*` and pull requests). `./formfabric test` runs the tests (`unit` is vitest in `frontend/tests/unit`, `engine` is pytest in `backend/tests`); see `docs/TESTING.md`. Measurement and check scripts live outside this tree, in the build tools folder.
 - Use a private `CARGO_TARGET_DIR` for cargo when several builds share a machine; a release engine build is long.
 
 ## Code rules
@@ -37,9 +37,9 @@ How to build and verify:
 - The living logs `frontend/HASHOUT_LOG.md`, `backend/HASHOUT_LOG.md` and `native/HASHOUT_LOG.md` are in the tree: read them before editing their side, and add to them in the same change.
 - Every `z-index` comes from a `--z-*` token in `frontend/src/styles/tokens.css`. Vite binds localhost only. No icon libraries, no emoji, no em dashes in markdown, near-zero comments.
 - Edits are single-region hand edits against a fresh read; no scripted or patch-applied edits.
-- No test files unless the owner asks; testing intent goes to `TEST_PLAN.md` in the planning sidecar.
+- Tests are added when the owner asks; until then testing intent goes to `TEST_PLAN.md` in the planning sidecar. A change in behaviour updates its tests in the same pull request, and every test follows the five rules in `docs/TESTING.md`.
 - A new interface string lands in every table under `frontend/src/ui/i18n/` in the same change.
-- Build laws, from the build contracts: write a new file with the Write tool and change an existing one only by a one-region hand edit after a fresh read; no `sed`, no scripted string replacement, no heredoc, no `git apply`; no tests in the repo; no DOM flash, flicker or re-render (reserve space first, patch by key, apply the theme before first paint); z-index and colours from tokens; inline `currentColor` SVG icons; near-zero comments.
+- Build laws, from the build contracts: write a new file with the Write tool and change an existing one only by a one-region hand edit after a fresh read; no `sed`, no scripted string replacement, no heredoc, no `git apply`; tests only when the owner asks, each following the five rules in `docs/TESTING.md`; no DOM flash, flicker or re-render (reserve space first, patch by key, apply the theme before first paint); z-index and colours from tokens; inline `currentColor` SVG icons; near-zero comments.
 - Dependencies must be MIT, Apache-2.0, BSD, ISC, Zlib, OFL, Unicode or MPL-2.0 (file-level). No GPL, LGPL or AGPL code is linked or copied. Add every new dependency to `NOTICE.md` with its licence in the same change.
 - Component work follows the recorded constraint: a Component is a list of real panels and real seams plus named Ports, compared by port names and lengths only; the word "block" is not used for it, panels are never inferred from names or shapes, and there is no depth-level editing mode.
 - Version bumps, `CHANGELOG.md` and the HASHOUT logs belong to the lead or owner of the release; a feature change adds its HASHOUT line and leaves the version sites alone.

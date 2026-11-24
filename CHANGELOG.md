@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.31.0 · 2026-11-23
+
+formfabric has tests.
+
+- `./formfabric test` runs two layers: interface logic (vitest with happy-dom, `frontend/tests/unit`) and the service (pytest against the real FastAPI app, `backend/tests`). `./formfabric test unit` or `./formfabric test engine` runs one. `docs/TESTING.md` says how to run them and what a test must do to be accepted.
+- 1,006 new cases run the app and check what a user or a calling program would notice: pattern, camera and unit maths against closed forms, the guards on every write route, the library, the recovery journal, the MCP surface against JSON-RPC 2.0, the Python package, and what the shell and its dialogs build in the document. With the 53 cases that were already here, 1,059 pass.
+- No app code changed. Where a test showed the app to be wrong, the test stays as a strict expected failure whose reason starts with `DEFECT:`. There are 5 such cases: over HTTP and over stdio the MCP endpoint answers a message without a method, or with a method that is not a string, with -32601 where JSON-RPC 2.0 says -32600; the stdio server answers array params with -32603 where -32602 is meant; and the Python package sends a `nan` width to the engine although its README says arguments are checked against their minimum and maximum. `git grep -n "DEFECT:" backend/tests frontend/tests` lists them.
+- CI runs the tests on every pull request in one job, `test`, on Linux.
+- Not run for this version: the native engine in `native/` and the desktop shell in `src-tauri/` have no tests yet, and no test here needs the built engine (where it is absent, the stated refusal is what is tested). `./formfabric agents sync` and `./formfabric agents check` were not run because they need the built engine: the version in the generated skill reference and in `python/formfabric/catalogue.json` was changed by hand to what the generator writes. The tests did not run on macOS or Windows.
+
 ## v0.30.0 · 2026-11-20
 
 A new theme, AMOLED Black.

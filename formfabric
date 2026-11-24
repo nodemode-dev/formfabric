@@ -75,6 +75,7 @@ case "$cmd" in
     exec "$py" "$@" ;;
   agents) exec python3 -I setup/agents.py "$@" ;;
   i18n) exec python3 -I setup/i18n.py "$@" ;;
+  test) exec setup/test "$@" ;;
   doctor) exec setup/doctor "$@" ;;
   clean) exec setup/clean "$@" ;;
   help|-h|--help) usage ;;

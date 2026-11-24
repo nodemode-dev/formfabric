@@ -13,6 +13,7 @@ if /i "%CMD%"=="frontend" ( call setup\boot_frontend.bat & goto :done )
 if /i "%CMD%"=="build" ( call setup\build_frontend.bat & goto :done )
 if /i "%CMD%"=="freeze" ( call setup\freeze_backend.bat & goto :done )
 if /i "%CMD%"=="app" ( call build_app.bat %1 %2 %3 & goto :done )
+if /i "%CMD%"=="test" ( call setup\test.bat %1 %2 %3 %4 %5 %6 %7 %8 %9 & goto :done )
 if /i "%CMD%"=="desktop" goto :desktop
 if /i "%CMD%"=="engine" goto :engine
 if /i "%CMD%"=="help" ( call :usage & set "RC=0" & goto :done )
